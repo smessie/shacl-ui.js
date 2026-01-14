@@ -1,8 +1,18 @@
 {
   "name": "shacl-ui.js",
-  "private": true,
-  "version": "0.0.0",
+  "version": "0.0.1",
   "type": "module",
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/shacl-renderer.umd.cjs",
+  "module": "./dist/shacl-renderer.js",
+  "exports": {
+    ".": {
+      "import": "./dist/shacl-renderer.js",
+      "require": "./dist/shacl-renderer.umd.cjs"
+    }
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -12,7 +22,14 @@
     "lit": "^3.3.1"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/node": "^25.0.8",
+    "autoprefixer": "^10.4.23",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vite-plugin-dts": "^4.5.4",
+    "vite-tsconfig-paths": "^6.0.4"
   }
 }
