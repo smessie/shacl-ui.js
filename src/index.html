@@ -10,9 +10,28 @@
   </head>
   <body>
     <div class="mx-auto max-w-4xl sm:px-6 lg:px-8 mt-6">
-      <shacl-renderer>
-        <h1>Vite + Lit</h1>
+      <shacl-renderer
+              useLightDom
+              id="shacl-renderer"
+              dataGraphUrl="/src/assets/data.ttl"
+              shapesGraphUrl="/src/assets/ui-shape.ttl"
+              widgetScoringGraphUrl="/src/assets/widget-scoring.ttl"
+              focusNode="http://example.org/Alice"
+              constraintShape="http://example.org/PersonShape"
+      >
       </shacl-renderer>
+
+      <button id="get-data-btn" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded">Get Data</button>
     </div>
   </body>
+
+<script type="module">
+  const getDataBtn = document.getElementById('get-data-btn');
+  const shaclRenderer = document.getElementById('shacl-renderer');
+
+  getDataBtn.addEventListener('click', async () => {
+    const data = await shaclRenderer.data('text/turtle');
+    console.log('Current Data Graph:', `\n${data}`);
+  });
+</script>
 </html>

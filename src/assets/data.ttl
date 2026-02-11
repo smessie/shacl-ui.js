@@ -1,0 +1,35 @@
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix schema: <http://schema.org/>.
+@prefix ex: <http://example.org/>.
+
+ex:Alice a foaf:Person ;
+    foaf:name "Alice" ;
+    ex:profession ex:Engineer ;
+    ex:bornIn ex:Belgium ;
+.
+
+
+ex:Engineer rdfs:subClassOf ex:Profession ;
+    rdfs:label "Engineer" ;
+    rdfs:comment "A person who designs, builds, or maintains engines, machines, or structures."
+.
+
+ex:Belgium a ex:Country ;
+    rdfs:label "Belgium" ;
+    rdfs:comment "A country in Western Europe."
+.
+
+ex:ProfessionShape a sh:PropertyShape ;
+    sh:path ex:profession ;
+    sh:class ex:Profession ;
+    sh:name "Profession" ;
+.
+
+ex:BornInShape a sh:PropertyShape ;
+    sh:path ex:bornIn ;
+    sh:class ex:Country ;
+    sh:name "Country of Birth" ;
+.

@@ -1,0 +1,454 @@
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shui: <http://www.w3.org/ns/shacl-ui#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+#### TextFieldEditor
+
+shui:textFieldEditorScoreMinus1
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldEditor ;
+    shui:score -1 ;
+    shui:shapesGraphShape shui:isSingleLineFalse ;
+.
+
+shui:textFieldEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldEditor ;
+    shui:score 40 ;
+    shui:shapesGraphShape shui:prefersTextFieldEditor ;
+.
+
+shui:textFieldEditorScore30
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldEditor ;
+    shui:score 30 ;
+    shui:dataGraphShape shui:isString ;
+.
+
+shui:textFieldEditorScore10
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldEditor ;
+    shui:score 10 ;
+    shui:shapesGraphShape shui:hasDatatypeStringConstraint ;
+.
+
+shui:textFieldEditorScore0
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldEditor ;
+    shui:score 0 ;
+    shui:shapesGraphShape shui:hasCustomDatatype ;
+.
+
+shui:prefersTextFieldEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:TextFieldEditor ;
+    ] ;
+.
+
+
+#### TextFieldWithLangEditor
+
+shui:textFieldWithLangEditorScoreMinus1
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldWithLangEditor ;
+    shui:score -1 ;
+    shui:shapesGraphShape shui:isSingleLineFalse ;
+.
+
+shui:textFieldWithLangEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldWithLangEditor ;
+    shui:score 40 ;
+    shui:shapesGraphShape shui:prefersTextFieldWithLangEditor ;
+.
+
+shui:textFieldWithLangEditorScore30
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldWithLangEditor ;
+    shui:score 30 ;
+    shui:dataGraphShape shui:isLangString ;
+.
+
+shui:textFieldWithLangEditorScore10
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldWithLangEditor ;
+    shui:score 10 ;
+    shui:shapesGraphShape shui:hasDatatypeLangStringConstraint ;
+.
+
+shui:textFieldWithLangEditorScore1
+    a shui:WidgetScore ;
+    shui:widget shui:TextFieldWithLangEditor ;
+    shui:score 1 ;
+    shui:shapesGraphShape shui:hasDatatypeStringConstraint ;
+.
+
+shui:prefersTextFieldWithLangEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:TextFieldWithLangEditor ;
+    ] ;
+.
+
+
+#### BooleanSelectEditor
+
+shui:booleanSelectEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:BooleanSelectEditor ;
+    shui:score 40 ;
+    shui:dataGraphShape shui:isBoolean ;
+    shui:shapesGraphShape shui:prefersBooleanSelectEditor ;
+.
+
+shui:booleanSelectEditorScore20
+    a shui:WidgetScore ;
+    shui:widget shui:BooleanSelectEditor ;
+    shui:score 20 ;
+    shui:dataGraphShape shui:isBoolean ;
+.
+
+shui:booleanSelectEditorScore10
+    a shui:WidgetScore ;
+    shui:widget shui:BooleanSelectEditor ;
+    shui:score 10 ;
+    shui:shapesGraphShape shui:hasDatatypeBooleanConstraint ;
+.
+
+shui:prefersBooleanSelectEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:BooleanSelectEditor ;
+    ] ;
+.
+
+
+#### DatePickerEditor
+
+shui:datePickerEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:DatePickerEditor ;
+    shui:score 20 ;
+    shui:dataGraphShape shui:isDate ;
+    shui:shapesGraphShape shui:prefersDatePickerEditor ;
+.
+
+shui:datePickerEditorScore20
+    a shui:WidgetScore ;
+    shui:widget shui:DatePickerEditor ;
+    shui:score 30 ;
+    shui:dataGraphShape shui:isDate ;
+.
+
+shui:datePickerEditorScore10
+    a shui:WidgetScore ;
+    shui:widget shui:DatePickerEditor ;
+    shui:score 10 ;
+    shui:shapesGraphShape shui:hasDatatypeDateConstraint ;
+.
+
+shui:prefersDatePickerEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:DatePickerEditor ;
+    ] ;
+.
+
+
+#### DateTimePickerEditor
+
+shui:dateTimePickerEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:DateTimePickerEditor ;
+    shui:score 40 ;
+    shui:dataGraphShape shui:isDateTime ;
+    shui:shapesGraphShape shui:prefersDateTimePickerEditor ;
+.
+
+shui:dateTimePickerEditorScore20
+    a shui:WidgetScore ;
+    shui:widget shui:DateTimePickerEditor ;
+    shui:score 20 ;
+    shui:dataGraphShape shui:isDateTime ;
+.
+
+shui:dateTimePickerEditorScore10
+    a shui:WidgetScore ;
+    shui:widget shui:DateTimePickerEditor ;
+    shui:score 10 ;
+    shui:shapesGraphShape shui:hasDatatypeDateTimeConstraint ;
+.
+
+shui:prefersDateTimePickerEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:DateTimePickerEditor ;
+    ] ;
+.
+
+
+#### EnumSelectEditor
+
+shui:enumSelectEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:EnumSelectEditor ;
+    shui:score 40 ;
+    shui:shapesGraphShape shui:prefersEnumSelectEditor, shui:hasInConstraint ;
+.
+
+shui:enumSelectEditorScore30
+    a shui:WidgetScore ;
+    shui:widget shui:EnumSelectEditor ;
+    shui:score 30 ;
+    shui:shapesGraphShape shui:hasInConstraint ;
+.
+
+shui:prefersEnumSelectEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:EnumSelectEditor ;
+    ] ;
+.
+
+
+#### TextAreaEditor
+
+shui:textAreaEditorScoreMinus1
+    a shui:WidgetScore ;
+    shui:shapesGraphShape shui:isSingleLineTrue ;
+    shui:score -1 ;
+    shui:widget shui:TextAreaEditor ;
+.
+
+shui:textAreaEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:TextAreaEditor ;
+    shui:score 40 ;
+    shui:shapesGraphShape shui:prefersTextAreaEditor ;
+.
+
+shui:textAreaEditorScore30
+    a shui:WidgetScore ;
+    shui:widget shui:TextAreaEditor ;
+    shui:score 30 ;
+    shui:dataGraphShape shui:isString ;
+    shui:shapesGraphShape shui:isSingleLineFalse ;
+.
+
+shui:textAreaEditorScore20
+    a shui:WidgetScore ;
+    shui:widget shui:TextAreaEditor ;
+    shui:score 20 ;
+    shui:dataGraphShape shui:isString ;
+.
+
+shui:textAreaEditorScore5
+    a shui:WidgetScore ;
+    shui:widget shui:TextAreaEditor ;
+    shui:score 5 ;
+    shui:shapesGraphShape shui:hasDatatypeStringConstraint ;
+.
+
+shui:textAreaEditorScore0
+    a shui:WidgetScore ;
+    shui:score 0 ;
+    shui:widget shui:TextAreaEditor ;
+    shui:shapesGraphShape shui:isSingleLineFalse ;
+.
+
+shui:prefersTextAreaEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:TextAreaEditor ;
+    ] ;
+.
+
+
+#### IRIEditor
+
+shui:iriEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:IRIEditor ;
+    shui:score 40 ;
+    shui:dataGraphShape shui:isIRI ;
+    shui:shapesGraphShape shui:prefersIRIEditor ;
+.
+
+shui:iriEditorScore20
+    a shui:WidgetScore ;
+    shui:widget shui:IRIEditor ;
+    shui:score 20 ;
+    shui:dataGraphShape shui:isIRI ;
+    shui:shapesGraphShape shui:hasNodeKindIRIConstraint, shui:hasNoClassConstraint ;
+.
+
+shui:iriEditorScore10
+    a shui:WidgetScore ;
+    shui:widget shui:IRIEditor ;
+    shui:score 10 ;
+    shui:shapesGraphShape shui:hasNodeKindIRIConstraint, shui:hasNoClassConstraint ;
+.
+
+shui:iriEditorScore0
+    a shui:WidgetScore ;
+    shui:widget shui:IRIEditor ;
+    shui:score 0 ;
+    shui:dataGraphShape shui:isIRI ;
+.
+
+shui:prefersIRIEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:IRIEditor ;
+    ] ;
+.
+
+#### Helper shapes
+
+shui:isSingleLineTrue
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:singleLine ;
+        sh:hasValue true ;
+    ] ;
+.
+
+shui:isSingleLineFalse
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:singleLine ;
+        sh:hasValue false ;
+    ] ;
+.
+
+shui:isString
+    a sh:NodeShape ;
+    sh:datatype xsd:string ;
+.
+
+shui:hasDatatypeStringConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:datatype ;
+        sh:hasValue xsd:string ;
+    ] ;
+.
+
+shui:hasCustomDatatype
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:datatype ;
+        sh:minCount 1 ;
+    ] ;
+    sh:not [
+        sh:property [
+            sh:path sh:datatype ;
+            sh:pattern "^http://www.w3.org/2001/XMLSchema#|^http://www.w3.org/1999/02/22-rdf-syntax-ns#" ;
+        ] ;
+    ] ;
+.
+
+shui:hasNodeKindIRIConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:nodeKind ;
+        sh:hasValue sh:IRI ;
+        sh:minCount 1 ;
+    ] ;
+.
+
+shui:hasClassConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:class ;
+        sh:minCount 1 ;
+    ] ;
+.
+
+shui:hasNoClassConstraint
+    a sh:NodeShape ;
+    sh:not shui:hasClassConstraint ;
+.
+
+shui:isBoolean
+    a sh:NodeShape ;
+    sh:datatype xsd:boolean ;
+.
+
+shui:hasDatatypeBooleanConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:datatype ;
+        sh:hasValue xsd:boolean ;
+    ] ;
+.
+
+shui:isDate
+    a sh:NodeShape ;
+    sh:datatype xsd:date ;
+.
+
+shui:isDateTime
+    a sh:NodeShape ;
+    sh:datatype xsd:dateTime ;
+.
+
+shui:hasDatatypeDateConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:datatype ;
+        sh:hasValue xsd:date ;
+    ] ;
+.
+
+shui:hasDatatypeDateTimeConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:datatype ;
+        sh:hasValue xsd:dateTime ;
+    ] ;
+.
+
+shui:hasInConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:in ;
+        sh:minCount 1 ;
+    ] ;
+.
+
+shui:isIRI
+    a sh:NodeShape ;
+    sh:nodeKind sh:IRI ;
+.
+
+shui:hasNodeKindIRIConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:nodeKind ;
+        sh:hasValue sh:IRI ;
+    ] ;
+.
+
+shui:isLangString
+    a sh:NodeShape ;
+    sh:datatype rdf:langString ;
+.
+
+shui:hasDatatypeLangStringConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:datatype ;
+        sh:hasValue rdf:langString ;
+    ] ;
+.

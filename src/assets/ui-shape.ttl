@@ -1,0 +1,81 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix sh: <http://www.w3.org/ns/shacl#>.
+@prefix shui: <http://www.w3.org/ns/shacl-ui#>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/>.
+@prefix schema: <http://schema.org/>.
+@prefix ex: <http://example.org/>.
+
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:property ex:NamePropertyShape,
+                ex:AgePropertyShape,
+                ex:VegetarianPropertyShape,
+                ex:BirthDatePropertyShape,
+                ex:MarriedAtPropertyShape,
+                ex:AddressRegionPropertyShape,
+                ex:BibliographyPropertyShape ;
+.
+
+ex:NamePropertyShape
+    a sh:PropertyShape ;
+    sh:path foaf:name ;
+    sh:name "Full Name" ;
+    sh:description "The full name of the person." ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 2 ;
+    shui:editor shui:TextFieldEditor ;
+.
+
+ex:AgePropertyShape
+    a sh:PropertyShape ;
+    sh:path foaf:age ;
+    sh:name "Age" ;
+    sh:datatype xsd:integer ;
+    sh:minCount 0 ;
+.
+
+ex:VegetarianPropertyShape
+    a sh:PropertyShape ;
+    sh:path foaf:vegetarian ;
+    sh:name "Vegetarian" ;
+    sh:description "Indicates whether the person is a vegetarian." ;
+    sh:datatype xsd:boolean ;
+    sh:minCount 0 ;
+.
+
+ex:BirthDatePropertyShape
+    a sh:PropertyShape ;
+    sh:path foaf:birthDate ;
+    sh:name "Birth Date" ;
+    sh:datatype xsd:dateTime ;
+    sh:minCount 1 ;
+.
+
+ex:MarriedAtPropertyShape
+    a sh:PropertyShape ;
+    sh:path schema:marriedAt ;
+    sh:name "Married At" ;
+    sh:datatype xsd:date ;
+    sh:minCount 0 ;
+.
+
+ex:AddressRegionPropertyShape
+    a sh:PropertyShape ;
+    sh:path schema:addressRegion ;
+    sh:in ( "ACT" "NSW" "NT" "QLD" "SA" "TAS" "VIC" "WA" ) ;
+    sh:name "State or Territory" ;
+    sh:datatype xsd:string ;
+    sh:minCount 0 ;
+.
+
+ex:BibliographyPropertyShape
+    a sh:PropertyShape ;
+    sh:path schema:bibliography ;
+    sh:name "Bibliography" ;
+    sh:datatype xsd:string ;
+    sh:singleLine false ;
+    sh:minCount 0 ;
+.
