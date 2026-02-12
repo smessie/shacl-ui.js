@@ -9,6 +9,15 @@ ex:alice a foaf:Person ;
     foaf:name "Alice" ;
     ex:profession ex:Engineer ;
     ex:bornIn ex:Belgium ;
+    schema:address ex:alicesAddress ;
+.
+
+ex:alicesAddress a schema:PostalAddress ;
+    schema:streetAddress "123 Main St" ;
+    schema:addressLocality "Brussels" ;
+    schema:addressRegion "Brussels-Capital Region" ;
+    schema:postalCode "1000" ;
+    schema:addressCountry "Belgium" ;
 .
 
 ex:engDept a ex:Department ;

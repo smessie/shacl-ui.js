@@ -21,7 +21,7 @@
       >
       </shacl-renderer>
 
-      <button type="submit" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded">Get Data</button>
+      <button type="submit" class="my-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded">Get Data</button>
     </form>
   </body>
 
@@ -32,7 +32,7 @@
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const data = await shaclRenderer.data('text/turtle');
-    console.log('Form Submitted. Current Data Graph:', `\n${data}`);
+    console.log('Current Data Graph:', `\n${data}`);
   });
 </script>
 </html>

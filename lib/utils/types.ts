@@ -2,13 +2,17 @@ import type {Term} from "@rdfjs/types";
 
 export type UIComponent = {
    iri: Term;
+   focusNode?: Term;
    path: string;
    pathType: PathType;
+   node?: Term;
    label?: string;
    description?: string;
    datatype?: string;
    defaultWidget?: string;
    values: UIComponentValue[];
+   children?: UIComponent[][];
+   defaultChild?: UIComponent[];
    options?: Term[];
    singleLine?: boolean;
    notInShapesGraph?: boolean;
@@ -32,6 +36,7 @@ export type WidgetScore = {
 
 export type TailwindClasses = {
    labelClass?: string;
+   descriptionClass?: string;
    globalFieldClass?: string;
    globalInputFieldClass?: string;
    textFieldEditorClass?: string;
@@ -46,4 +51,5 @@ export type TailwindClasses = {
    iriEditorClass?: string;
    plusIconClass?: string;
    xIconClass?: string;
+   childComponentClass?: string;
 };

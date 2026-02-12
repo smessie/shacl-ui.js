@@ -5,18 +5,18 @@ import * as RDF from 'rdf-js';
 import type {NamedNode, Term} from "@rdfjs/types";
 import type {PathType, UIComponent, UIComponentValue} from "./types.ts";
 import {rdf, RDF as RDF_, SH} from "./namespaces.ts";
+import {score} from "./score.ts";
+import {getDefaultTermForWidget} from "./widgets.ts";
 
 const df: RDF.DataFactory = new DataFactory();
 
-export function constructUiComponents(shapesGraph: RdfStore, constraintShape: string, dataGraph: RdfStore, focusNode: string): UIComponent[] {
+export async function constructUiComponents(shapesGraph: RdfStore, constraintShape: string, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore): Promise<UIComponent[]> {
    const rootNode: NamedNode = df.namedNode(constraintShape);
    const elements: UIComponent[] = [];
    for (const uiProperty of shapesGraph.getQuads(rootNode, SH("property"), null)) {
-      // TODO: check if path is supported (currently only simple paths with a single predicate are supported, no inverses or complex paths)
       let path = shapesGraph.getQuads(uiProperty.object, SH("path"), null)[0]?.object;
       let pathType: PathType;
       if (!path) {
-         // TODO: missing path could indicate a nested shape (sh:NodeShape), which we currently don't support, but we should at least log a warning
          console.warn(`UI property ${uiProperty.object.value} is missing a path, skipping`);
          continue;
       }
@@ -41,22 +41,40 @@ export function constructUiComponents(shapesGraph: RdfStore, constraintShape: st
       const datatype = shapesGraph.getQuads(uiProperty.object, SH("datatype"), null)[0]?.object;
       const minCount = shapesGraph.getQuads(uiProperty.object, SH("minCount"), null)[0]?.object;
       const maxCount = shapesGraph.getQuads(uiProperty.object, SH("maxCount"), null)[0]?.object;
+      const node = shapesGraph.getQuads(uiProperty.object, SH("node"), null)[0]?.object;
+      const defaultChild: UIComponent[] | undefined = node ? await constructUiComponents(shapesGraph, node.value, dataGraph, null, widgetScoringGraph) : undefined;
 
       let values: UIComponentValue[] = [];
+      let children: UIComponent[][] | undefined = undefined;
       if (pathType === "predicate") {
-         values = path ? dataGraph.getQuads(df.namedNode(focusNode), df.namedNode(path.value), null).map(quad => ({value: quad.object})) : [];
+         const pathValues = path && focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.value), null).map(quad => quad.object) : [];
+         if (node) {
+            // If sh:node is present, we need to recursively construct UI components for the nested shape
+            children = await Promise.all(pathValues.map(async (object) => constructUiComponents(shapesGraph, node.value, dataGraph, object, widgetScoringGraph)));
+         }
+         values = pathValues.map(object => ({value: object}));
       } else if (pathType === "inverse") {
-         values = path ? dataGraph.getQuads(null, df.namedNode(path.value), df.namedNode(focusNode)).map(quad => ({value: quad.subject})) : [];
+         const pathValues = path && focusNode ? dataGraph.getQuads(null, df.namedNode(path.value), focusNode).map(quad => quad.subject) : [];
+         if (node) {
+            // If sh:node is present, we need to recursively construct UI components for the nested shape
+            children = await Promise.all(pathValues.map(async (subject) => constructUiComponents(shapesGraph, node.value, dataGraph, subject, widgetScoringGraph)));
+         }
+         values = pathValues.map(subject => ({value: subject}));
+
       }
 
       const element: UIComponent = {
          iri: uiProperty.object,
+         focusNode: focusNode ?? undefined,
          path: path?.value,
          pathType: pathType,
+         node: node,
          label: label?.value,
          description: description?.value,
          datatype: datatype?.value,
          values: values,
+         children: children,
+         defaultChild: defaultChild,
          minCount: minCount ? parseInt(minCount.value) : undefined,
          maxCount: maxCount ? parseInt(maxCount.value) : undefined,
       }
@@ -72,6 +90,22 @@ export function constructUiComponents(shapesGraph: RdfStore, constraintShape: st
       if (singleLineQuad) {
          element.singleLine = singleLineQuad.object.value === "true" || singleLineQuad.object.value === "1";
       }
+
+      // Configure default widget based on the shape only.
+      element.defaultWidget = (await score(null, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph))[0]?.widget;
+
+      // Make sure we have at least minCount values, by adding empty values if needed.
+      for (let i = values.length; i < (element.minCount ?? 0); i++) {
+         element.values.push({value: getDefaultTermForWidget(element.defaultWidget, element.options)})
+      }
+
+      // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
+      element.values = await Promise.all(element.values.map(async (value) => {
+         const widgetScores = await score(value.value, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph);
+         value.selectedWidget = widgetScores[0]?.widget;
+         value.widgets = widgetScores;
+         return value;
+      }));
 
       elements.push(element);
    }
@@ -97,17 +131,21 @@ function extractEnumOptions(inQuad: Quad, shapesGraph: RdfStore<any, Quad>): Ter
    return options;
 }
 
-export function uiComponentsToQuads(uiComponents: UIComponent[], focusNode: string): Quad[] {
-   const subject = df.namedNode(focusNode);
-   const quads = []
+export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
+   const quads = [];
    for (const component of uiComponents) {
       for (const value of component.values) {
          if (component.pathType === "predicate") {
-            quads.push(df.quad(subject, df.namedNode(component.path), value.value as Quad_Object));
+            quads.push(df.quad(component.focusNode as Quad_Subject, df.namedNode(component.path), value.value as Quad_Object));
          } else if (component.pathType === "inverse") {
-            quads.push(df.quad(value.value as Quad_Subject, df.namedNode(component.path), subject));
+            quads.push(df.quad(value.value as Quad_Subject, df.namedNode(component.path), component.focusNode as Quad_Object));
          } else {
             console.warn(`Unsupported path type ${component.pathType} for component ${component.iri.value}, skipping quad generation for this component`);
+         }
+      }
+      if (component.node && component.children) {
+         for (const child of component.children) {
+            quads.push(...uiComponentsToQuads(child));
          }
       }
    }

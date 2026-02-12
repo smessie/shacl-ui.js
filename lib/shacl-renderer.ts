@@ -4,10 +4,13 @@ import {TW} from "./shared/tailwindMixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./utils/rdf.ts";
 import {constructUiComponents, uiComponentsToQuads} from "./utils/ui.ts";
-import {getDefaultTermForWidget, renderUIComponent} from "./utils/widgets.ts";
+import {renderUIComponent} from "./utils/widgets.ts";
 import type {TailwindClasses, UIComponent} from "./utils/types.ts";
-import {score} from "./utils/score.ts";
-import type {Quad} from "rdf-js";
+import * as RDF from "rdf-js";
+import {type Quad} from "rdf-js";
+import {DataFactory} from "rdf-data-factory";
+
+const df: RDF.DataFactory = new DataFactory();
 
 const TwLitElement = TW(LitElement);
 /**
@@ -92,6 +95,9 @@ export class ShaclRenderer extends TwLitElement {
   labelClass: string = 'block text-gray-700 text-sm font-bold mb-2';
 
   @property()
+  descriptionClass: string = 'mt-1 text-xs text-gray-500';
+
+  @property()
   globalFieldClass: string = 'text-gray-700 leading-tight mb-2';
 
   @property()
@@ -131,6 +137,9 @@ export class ShaclRenderer extends TwLitElement {
   xIconClass: string = 'size-5 -mr-1 mt-4';
 
   @property()
+  childComponentClass: string = 'ml-4 border-l pl-4 relative';
+
+  @property()
   ui: UIComponent[] = [];
 
 
@@ -141,6 +150,7 @@ export class ShaclRenderer extends TwLitElement {
   render() {
     const tailwindClasses: TailwindClasses = {
       labelClass: this.labelClass,
+      descriptionClass: this.descriptionClass,
       globalFieldClass: this.globalFieldClass,
       globalInputFieldClass: this.globalInputFieldClass,
       textFieldEditorClass: this.textFieldEditorClass,
@@ -154,6 +164,7 @@ export class ShaclRenderer extends TwLitElement {
       enumSelectEditorIconClass: this.enumSelectEditorIconClass,
       plusIconClass: this.plusIconClass,
       xIconClass: this.xIconClass,
+      childComponentClass: this.childComponentClass,
     }
     return html`
       <div>
@@ -175,7 +186,7 @@ export class ShaclRenderer extends TwLitElement {
    * @returns {Promise<string | Quad[]>} The current data graph as a string in the specified content type, or as a array of quads if no content type is provided.
    */
   async data(contentType?: string): Promise<string | Quad[]> {
-    const outputQuads = uiComponentsToQuads(this.ui, this.focusNode);
+    const outputQuads = uiComponentsToQuads(this.ui);
     if (contentType) {
       return await serializeRdf(outputQuads, contentType);
     } else {
@@ -217,22 +228,7 @@ export class ShaclRenderer extends TwLitElement {
       reconstructUi = true;
     }
     if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
-      this.ui = await Promise.all(constructUiComponents(this.shapesStore, this.constraintShape, this.dataStore, this.focusNode).map(async (uiComponent) => {
-        uiComponent.defaultWidget = (await score(null, this.dataStore!, uiComponent.iri, this.shapesStore!, this.widgetScoringStore!))[0]?.widget;
-
-        // Make sure we have at least minCount values, by adding empty values if needed.
-        for (let i = uiComponent.values.length; i < (uiComponent.minCount ?? 0); i++) {
-          uiComponent.values.push({value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent.options)})
-        }
-
-        uiComponent.values = await Promise.all(uiComponent.values.map(async (value) => {
-          const widgetScores = await score(value.value, this.dataStore!, uiComponent.iri, this.shapesStore!, this.widgetScoringStore!);
-          value.selectedWidget = widgetScores[0]?.widget;
-          value.widgets = widgetScores;
-          return value;
-        }));
-        return uiComponent;
-      }));
+      this.ui = await Promise.all(await constructUiComponents(this.shapesStore, this.constraintShape, this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
     }
   }
 }

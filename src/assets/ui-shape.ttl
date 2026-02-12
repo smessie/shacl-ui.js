@@ -17,6 +17,7 @@ ex:PersonShape
                 ex:AddressRegionPropertyShape,
                 ex:ProfessionShape,
                 ex:DepartmentShape,
+                ex:AddressShape,
                 ex:BibliographyPropertyShape ;
 .
 
@@ -83,7 +84,7 @@ ex:BibliographyPropertyShape
 .
 
 ex:ProfessionShape
-    a sh:NodeShape ;
+    a sh:PropertyShape ;
     sh:path ex:profession ;
     sh:name "Profession" ;
     sh:class ex:Profession ;
@@ -91,9 +92,37 @@ ex:ProfessionShape
 .
 
 ex:DepartmentShape
-    a sh:NodeShape ;
+    a sh:PropertyShape ;
     sh:path [ sh:inversePath ex:member ] ;
     sh:name "Department" ;
     sh:class ex:Department ;
     shui:editor shui:IRIEditor ;
+.
+
+ex:AddressShape
+    a sh:PropertyShape ;
+    sh:path schema:address ;
+    sh:name "Address" ;
+    sh:node ex:AddressNodeShape ;
+.
+
+ex:AddressNodeShape
+    a sh:NodeShape ;
+    sh:property ex:AddressShape-postalCode ,
+                ex:AddressShape-street ;
+.
+ex:AddressShape-postalCode
+    a sh:PropertyShape ;
+    sh:path schema:postalCode ;
+    sh:name "Postal Code" ;
+    sh:datatype xsd:string ;
+    sh:maxCount 1 ;
+.
+
+ex:AddressShape-street
+    a sh:PropertyShape ;
+    sh:path schema:streetAddress ;
+    sh:name "Street" ;
+    sh:datatype xsd:string ;
+    sh:maxCount 1 ;
 .

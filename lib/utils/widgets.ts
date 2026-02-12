@@ -1,5 +1,5 @@
 import type {TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
-import {html, nothing} from "lit";
+import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from 'tailwind-merge';
 import {shui, XSD} from "./namespaces.ts";
 import * as RDF from "rdf-js";
@@ -11,6 +11,31 @@ import {cloneTerm} from "./rdf.ts";
 const df: RDF.DataFactory = new DataFactory();
 
 export function renderUIComponent(uiComponent: UIComponent, classes: TailwindClasses, rerender: () => void) {
+   if (uiComponent.children) {
+      return html`
+          <div class="mb-4">
+              ${renderPlusIcon(uiComponent, classes, rerender)}
+
+              ${renderLabel(uiComponent, classes)}
+
+              ${uiComponent.children.map((childComponents: UIComponent[], index: number): TemplateResult => {
+                  return html`
+                      <div class="${twMerge(classes.childComponentClass)}">
+                          ${renderXIcon(uiComponent, classes, () => {
+                              uiComponent.children!.splice(index, 1);
+                              uiComponent.values.splice(index, 1);
+                              rerender();
+                          }, false)}
+
+                          ${childComponents.map(childComponent => renderUIComponent(childComponent, classes, rerender))}
+                      </div>
+                  `;
+              })}
+
+              ${renderDescription(uiComponent, classes)}
+          </div>
+      `;
+   }
    return html`
        <div class="mb-4">
            ${renderPlusIcon(uiComponent, classes, rerender)}
@@ -56,14 +81,14 @@ export function renderUIComponent(uiComponent: UIComponent, classes: TailwindCla
                }
            })}
 
-           ${renderDescription(uiComponent)}
+           ${renderDescription(uiComponent, classes)}
        </div>
    `;
 }
 
-function renderDescription(uiComponent: UIComponent) {
+function renderDescription(uiComponent: UIComponent, classes: TailwindClasses) {
    return uiComponent.description ? html`
-       <p class="mt-1 text-xs text-gray-500">
+       <p class="${twMerge(classes.descriptionClass)}">
            ${uiComponent.description}
        </p>
    ` : nothing;
@@ -79,27 +104,49 @@ function renderLabel(uiComponent: UIComponent, classes: TailwindClasses) {
 }
 
 function renderPlusIcon(uiComponent: UIComponent, classes: TailwindClasses, rerender: () => void) {
-   const newValue = getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent.options);
+   let onClick: () => void;
+   if (uiComponent.node) {
+      // A new children component must be added on click.
+      onClick = () => {
+         const newFocusNode = df.namedNode(`urn:uuid:${crypto.randomUUID()}`);
+         const newChildComponents: UIComponent[] = (uiComponent.defaultChild ?? []).map(child => {
+            const clonedChild = structuredClone(child);
+            clonedChild.focusNode = newFocusNode;
+            return clonedChild;
+         });
+         uiComponent.children = [...(uiComponent.children || []), newChildComponents];
+         uiComponent.values.push({
+            value: newFocusNode,
+         });
+         rerender();
+      }
+   } else {
+      onClick = () => {
+         uiComponent.values.push({
+            value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent.options),
+            widgets: [],
+            selectedWidget: uiComponent.defaultWidget,
+         });
+         rerender();
+      }
+   }
 
    return uiComponent.maxCount === undefined || uiComponent.values.length < uiComponent.maxCount ? html`
        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
-            stroke="currentColor" class="${twMerge(classes.plusIconClass)}" @click="${() => {
-           uiComponent.values.push({
-               value: newValue,
-               widgets: [],
-               selectedWidget: uiComponent.defaultWidget,
-           });
-           rerender();
-       }}">
+            stroke="currentColor" class="${twMerge(classes.plusIconClass)}" @click="${onClick}">
            <path stroke-linecap="round" stroke-linejoin="round"
                  d="M12 9v6m3-3H9m12 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>
        </svg>
    ` : nothing;
 }
 
-function renderXIcon(uiComponent: UIComponent, classes: TailwindClasses, onClick: () => void) {
-   return uiComponent.values.length > (uiComponent.minCount || 0) ? html`
-       <div class="absolute inset-y-0 right-0 flex items-center pr-3 h-${findTailwindHeightValue(twMerge(classes.xIconClass)) || '0'}">
+function renderXIcon(uiComponent: UIComponent, classes: TailwindClasses, onClick: () => void, floatRight: boolean = true) {
+   const divClasses = twMerge(
+      floatRight ? 'absolute inset-y-0 right-0 flex items-center pr-3' : 'mb-2',
+      `h-${findTailwindHeightValue(twMerge(classes.xIconClass)) || '0'}`,
+   );
+   return (uiComponent.node ? (uiComponent.children?.length ?? 0) : uiComponent.values.length) > (uiComponent.minCount || 0) ? html`
+       <div class="${divClasses}">
            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                 stroke="currentColor" class="${twMerge(classes.xIconClass)}" @click="${onClick}">
                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
