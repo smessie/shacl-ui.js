@@ -40,6 +40,7 @@ export type TailwindClasses = {
    dateTimePickerEditorClass?: string;
    enumSelectEditorClass?: string;
    enumSelectEditorIconClass?: string;
+   iriEditorClass?: string;
    plusIconClass?: string;
    xIconClass?: string;
 };

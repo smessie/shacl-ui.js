@@ -35,6 +35,8 @@ export function renderUIComponent(uiComponent: UIComponent, classes: TailwindCla
                        return renderDateTimePickerEditor(uiComponent, value, index, classes, rerender);
                    case shui("EnumSelectEditor"):
                        return renderEnumSelectEditor(uiComponent, value, index, classes, rerender);
+                   case shui("IRIEditor"):
+                      return renderIRIEditor(uiComponent, value, index, classes, rerender);
                    default:
                        return html`
                            <div class="relative">
@@ -351,6 +353,28 @@ function renderEnumSelectEditor(uiComponent: UIComponent, value: UIComponentValu
    `;
 }
 
+function renderIRIEditor(uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, rerender: () => void) {
+   return html`
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass)) || '0'}`)}">
+           <input
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass, 'mb-0')}"
+                   id="${uiComponent.path}"
+                   type="url"
+                   value="${value.value.value ?? ''}"
+                   placeholder="${uiComponent.label}"
+                   @change="${(e: Event) => {
+                       const input = e.target as HTMLInputElement;
+                       value.value.value = input.value;
+                   }}"
+           />
+           ${renderXIcon(uiComponent, classes, () => {
+               uiComponent.values.splice(index, 1);
+               rerender();
+           })}
+       </div>
+   `;
+}
+
 export function getDefaultTermForWidget(widget: string | undefined, options?: Term[]): Term {
    switch (widget) {
       case shui('TextFieldEditor'):
@@ -369,6 +393,8 @@ export function getDefaultTermForWidget(widget: string | undefined, options?: Te
          return df.literal('', XSD('dateTime'));
       case shui('EnumSelectEditor'):
          return options && options.length > 0 ? cloneTerm(options[0]) : df.literal('');
+      case shui('IRIEditor'):
+         return df.namedNode('');
       default:
          return df.literal('');
    }
