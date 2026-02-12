@@ -115,6 +115,7 @@ function renderTextFieldEditor(uiComponent: UIComponent, value: UIComponentValue
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0')}"
                    id="${uiComponent.path}"
                    type="text"
+                   required
                    value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
@@ -138,6 +139,7 @@ function renderTextFieldWithLangEditor(uiComponent: UIComponent, value: UICompon
            <input
                    id="${uiComponent.path}"
                    type="text"
+                   required
                    value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    class="${twMerge(
@@ -166,6 +168,7 @@ function renderTextFieldWithLangEditor(uiComponent: UIComponent, value: UICompon
            <div class="relative">
                <input
                        type="text"
+                       required
                        inputmode="latin"
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
@@ -197,6 +200,7 @@ function renderTextAreaEditor(uiComponent: UIComponent, value: UIComponentValue,
            <textarea
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass, 'mb-0')}"
                    id="${uiComponent.path}"
+                   required
                    rows="4"
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
@@ -218,6 +222,7 @@ function renderNumberFieldEditor(uiComponent: UIComponent, value: UIComponentVal
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass, 'mb-0')}"
                    id="${uiComponent.path}"
+                   required
                    type="number"
                    step="1"
                    placeholder="${uiComponent.label}"
@@ -266,6 +271,7 @@ function renderDatePickerEditor(uiComponent: UIComponent, value: UIComponentValu
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass, 'mb-0')}"
                    id="${uiComponent.path}"
+                   required
                    type="date"
                    value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
@@ -287,6 +293,7 @@ function renderDateTimePickerEditor(uiComponent: UIComponent, value: UIComponent
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass, 'mb-0')}"
                    id="${uiComponent.path}"
+                   required
                    type="datetime-local"
                    value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
@@ -307,6 +314,7 @@ function renderEnumSelectEditor(uiComponent: UIComponent, value: UIComponentValu
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.enumSelectEditorClass)) || '0'}`)}">
            <select
                    id="${uiComponent.path}-${index}"
+                   required
                    class="${twMerge(
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
@@ -359,6 +367,7 @@ function renderIRIEditor(uiComponent: UIComponent, value: UIComponentValue, inde
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass, 'mb-0')}"
                    id="${uiComponent.path}"
+                   required
                    type="url"
                    value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
