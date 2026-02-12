@@ -3,6 +3,7 @@ import type {Term} from "@rdfjs/types";
 export type UIComponent = {
    iri: Term;
    path: string;
+   pathType: PathType;
    label?: string;
    description?: string;
    datatype?: string;
@@ -14,6 +15,8 @@ export type UIComponent = {
    minCount?: number;
    maxCount?: number;
 };
+
+export type PathType = "predicate" | "inverse" | "alternative" | "sequence";
 
 export type UIComponentValue = {
    value: Term;
