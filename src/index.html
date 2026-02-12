@@ -9,29 +9,30 @@
     <script type="module" src="/lib/shacl-renderer.ts"></script>
   </head>
   <body>
-    <div class="mx-auto max-w-4xl sm:px-6 lg:px-8 mt-6">
+    <form class="mx-auto max-w-4xl sm:px-6 lg:px-8 mt-6" id="shacl-form" action="#">
       <shacl-renderer
               useLightDom
               id="shacl-renderer"
               dataGraphUrl="/src/assets/data.ttl"
               shapesGraphUrl="/src/assets/ui-shape.ttl"
               widgetScoringGraphUrl="/src/assets/widget-scoring.ttl"
-              focusNode="http://example.org/Alice"
+              focusNode="http://example.org/alice"
               constraintShape="http://example.org/PersonShape"
       >
       </shacl-renderer>
 
-      <button id="get-data-btn" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded">Get Data</button>
-    </div>
+      <button type="submit" class="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded">Get Data</button>
+    </form>
   </body>
 
 <script type="module">
-  const getDataBtn = document.getElementById('get-data-btn');
+  const form = document.getElementById('shacl-form');
   const shaclRenderer = document.getElementById('shacl-renderer');
 
-  getDataBtn.addEventListener('click', async () => {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
     const data = await shaclRenderer.data('text/turtle');
-    console.log('Current Data Graph:', `\n${data}`);
+    console.log('Form Submitted. Current Data Graph:', `\n${data}`);
   });
 </script>
 </html>

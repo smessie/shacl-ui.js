@@ -5,11 +5,15 @@
 @prefix schema: <http://schema.org/>.
 @prefix ex: <http://example.org/>.
 
-ex:Alice a foaf:Person ;
+ex:alice a foaf:Person ;
     foaf:name "Alice" ;
     ex:profession ex:Engineer ;
     ex:bornIn ex:Belgium ;
 .
+
+ex:engDept a ex:Department ;
+    ex:member ex:alice ;
+    rdfs:label "Engineering Department" .
 
 
 ex:Engineer rdfs:subClassOf ex:Profession ;

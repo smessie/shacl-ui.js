@@ -15,6 +15,8 @@ ex:PersonShape
                 ex:BirthDatePropertyShape,
                 ex:MarriedAtPropertyShape,
                 ex:AddressRegionPropertyShape,
+                ex:ProfessionShape,
+                ex:DepartmentShape,
                 ex:BibliographyPropertyShape ;
 .
 
@@ -78,4 +80,20 @@ ex:BibliographyPropertyShape
     sh:datatype xsd:string ;
     sh:singleLine false ;
     sh:minCount 0 ;
+.
+
+ex:ProfessionShape
+    a sh:NodeShape ;
+    sh:path ex:profession ;
+    sh:name "Profession" ;
+    sh:class ex:Profession ;
+    shui:editor shui:IRIEditor ;
+.
+
+ex:DepartmentShape
+    a sh:NodeShape ;
+    sh:path [ sh:inversePath ex:member ] ;
+    sh:name "Department" ;
+    sh:class ex:Department ;
+    shui:editor shui:IRIEditor ;
 .
