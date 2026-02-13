@@ -120,6 +120,9 @@ export class ShaclRenderer extends TwLitElement {
   autoCompleteEditorDescriptionClass: string = 'text-sm text-gray-500';
 
   @property()
+  blankNodeEditorClass: string = '';
+
+  @property()
   textFieldEditorClass: string = '';
 
   @property()
@@ -179,6 +182,7 @@ export class ShaclRenderer extends TwLitElement {
       autoCompleteEditorOptionClass: this.autoCompleteEditorOptionClass,
       autoCompleteEditorLabelClass: this.autoCompleteEditorLabelClass,
       autoCompleteEditorDescriptionClass: this.autoCompleteEditorDescriptionClass,
+      blankNodeEditorClass: this.blankNodeEditorClass,
       textFieldEditorClass: this.textFieldEditorClass,
       textAreaEditorClass: this.textAreaEditorClass,
       numberFieldEditorClass: this.numberFieldEditorClass,

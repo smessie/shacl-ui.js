@@ -10,6 +10,7 @@ ex:alice a foaf:Person ;
     ex:profession ex:Engineer ;
     ex:bornIn ex:Belgium ;
     schema:address ex:alicesAddress ;
+    ex:hasBlankNode [ rdfs:label "This is a blank node" ] ;
 .
 
 ex:alicesAddress a schema:PostalAddress ;

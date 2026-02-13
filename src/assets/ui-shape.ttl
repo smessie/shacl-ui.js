@@ -18,6 +18,7 @@ ex:PersonShape
                 ex:ProfessionShape,
                 ex:DepartmentShape,
                 ex:AddressShape,
+                ex:BlankNodePropertyShape,
                 ex:BibliographyPropertyShape ;
 .
 
@@ -126,3 +127,13 @@ ex:AddressShape-street
     sh:datatype xsd:string ;
     sh:maxCount 1 ;
 .
+
+ex:BlankNodePropertyShape
+    a sh:PropertyShape ;
+    sh:path ex:hasBlankNode ;
+    sh:name "Has Blank Node" ;
+    sh:nodeKind sh:BlankNode ;
+    sh:description "A property that has a blank node as its value." ;
+    shui:editor shui:BlankNodeEditor ;
+.
+

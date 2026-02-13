@@ -52,6 +52,7 @@ export type TailwindClasses = {
    autoCompleteEditorOptionClass?: string;
    autoCompleteEditorLabelClass?: string;
    autoCompleteEditorDescriptionClass?: string;
+   blankNodeEditorClass?: string;
    textFieldEditorClass?: string;
    textAreaEditorClass?: string;
    numberFieldEditorClass?: string;

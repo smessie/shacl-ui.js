@@ -47,6 +47,8 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                switch (value.selectedWidget) {
                    case shui("AutoCompleteEditor"):
                        return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes);
+                   case shui("BlankNodeEditor"):
+                       return renderBlankNodeEditor(renderer, uiComponent, value, index, classes);
                    case shui("TextFieldEditor"):
                        return renderTextFieldEditor(renderer, uiComponent, value, index, classes);
                    case shui("TextFieldWithLangEditor"):
@@ -253,6 +255,29 @@ function renderAutoCompleteEditor(
    `;
 }
 
+function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   return html`
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.autoCompleteEditorClass)) || '0'}`)}">
+           <input
+                   class="${twMerge(
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           classes.blankNodeEditorClass,
+                           'mb-0'
+                   )}"
+                   autocomplete="off"
+                   .value="${value.value.value ?? ''}"
+                   placeholder="${uiComponent.label}"
+                   disabled
+           />
+           ${renderXIcon(uiComponent, classes, () => {
+               uiComponent.values.splice(index, 1);
+               renderer.rerender();
+           })}
+       </div>
+   `;
+}
+
 function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass)) || '0'}`)}">
@@ -261,7 +286,7 @@ function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent
                    id="${uiComponent.path}"
                    type="text"
                    required
-                   value="${value.value.value ?? ''}"
+                   .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
@@ -285,7 +310,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
                    id="${uiComponent.path}"
                    type="text"
                    required
-                   value="${value.value.value ?? ''}"
+                   .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    class="${twMerge(
                            classes.globalFieldClass,
@@ -317,7 +342,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
                        inputmode="latin"
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
-                       value="${(value.value as Literal).language ?? ''}"
+                       .value="${(value.value as Literal).language ?? ''}"
                        class="${twMerge(
                                classes.globalFieldClass,
                                classes.globalInputFieldClass,
@@ -371,7 +396,7 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
                    type="number"
                    step="1"
                    placeholder="${uiComponent.label}"
-                   value="${value.value.value ?? ''}"
+                   .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        value.value.value = input.value;
@@ -418,7 +443,7 @@ function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponen
                    id="${uiComponent.path}"
                    required
                    type="date"
-                   value="${value.value.value ?? ''}"
+                   .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        value.value.value = input.value;
@@ -440,7 +465,7 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
                    id="${uiComponent.path}"
                    required
                    type="datetime-local"
-                   value="${value.value.value ?? ''}"
+                   .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        value.value.value = input.value;
@@ -514,7 +539,7 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
                    id="${uiComponent.path}"
                    required
                    type="url"
-                   value="${value.value.value ?? ''}"
+                   .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
@@ -533,6 +558,8 @@ export function getDefaultTermForWidget(widget: string | undefined, options?: Te
    switch (widget) {
       case shui('AutoCompleteEditor'):
          return df.namedNode('');
+      case shui('BlankNodeEditor'):
+         return df.blankNode();
       case shui('TextFieldEditor'):
          return df.literal('');
       case shui('TextFieldWithLangEditor'):
