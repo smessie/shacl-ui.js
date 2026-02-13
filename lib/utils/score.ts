@@ -96,12 +96,17 @@ async function scoreValidation(focusNode: Term, targetGraph: RdfStore, shapes: T
       return false;
    }
    try {
-      const validator = new Validator(shapesGraph.asDataset(), {factory: df});
-      const validationResult = await validator.validate({
-         dataset: targetGraph.asDataset(),
-         terms: [focusNode]
-      }, [{terms: shapes}]);
-      return validationResult.conforms;
+      for (const shape of shapes) {
+         const validator = new Validator(shapesGraph.asDataset(), {factory: df});
+         const validationResult = await validator.validate({
+            dataset: targetGraph.asDataset(),
+            terms: [focusNode]
+         }, [{terms: [shape]}]);
+         if (!validationResult.conforms) {
+            return false;
+         }
+      }
+      return true;
    } catch (error) {
       return false;
    }
