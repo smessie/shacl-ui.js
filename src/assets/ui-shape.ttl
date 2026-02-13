@@ -88,7 +88,7 @@ ex:ProfessionShape
     sh:path ex:profession ;
     sh:name "Profession" ;
     sh:class ex:Profession ;
-    shui:editor shui:IRIEditor ;
+    shui:editor shui:AutoCompleteEditor ;
 .
 
 ex:DepartmentShape

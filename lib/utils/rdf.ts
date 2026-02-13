@@ -42,6 +42,9 @@ export async function serializeRdf(quads: Quad[], contentType: string): Promise<
 }
 
 export function cloneTerm(term: Term): Term {
+   if (!term) {
+      return term;
+   }
    switch (term.termType) {
       case "NamedNode":
          return df.namedNode(term.value);

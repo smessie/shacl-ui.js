@@ -44,6 +44,14 @@ export function RDFS(property: string): NamedNode {
    return df.namedNode(rdfs(property));
 }
 
+export function dcterms(property: string): string {
+   return `http://purl.org/dc/terms/${property}`;
+}
+
+export function DCTERMS(property: string): NamedNode {
+   return df.namedNode(dcterms(property));
+}
+
 export function prefix(full?: string): string | undefined {
    if (!full) return full;
    full = full.replace('http://www.w3.org/ns/shacl#', 'sh:');

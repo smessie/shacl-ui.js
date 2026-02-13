@@ -18,6 +18,8 @@ export type UIComponent = {
    notInShapesGraph?: boolean;
    minCount?: number;
    maxCount?: number;
+   class?: Term;
+   instances?: LabeledValue[];
 };
 
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence";
@@ -26,6 +28,12 @@ export type UIComponentValue = {
    value: Term;
    widgets?: WidgetScore[];
    selectedWidget?: string;
+}
+
+export type LabeledValue = {
+   value: Term;
+   label: string;
+   description?: string;
 }
 
 export type WidgetScore = {
@@ -39,6 +47,11 @@ export type TailwindClasses = {
    descriptionClass?: string;
    globalFieldClass?: string;
    globalInputFieldClass?: string;
+   autoCompleteEditorClass?: string;
+   autoCompleteEditorDropdownClass?: string;
+   autoCompleteEditorOptionClass?: string;
+   autoCompleteEditorLabelClass?: string;
+   autoCompleteEditorDescriptionClass?: string;
    textFieldEditorClass?: string;
    textAreaEditorClass?: string;
    numberFieldEditorClass?: string;

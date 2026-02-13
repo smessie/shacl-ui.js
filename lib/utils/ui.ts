@@ -3,10 +3,11 @@ import {DataFactory} from "rdf-data-factory";
 import type {Quad, Quad_Object, Quad_Subject} from "rdf-js";
 import * as RDF from 'rdf-js';
 import type {NamedNode, Term} from "@rdfjs/types";
-import type {PathType, UIComponent, UIComponentValue} from "./types.ts";
-import {rdf, RDF as RDF_, SH} from "./namespaces.ts";
+import type {LabeledValue, PathType, UIComponent, UIComponentValue} from "./types.ts";
+import {DCTERMS, rdf, RDF as RDF_, RDFS, SH} from "./namespaces.ts";
 import {score} from "./score.ts";
 import {getDefaultTermForWidget} from "./widgets.ts";
+import {cloneTerm} from "./rdf.ts";
 
 const df: RDF.DataFactory = new DataFactory();
 
@@ -41,6 +42,7 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
       const datatype = shapesGraph.getQuads(uiProperty.object, SH("datatype"), null)[0]?.object;
       const minCount = shapesGraph.getQuads(uiProperty.object, SH("minCount"), null)[0]?.object;
       const maxCount = shapesGraph.getQuads(uiProperty.object, SH("maxCount"), null)[0]?.object;
+      const clazz = shapesGraph.getQuads(uiProperty.object, SH("class"), null)[0]?.object;
       const node = shapesGraph.getQuads(uiProperty.object, SH("node"), null)[0]?.object;
       const defaultChild: UIComponent[] | undefined = node ? await constructUiComponents(shapesGraph, node.value, dataGraph, null, widgetScoringGraph) : undefined;
 
@@ -52,23 +54,27 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
             // If sh:node is present, we need to recursively construct UI components for the nested shape
             children = await Promise.all(pathValues.map(async (object) => constructUiComponents(shapesGraph, node.value, dataGraph, object, widgetScoringGraph)));
          }
-         values = pathValues.map(object => ({value: object}));
+         values = pathValues.map(object => ({value: cloneTerm(object)}));
       } else if (pathType === "inverse") {
          const pathValues = path && focusNode ? dataGraph.getQuads(null, df.namedNode(path.value), focusNode).map(quad => quad.subject) : [];
          if (node) {
             // If sh:node is present, we need to recursively construct UI components for the nested shape
             children = await Promise.all(pathValues.map(async (subject) => constructUiComponents(shapesGraph, node.value, dataGraph, subject, widgetScoringGraph)));
          }
-         values = pathValues.map(subject => ({value: subject}));
+         values = pathValues.map(subject => ({value: cloneTerm(subject)}));
+      }
 
+      let instances: LabeledValue[] | undefined = undefined;
+      if (clazz) {
+         instances = dataGraph.getQuads(null, RDF_("type"), clazz).map(quad => toLabeledValue(quad.subject, dataGraph));
       }
 
       const element: UIComponent = {
-         iri: uiProperty.object,
-         focusNode: focusNode ?? undefined,
+         iri: cloneTerm(uiProperty.object),
+         focusNode: focusNode ? cloneTerm(focusNode) : undefined,
          path: path?.value,
          pathType: pathType,
-         node: node,
+         node: cloneTerm(node),
          label: label?.value,
          description: description?.value,
          datatype: datatype?.value,
@@ -77,6 +83,8 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
          defaultChild: defaultChild,
          minCount: minCount ? parseInt(minCount.value) : undefined,
          maxCount: maxCount ? parseInt(maxCount.value) : undefined,
+         class: cloneTerm(clazz),
+         instances: instances,
       }
 
       // Check if sh:in is present for enumerations, and if so, get all options
@@ -119,7 +127,7 @@ function extractEnumOptions(inQuad: Quad, shapesGraph: RdfStore<any, Quad>): Ter
    while (currentNode.value !== rdf("nil")) {
       const firstQuad = shapesGraph.getQuads(currentNode, RDF_("first"), null)[0];
       if (firstQuad) {
-         options.push(firstQuad.object);
+         options.push(cloneTerm(firstQuad.object));
       }
       const restQuad = shapesGraph.getQuads(currentNode, RDF_("rest"), null)[0];
       if (restQuad) {
@@ -150,4 +158,14 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
       }
    }
    return quads;
+}
+
+function toLabeledValue(term: Term, dataGraph: RdfStore): LabeledValue {
+   const labelQuad = dataGraph.getQuads(term, RDFS("label"), null)[0] || dataGraph.getQuads(term, DCTERMS("title"), null)[0];
+   const descriptionQuad = dataGraph.getQuads(term, RDFS("comment"), null)[0] || dataGraph.getQuads(term, DCTERMS("description"), null)[0];
+   return {
+      value: cloneTerm(term),
+      label: labelQuad ? labelQuad.object.value : term.value,
+      description: descriptionQuad ? descriptionQuad.object.value : undefined,
+   }
 }

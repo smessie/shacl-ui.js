@@ -25,9 +25,34 @@ ex:engDept a ex:Department ;
     rdfs:label "Engineering Department" .
 
 
-ex:Engineer rdfs:subClassOf ex:Profession ;
+ex:Engineer a ex:Profession ;
     rdfs:label "Engineer" ;
     rdfs:comment "A person who designs, builds, or maintains engines, machines, or structures."
+.
+
+ex:Doctor a ex:Profession ;
+    rdfs:label "Doctor" ;
+    rdfs:comment "A person who is qualified to treat people who are ill."
+.
+
+ex:Researcher a ex:Profession ;
+    rdfs:label "Researcher" ;
+    rdfs:comment "A person who conducts research in a particular field."
+.
+
+ex:Salesperson a ex:Profession ;
+    rdfs:label "Salesperson" ;
+    rdfs:comment "A person who sells goods or services."
+.
+
+ex:Physicist a ex:Profession ;
+    rdfs:label "Physicist" ;
+    rdfs:comment "A person who studies or practices physics."
+.
+
+ex:Physiotherapist a ex:Profession ;
+    rdfs:label "Physiotherapist" ;
+    rdfs:comment "A person who helps patients improve their physical mobility and manage pain."
 .
 
 ex:Belgium a ex:Country ;

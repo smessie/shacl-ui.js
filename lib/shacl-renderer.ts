@@ -1,5 +1,5 @@
 import {html, LitElement, type PropertyValues} from 'lit'
-import {customElement, property} from 'lit/decorators.js'
+import {customElement, property, state} from 'lit/decorators.js'
 import {TW} from "./shared/tailwindMixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./utils/rdf.ts";
@@ -91,6 +91,7 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   constraintShape: string = '';
 
+
   @property()
   labelClass: string = 'block text-gray-700 text-sm font-bold mb-2';
 
@@ -102,6 +103,21 @@ export class ShaclRenderer extends TwLitElement {
 
   @property()
   globalInputFieldClass: string = 'w-full shadow appearance-none border rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-gray-400';
+
+  @property()
+  autoCompleteEditorClass: string = 'relative';
+
+  @property()
+  autoCompleteEditorDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+
+  @property()
+  autoCompleteEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+
+  @property()
+  autoCompleteEditorLabelClass: string = 'font-medium';
+
+  @property()
+  autoCompleteEditorDescriptionClass: string = 'text-sm text-gray-500';
 
   @property()
   textFieldEditorClass: string = '';
@@ -139,9 +155,14 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   childComponentClass: string = 'ml-4 border-l pl-4 relative';
 
-  @property()
+  @state()
   ui: UIComponent[] = [];
 
+  @state()
+  autoCompleteEditorOpen: Record<string, boolean> = {};
+
+  @state()
+  autoCompleteEditorFilter: Record<string, string> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -153,6 +174,11 @@ export class ShaclRenderer extends TwLitElement {
       descriptionClass: this.descriptionClass,
       globalFieldClass: this.globalFieldClass,
       globalInputFieldClass: this.globalInputFieldClass,
+      autoCompleteEditorClass: this.autoCompleteEditorClass,
+      autoCompleteEditorDropdownClass: this.autoCompleteEditorDropdownClass,
+      autoCompleteEditorOptionClass: this.autoCompleteEditorOptionClass,
+      autoCompleteEditorLabelClass: this.autoCompleteEditorLabelClass,
+      autoCompleteEditorDescriptionClass: this.autoCompleteEditorDescriptionClass,
       textFieldEditorClass: this.textFieldEditorClass,
       textAreaEditorClass: this.textAreaEditorClass,
       numberFieldEditorClass: this.numberFieldEditorClass,
@@ -166,10 +192,11 @@ export class ShaclRenderer extends TwLitElement {
       xIconClass: this.xIconClass,
       childComponentClass: this.childComponentClass,
     }
+    const renderer = this;
     return html`
       <div>
         ${this.ui.map((element: UIComponent) => {
-          return renderUIComponent(element, tailwindClasses, () => this.rerender());
+          return renderUIComponent(renderer, element, tailwindClasses);
         })}
       </div>
     `
@@ -230,6 +257,20 @@ export class ShaclRenderer extends TwLitElement {
     if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
       this.ui = await Promise.all(await constructUiComponents(this.shapesStore, this.constraintShape, this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
     }
+  }
+
+  setAutoCompleteEditorOpen(key: string, value: boolean) {
+    this.autoCompleteEditorOpen = {
+      ...this.autoCompleteEditorOpen,
+      [key]: value
+    };
+  }
+
+  setAutoCompleteEditorFilter(key: string, value: string) {
+    this.autoCompleteEditorFilter = {
+      ...this.autoCompleteEditorFilter,
+      [key]: value
+    };
   }
 }
 
