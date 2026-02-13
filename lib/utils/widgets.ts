@@ -49,14 +49,6 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                        return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes);
                    case shui("BlankNodeEditor"):
                        return renderBlankNodeEditor(renderer, uiComponent, value, index, classes);
-                   case shui("TextFieldEditor"):
-                       return renderTextFieldEditor(renderer, uiComponent, value, index, classes);
-                   case shui("TextFieldWithLangEditor"):
-                       return renderTextFieldWithLangEditor(renderer, uiComponent, value, index, classes);
-                   case shui("TextAreaEditor"):
-                       return renderTextAreaEditor(renderer, uiComponent, value, index, classes);
-                   case shui("NumberFieldEditor"):
-                       return renderNumberFieldEditor(renderer, uiComponent, value, index, classes);
                    case shui("BooleanSelectEditor"):
                        return renderBooleanSelectEditor(renderer, uiComponent, value, index, classes);
                    case shui("DatePickerEditor"):
@@ -67,6 +59,16 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                        return renderEnumSelectEditor(renderer, uiComponent, value, index, classes);
                    case shui("IRIEditor"):
                        return renderIRIEditor(renderer, uiComponent, value, index, classes);
+                   case shui("NumberFieldEditor"):
+                       return renderNumberFieldEditor(renderer, uiComponent, value, index, classes);
+                   case shui("TextAreaEditor"):
+                       return renderTextAreaEditor(renderer, uiComponent, value, index, classes);
+                   case shui("TextAreaWithLangEditor"):
+                       return renderTextAreaWithLangEditor(renderer, uiComponent, value, index, classes);
+                   case shui("TextFieldEditor"):
+                       return renderTextFieldEditor(renderer, uiComponent, value, index, classes);
+                   case shui("TextFieldWithLangEditor"):
+                       return renderTextFieldWithLangEditor(renderer, uiComponent, value, index, classes);
                    default:
                        return html`
                            <div class="relative">
@@ -278,138 +280,6 @@ function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent
    `;
 }
 
-function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
-   return html`
-       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass)) || '0'}`)}">
-           <input
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
-                   type="text"
-                   required
-                   .value="${value.value.value ?? ''}"
-                   placeholder="${uiComponent.label}"
-                   @change="${(e: Event) => {
-                       const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
-                   }}"
-           />
-           ${renderXIcon(uiComponent, classes, () => {
-               uiComponent.values.splice(index, 1);
-               renderer.rerender();
-           })}
-       </div>
-   `;
-}
-
-function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
-   // Just like a TextFieldEditor, but a grouped input with as second field, a small input for language tag
-   return html`
-       <div class="${twMerge('flex rounded-md shadow-sm', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass)) || '0'}`)}">
-           <!-- Literal value -->
-           <input
-                   id="${uiComponent.path}"
-                   type="text"
-                   required
-                   .value="${value.value.value ?? ''}"
-                   placeholder="${uiComponent.label}"
-                   class="${twMerge(
-                           classes.globalFieldClass,
-                           classes.globalInputFieldClass,
-                           classes.textFieldEditorClass,
-                           'rounded-r-none pr-3 mb-0'
-                   )}"
-                   @change="${(e: Event) => {
-                       const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
-                   }}"
-           />
-
-           <!-- @ separator -->
-           <span
-                   class="${twMerge(
-                           classes.globalFieldClass,
-                           classes.globalInputFieldClass,
-                           'rounded-none pr-3 items-center bg-gray-50 w-auto border-x-0 mb-0'
-                   )}"
-                   aria-hidden="true"
-           >@</span>
-
-           <!-- Language tag -->
-           <div class="relative">
-               <input
-                       type="text"
-                       required
-                       inputmode="latin"
-                       pattern="[a-zA-Z-]*"
-                       placeholder="Lang"
-                       .value="${(value.value as Literal).language ?? ''}"
-                       class="${twMerge(
-                               classes.globalFieldClass,
-                               classes.globalInputFieldClass,
-                               'w-25 rounded-l-none mb-0'
-                       )}"
-                       aria-label="Language tag"
-                       @change="${(e: Event) => {
-                           const input = e.target as HTMLInputElement;
-                           (value.value as Literal).language = input.value;
-                       }}"
-               />
-
-               ${renderXIcon(uiComponent, classes, () => {
-                   uiComponent.values.splice(index, 1);
-                   renderer.rerender();
-               })}
-           </div>
-       </div>
-   `;
-}
-
-function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
-   return html`
-       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass)) || '0'}`)}">
-           <textarea
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
-                   required
-                   rows="4"
-                   placeholder="${uiComponent.label}"
-                   @change="${(e: Event) => {
-                       const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
-                   }}"
-           >${value.value.value ?? ''}</textarea>
-           ${renderXIcon(uiComponent, classes, () => {
-               uiComponent.values.splice(index, 1);
-               renderer.rerender();
-           })}
-       </div>
-   `;
-}
-
-function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
-   return html`
-       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass)) || '0'}`)}">
-           <input
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
-                   required
-                   type="number"
-                   step="1"
-                   placeholder="${uiComponent.label}"
-                   .value="${value.value.value ?? ''}"
-                   @change="${(e: Event) => {
-                       const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
-                   }}"
-           />
-           ${renderXIcon(uiComponent, classes, () => {
-               uiComponent.values.splice(index, 1);
-               renderer.rerender();
-           })}
-       </div>
-   `;
-}
-
 function renderBooleanSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.labelClass, classes.booleanSelectEditorLabelClass)) || '0'}`)}">
@@ -554,20 +424,220 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
    `;
 }
 
+function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   return html`
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass)) || '0'}`)}">
+           <input
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass, 'mb-0')}"
+                   id="${uiComponent.path}"
+                   required
+                   type="number"
+                   step="1"
+                   placeholder="${uiComponent.label}"
+                   .value="${value.value.value ?? ''}"
+                   @change="${(e: Event) => {
+                       const input = e.target as HTMLInputElement;
+                       value.value.value = input.value;
+                   }}"
+           />
+           ${renderXIcon(uiComponent, classes, () => {
+               uiComponent.values.splice(index, 1);
+               renderer.rerender();
+           })}
+       </div>
+   `;
+}
+
+function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   return html`
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass)) || '0'}`)}">
+           <textarea
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass, 'mb-0')}"
+                   id="${uiComponent.path}"
+                   required
+                   rows="4"
+                   placeholder="${uiComponent.label}"
+                   @change="${(e: Event) => {
+                       const input = e.target as HTMLInputElement;
+                       value.value.value = input.value;
+                   }}"
+           >${value.value.value ?? ''}</textarea>
+           ${renderXIcon(uiComponent, classes, () => {
+               uiComponent.values.splice(index, 1);
+               renderer.rerender();
+           })}
+       </div>
+   `;
+}
+
+function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   return html`
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass)) || '0'}`)}">
+           <input
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0')}"
+                   id="${uiComponent.path}"
+                   type="text"
+                   required
+                   .value="${value.value.value ?? ''}"
+                   placeholder="${uiComponent.label}"
+                   @change="${(e: Event) => {
+                       const input = e.target as HTMLInputElement;
+                       value.value.value = input.value;
+                   }}"
+           />
+           ${renderXIcon(uiComponent, classes, () => {
+               uiComponent.values.splice(index, 1);
+               renderer.rerender();
+           })}
+       </div>
+   `;
+}
+
+function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   // Just like a TextFieldEditor, but a grouped input with as second field, a small input for language tag
+   return html`
+       <div class="${twMerge('flex rounded-md shadow-sm', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass)) || '0'}`)}">
+           <!-- Literal value -->
+           <input
+                   id="${uiComponent.path}"
+                   type="text"
+                   required
+                   .value="${value.value.value ?? ''}"
+                   placeholder="${uiComponent.label}"
+                   class="${twMerge(
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           classes.textFieldEditorClass,
+                           'rounded-r-none pr-3 mb-0'
+                   )}"
+                   @change="${(e: Event) => {
+                       const input = e.target as HTMLInputElement;
+                       value.value.value = input.value;
+                   }}"
+           />
+
+           <!-- @ separator -->
+           <span
+                   class="${twMerge(
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           'rounded-none pr-3 items-center bg-gray-50 w-auto border-x-0 mb-0'
+                   )}"
+                   aria-hidden="true"
+           >@</span>
+
+           <!-- Language tag -->
+           <div class="relative">
+               <input
+                       type="text"
+                       required
+                       inputmode="latin"
+                       pattern="[a-zA-Z-]*"
+                       placeholder="Lang"
+                       .value="${(value.value as Literal).language ?? ''}"
+                       class="${twMerge(
+                               classes.globalFieldClass,
+                               classes.globalInputFieldClass,
+                               'w-25 rounded-l-none mb-0'
+                       )}"
+                       aria-label="Language tag"
+                       @change="${(e: Event) => {
+                           const input = e.target as HTMLInputElement;
+                           (value.value as Literal).language = input.value;
+                       }}"
+               />
+
+               ${renderXIcon(uiComponent, classes, () => {
+                   uiComponent.values.splice(index, 1);
+                   renderer.rerender();
+               })}
+           </div>
+       </div>
+   `;
+}
+
+function renderTextAreaWithLangEditor(
+   renderer: ShaclRenderer,
+   uiComponent: UIComponent,
+   value: UIComponentValue,
+   index: number,
+   classes: TailwindClasses
+) {
+   return html`
+       <div class="${twMerge(
+               'flex rounded-md shadow-sm',
+               `mb-${findTailwindMarginBottomValue(
+                       twMerge(
+                               classes.globalFieldClass,
+                               classes.globalInputFieldClass,
+                               classes.textAreaEditorClass
+                       )
+               ) || '0'}`
+       )}">
+
+           <!-- Literal value (textarea) -->
+           <textarea
+                   id="${uiComponent.path}"
+                   required
+                   rows="4"
+                   placeholder="${uiComponent.label}"
+                   class="${twMerge(
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           classes.textAreaEditorClass,
+                           'rounded-r-none pr-3 mb-0 resize-y'
+                   )}"
+                   @change="${(e: Event) => {
+                       const input = e.target as HTMLTextAreaElement;
+                       value.value.value = input.value;
+                   }}"
+           >${value.value.value ?? ''}</textarea>
+
+           <!-- @ separator -->
+           <span
+                   class="${twMerge(
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           'rounded-none pr-3 items-center align-middle content-center bg-gray-50 w-auto border-x-0 mb-0'
+                   )}"
+                   aria-hidden="true"
+           >@</span>
+
+           <!-- Language tag -->
+           <div class="relative">
+               <input
+                       type="text"
+                       required
+                       inputmode="latin"
+                       pattern="[a-zA-Z-]*"
+                       placeholder="Lang"
+                       .value="${(value.value as Literal).language ?? ''}"
+                       class="${twMerge(
+                               classes.globalFieldClass,
+                               classes.globalInputFieldClass,
+                               'w-25 rounded-l-none mb-0 h-full'
+                       )}"
+                       @change="${(e: Event) => {
+                           const input = e.target as HTMLInputElement;
+                           (value.value as Literal).language = input.value;
+                       }}"
+               />
+
+               ${renderXIcon(uiComponent, classes, () => {
+                   uiComponent.values.splice(index, 1);
+                   renderer.rerender();
+               })}
+           </div>
+       </div>
+   `;
+}
+
 export function getDefaultTermForWidget(widget: string | undefined, options?: Term[]): Term {
    switch (widget) {
       case shui('AutoCompleteEditor'):
          return df.namedNode('');
       case shui('BlankNodeEditor'):
          return df.blankNode();
-      case shui('TextFieldEditor'):
-         return df.literal('');
-      case shui('TextFieldWithLangEditor'):
-         return df.literal('', 'en');
-      case shui('TextAreaEditor'):
-         return df.literal('');
-      case shui('NumberFieldEditor'):
-         return df.literal('0', XSD('integer'));
       case shui('BooleanSelectEditor'):
          return df.literal('false', XSD('boolean'));
       case shui('DatePickerEditor'):
@@ -578,6 +648,16 @@ export function getDefaultTermForWidget(widget: string | undefined, options?: Te
          return options && options.length > 0 ? cloneTerm(options[0]) : df.literal('');
       case shui('IRIEditor'):
          return df.namedNode('');
+      case shui('NumberFieldEditor'):
+         return df.literal('0', XSD('integer'));
+      case shui('TextAreaEditor'):
+         return df.literal('');
+      case shui('TextAreaWithLangEditor'):
+         return df.literal('', 'en');
+      case shui('TextFieldEditor'):
+         return df.literal('');
+      case shui('TextFieldWithLangEditor'):
+         return df.literal('', 'en');
       default:
          return df.literal('');
    }
