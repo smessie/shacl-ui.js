@@ -20,6 +20,9 @@ export type UIComponent = {
    maxCount?: number;
    class?: Term;
    instances?: LabeledValue[];
+   pattern?: string;
+   minInclusive?: string;
+   maxInclusive?: string;
 };
 
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence";

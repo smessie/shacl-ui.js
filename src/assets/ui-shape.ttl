@@ -39,6 +39,7 @@ ex:AgePropertyShape
     sh:name "Age" ;
     sh:datatype xsd:integer ;
     sh:minCount 0 ;
+    sh:minInclusive 0 ;
 .
 
 ex:VegetarianPropertyShape

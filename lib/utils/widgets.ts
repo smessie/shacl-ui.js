@@ -313,6 +313,8 @@ function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponen
                    id="${uiComponent.path}"
                    required
                    type="date"
+                   min="${uiComponent.minInclusive ?? nothing}"
+                   max="${uiComponent.maxInclusive ?? nothing}"
                    .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
@@ -335,6 +337,8 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
                    id="${uiComponent.path}"
                    required
                    type="datetime-local"
+                   min="${uiComponent.minInclusive ?? nothing}"
+                   max="${uiComponent.maxInclusive ?? nothing}"
                    .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
@@ -409,6 +413,7 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
                    id="${uiComponent.path}"
                    required
                    type="url"
+                   pattern="${uiComponent.pattern ?? nothing}"
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
@@ -434,6 +439,8 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
                    type="number"
                    step="${getDataType(uiComponent, value) === xsd('integer') ? '1' : 'any'}"
                    inputmode="${getDataType(uiComponent, value) === xsd('integer') ? 'numeric' : 'decimal'}"
+                   min="${uiComponent.minInclusive ?? nothing}"
+                   max="${uiComponent.maxInclusive ?? nothing}"
                    placeholder="${uiComponent.label}"
                    .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
@@ -478,6 +485,7 @@ function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0')}"
                    id="${uiComponent.path}"
                    type="text"
+                   pattern="${uiComponent.pattern ?? nothing}"
                    required
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
@@ -502,6 +510,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
            <input
                    id="${uiComponent.path}"
                    type="text"
+                   pattern="${uiComponent.pattern ?? nothing}"
                    required
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"

@@ -45,6 +45,9 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
       const clazz = shapesGraph.getQuads(uiProperty.object, SH("class"), null)[0]?.object;
       const node = shapesGraph.getQuads(uiProperty.object, SH("node"), null)[0]?.object;
       const defaultChild: UIComponent[] | undefined = node ? await constructUiComponents(shapesGraph, node.value, dataGraph, null, widgetScoringGraph) : undefined;
+      const pattern = shapesGraph.getQuads(uiProperty.object, SH("pattern"), null)[0]?.object.value;
+      const minInclusive = shapesGraph.getQuads(uiProperty.object, SH("minInclusive"), null)[0]?.object.value;
+      const maxInclusive = shapesGraph.getQuads(uiProperty.object, SH("maxInclusive"), null)[0]?.object.value;
 
       let values: UIComponentValue[] = [];
       let children: UIComponent[][] | undefined = undefined;
@@ -85,6 +88,9 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
          maxCount: maxCount ? parseInt(maxCount.value) : undefined,
          class: cloneTerm(clazz),
          instances: instances,
+         pattern: pattern,
+         minInclusive: minInclusive,
+         maxInclusive: maxInclusive,
       }
 
       // Check if sh:in is present for enumerations, and if so, get all options
