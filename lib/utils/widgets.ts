@@ -11,6 +11,43 @@ import {ShaclRenderer} from "../shacl-renderer.ts";
 
 const df: RDF.DataFactory = new DataFactory();
 
+export function renderUIComponents(renderer: ShaclRenderer, uiComponents: UIComponent[], classes: TailwindClasses): TemplateResult {
+   const grouped = new Map<string | undefined, UIComponent[]>();
+
+   for (const component of uiComponents) {
+      const key = component.group?.iri.value;
+      if (!grouped.has(key)) {
+         grouped.set(key, []);
+      }
+      grouped.get(key)!.push(component);
+   }
+
+   return html`
+       ${Array.from(grouped.entries()).map(([_, components]) => {
+           const group = components[0].group;
+
+           if (!group) {
+               return components.map(c =>
+                       renderUIComponent(renderer, c, classes)
+               );
+           }
+
+           return html`
+               <div class="${twMerge(classes.groupClass)}">
+                   <h2 class="${twMerge(classes.groupLabelClass)}">
+                       ${group.label}
+                   </h2>
+
+                   ${components.map(c => html`
+                       <div class="${twMerge(classes.groupElementClass)}">
+                           ${renderUIComponent(renderer, c, classes)}
+                       </div>
+                   `)}
+               </div>
+           `;
+       })}
+   `;
+}
 export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UIComponent, classes: TailwindClasses) {
    if (uiComponent.children) {
       return html`
@@ -28,7 +65,7 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                               renderer.rerender();
                           }, false)}
 
-                          ${childComponents.map(childComponent => renderUIComponent(renderer, childComponent, classes))}
+                          ${renderUIComponents(renderer, childComponents, classes)}
                       </div>
                   `;
               })}

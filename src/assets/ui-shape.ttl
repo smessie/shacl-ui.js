@@ -31,6 +31,7 @@ ex:NamePropertyShape
     sh:minCount 1 ;
     sh:maxCount 2 ;
     shui:editor shui:TextFieldEditor ;
+    sh:group ex:NameGroup ;
 .
 
 ex:AgePropertyShape
@@ -40,6 +41,8 @@ ex:AgePropertyShape
     sh:datatype xsd:integer ;
     sh:minCount 0 ;
     sh:minInclusive 0 ;
+    sh:order 2 ;
+    sh:group ex:PersonalGroup ;
 .
 
 ex:VegetarianPropertyShape
@@ -49,6 +52,7 @@ ex:VegetarianPropertyShape
     sh:description "Indicates whether the person is a vegetarian." ;
     sh:datatype xsd:boolean ;
     sh:minCount 0 ;
+    sh:group ex:PersonalGroup ;
 .
 
 ex:BirthDatePropertyShape
@@ -57,6 +61,7 @@ ex:BirthDatePropertyShape
     sh:name "Birth Date" ;
     sh:datatype xsd:dateTime ;
     sh:minCount 1 ;
+    sh:group ex:PersonalGroup ;
 .
 
 ex:MarriedAtPropertyShape
@@ -90,6 +95,7 @@ ex:ProfessionShape
     sh:path ex:profession ;
     sh:name "Profession" ;
     sh:class ex:Profession ;
+    sh:group ex:ProfessionalGroup ;
     shui:editor shui:AutoCompleteEditor ;
 .
 
@@ -98,6 +104,7 @@ ex:DepartmentShape
     sh:path [ sh:inversePath ex:member ] ;
     sh:name "Department" ;
     sh:class ex:Department ;
+    sh:group ex:ProfessionalGroup ;
     shui:editor shui:IRIEditor ;
 .
 
@@ -119,6 +126,7 @@ ex:AddressShape-postalCode
     sh:name "Postal Code" ;
     sh:datatype xsd:string ;
     sh:maxCount 1 ;
+    sh:group ex:AddressGroup ;
 .
 
 ex:AddressShape-street
@@ -127,6 +135,7 @@ ex:AddressShape-street
     sh:name "Street" ;
     sh:datatype xsd:string ;
     sh:maxCount 1 ;
+    sh:group ex:AddressGroup ;
 .
 
 ex:BlankNodePropertyShape
@@ -136,5 +145,27 @@ ex:BlankNodePropertyShape
     sh:nodeKind sh:BlankNode ;
     sh:description "A property that has a blank node as its value." ;
     shui:editor shui:BlankNodeEditor ;
+.
+
+ex:ProfessionalGroup
+    a sh:PropertyGroup ;
+    rdfs:label "Professional Information" ;
+    sh:order 3 ;
+.
+
+ex:PersonalGroup
+    a sh:PropertyGroup ;
+    rdfs:label "Personal Information" ;
+    sh:order 2 ;
+.
+
+ex:AddressGroup
+    a sh:PropertyGroup ;
+    sh:order 4 ;
+.
+
+ex:NameGroup
+    a sh:PropertyGroup ;
+    sh:order 1 ;
 .
 

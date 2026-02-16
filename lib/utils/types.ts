@@ -23,6 +23,8 @@ export type UIComponent = {
    pattern?: string;
    minInclusive?: string;
    maxInclusive?: string;
+   order?: number;
+   group?: UIGroup;
 };
 
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence";
@@ -31,6 +33,12 @@ export type UIComponentValue = {
    value: Term;
    widgets?: WidgetScore[];
    selectedWidget?: string;
+}
+
+export type UIGroup = {
+   iri: Term;
+   label?: string;
+   order?: number;
 }
 
 export type LabeledValue = {
@@ -69,4 +77,7 @@ export type TailwindClasses = {
    plusIconClass?: string;
    xIconClass?: string;
    childComponentClass?: string;
+   groupClass?: string;
+   groupLabelClass?: string;
+   groupElementClass?: string;
 };

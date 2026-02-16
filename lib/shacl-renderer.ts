@@ -4,7 +4,7 @@ import {TW} from "./shared/tailwindMixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./utils/rdf.ts";
 import {constructUiComponents, uiComponentsToQuads} from "./utils/ui.ts";
-import {renderUIComponent} from "./utils/widgets.ts";
+import {renderUIComponents} from "./utils/widgets.ts";
 import type {TailwindClasses, UIComponent} from "./utils/types.ts";
 import * as RDF from "rdf-js";
 import {type Quad} from "rdf-js";
@@ -158,6 +158,15 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   childComponentClass: string = 'ml-4 border-l pl-4 relative';
 
+  @property()
+  groupClass: string = 'md:flex md:gap-x-4 md:flex-wrap';
+
+  @property()
+  groupLabelClass: string = 'font-bold md:basis-full';
+
+  @property()
+  groupElementClass: string = 'md:flex-1';
+
   @state()
   ui: UIComponent[] = [];
 
@@ -195,13 +204,14 @@ export class ShaclRenderer extends TwLitElement {
       plusIconClass: this.plusIconClass,
       xIconClass: this.xIconClass,
       childComponentClass: this.childComponentClass,
+      groupClass: this.groupClass,
+      groupLabelClass: this.groupLabelClass,
+      groupElementClass: this.groupElementClass,
     }
     const renderer = this;
     return html`
       <div>
-        ${this.ui.map((element: UIComponent) => {
-          return renderUIComponent(renderer, element, tailwindClasses);
-        })}
+        ${renderUIComponents(renderer, this.ui, tailwindClasses)}
       </div>
     `
   }

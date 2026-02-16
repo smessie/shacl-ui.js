@@ -3,7 +3,7 @@ import {DataFactory} from "rdf-data-factory";
 import type {Quad, Quad_Object, Quad_Subject} from "rdf-js";
 import * as RDF from 'rdf-js';
 import type {NamedNode, Term} from "@rdfjs/types";
-import type {LabeledValue, PathType, UIComponent, UIComponentValue} from "./types.ts";
+import type {LabeledValue, PathType, UIComponent, UIComponentValue, UIGroup} from "./types.ts";
 import {DCTERMS, rdf, RDF as RDF_, RDFS, SH} from "./namespaces.ts";
 import {score} from "./score.ts";
 import {getDefaultTermForWidget} from "./widgets.ts";
@@ -48,6 +48,7 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
       const pattern = shapesGraph.getQuads(uiProperty.object, SH("pattern"), null)[0]?.object.value;
       const minInclusive = shapesGraph.getQuads(uiProperty.object, SH("minInclusive"), null)[0]?.object.value;
       const maxInclusive = shapesGraph.getQuads(uiProperty.object, SH("maxInclusive"), null)[0]?.object.value;
+      const order = shapesGraph.getQuads(uiProperty.object, SH("order"), null)[0]?.object.value;
 
       let values: UIComponentValue[] = [];
       let children: UIComponent[][] | undefined = undefined;
@@ -91,12 +92,19 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
          pattern: pattern,
          minInclusive: minInclusive,
          maxInclusive: maxInclusive,
+         order: order ? parseFloat(order) : undefined,
       }
 
       // Check if sh:in is present for enumerations, and if so, get all options
       const inQuad = shapesGraph.getQuads(uiProperty.object, SH("in"), null)[0];
       if (inQuad) {
          element.options = extractEnumOptions(inQuad, shapesGraph);
+      }
+
+      // Check if sh:group is present for grouping, and if so, extract group information
+      const groupQuad = shapesGraph.getQuads(uiProperty.object, SH("group"), null)[0];
+      if (groupQuad) {
+         element.group = extractGroup(groupQuad, shapesGraph);
       }
 
       // Check if sh:singleLine is present
@@ -123,7 +131,37 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
 
       elements.push(element);
    }
-   return elements;
+
+   // Sort elements first by their group order (if they have a group), then by their own order value, with elements without an order value coming last.
+   return elements.sort((a, b) => {
+      if (a.group?.order !== undefined && b.group?.order !== undefined) {
+         if (a.group.order !== b.group.order) {
+            return a.group.order - b.group.order;
+         } else {
+            // If group order is the same, sort by element order
+            if (a.order !== undefined && b.order !== undefined) {
+               return a.order - b.order;
+            } else if (a.order !== undefined) {
+               return -1;
+            } else {
+               return 1;
+            }
+         }
+      } else if (a.group?.order !== undefined) {
+         return -1;
+      } else if (b.group?.order !== undefined) {
+         return 1;
+      } else {
+         // If neither has a group order, sort by element order
+         if (a.order !== undefined && b.order !== undefined) {
+            return a.order - b.order;
+         } else if (a.order !== undefined) {
+            return -1;
+         } else {
+            return 1;
+         }
+      }
+   });
 }
 
 function extractEnumOptions(inQuad: Quad, shapesGraph: RdfStore<any, Quad>): Term[] {
@@ -143,6 +181,18 @@ function extractEnumOptions(inQuad: Quad, shapesGraph: RdfStore<any, Quad>): Ter
       }
    }
    return options;
+}
+
+function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGroup {
+   const groupNode = groupQuad.object;
+   const labelQuad = shapesGraph.getQuads(groupNode, RDFS("label"), null)[0] || shapesGraph.getQuads(groupNode, DCTERMS("title"), null)[0];
+   const order = shapesGraph.getQuads(groupNode, SH("order"), null)[0]?.object.value;
+
+   return {
+      iri: cloneTerm(groupNode),
+      label: labelQuad?.object.value,
+      order: order ? parseFloat(order) : undefined,
+   }
 }
 
 export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
