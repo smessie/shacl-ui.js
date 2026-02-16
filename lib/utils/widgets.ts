@@ -1,7 +1,7 @@
 import type {TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from 'tailwind-merge';
-import {shui, XSD} from "./namespaces.ts";
+import {shui, xsd, XSD} from "./namespaces.ts";
 import * as RDF from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
 import {findTailwindHeightValue, findTailwindMarginBottomValue} from "./tailwind.ts";
@@ -130,7 +130,7 @@ function renderPlusIcon(renderer: ShaclRenderer, uiComponent: UIComponent, class
    } else {
       onClick = () => {
          uiComponent.values.push({
-            value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent.options),
+            value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent),
             widgets: [],
             selectedWidget: uiComponent.defaultWidget,
          });
@@ -432,7 +432,8 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
                    id="${uiComponent.path}"
                    required
                    type="number"
-                   step="1"
+                   step="${getDataType(uiComponent, value) === xsd('integer') ? '1' : 'any'}"
+                   inputmode="${getDataType(uiComponent, value) === xsd('integer') ? 'numeric' : 'decimal'}"
                    placeholder="${uiComponent.label}"
                    .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
@@ -632,7 +633,7 @@ function renderTextAreaWithLangEditor(
    `;
 }
 
-export function getDefaultTermForWidget(widget: string | undefined, options?: Term[]): Term {
+export function getDefaultTermForWidget(widget: string | undefined, uiComponent: UIComponent): Term {
    switch (widget) {
       case shui('AutoCompleteEditor'):
          return df.namedNode('');
@@ -645,11 +646,11 @@ export function getDefaultTermForWidget(widget: string | undefined, options?: Te
       case shui('DateTimePickerEditor'):
          return df.literal('', XSD('dateTime'));
       case shui('EnumSelectEditor'):
-         return options && options.length > 0 ? cloneTerm(options[0]) : df.literal('');
+         return uiComponent.options && uiComponent.options.length > 0 ? cloneTerm(uiComponent.options[0]) : df.literal('');
       case shui('IRIEditor'):
          return df.namedNode('');
       case shui('NumberFieldEditor'):
-         return df.literal('0', XSD('integer'));
+         return df.literal('0', df.namedNode(uiComponent.datatype ?? xsd('decimal')));
       case shui('TextAreaEditor'):
          return df.literal('');
       case shui('TextAreaWithLangEditor'):
@@ -661,4 +662,11 @@ export function getDefaultTermForWidget(widget: string | undefined, options?: Te
       default:
          return df.literal('');
    }
+}
+
+function getDataType(uiComponent: UIComponent, value: UIComponentValue): string | undefined {
+   if (value.value.termType === "Literal") {
+      return (value.value as Literal).datatype.value;
+   }
+   return uiComponent.datatype;
 }

@@ -104,7 +104,7 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
 
       // Make sure we have at least minCount values, by adding empty values if needed.
       for (let i = values.length; i < (element.minCount ?? 0); i++) {
-         element.values.push({value: getDefaultTermForWidget(element.defaultWidget, element.options)})
+         element.values.push({value: getDefaultTermForWidget(element.defaultWidget, element)})
       }
 
       // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.

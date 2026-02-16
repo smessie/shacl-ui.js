@@ -271,6 +271,39 @@ PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
+shui:numberFieldEditorScore40
+    a shui:WidgetScore ;
+    shui:widget shui:NumberFieldEditor ;
+    shui:score 40 ;
+    shui:dataGraphShape shui:isNumericLiteral ;
+    shui:shapesGraphShape shui:prefersNumberFieldEditor ;
+.
+
+shui:numberFieldEditorScore20
+    a shui:WidgetScore ;
+    shui:widget shui:NumberFieldEditor ;
+    shui:score 20 ;
+    shui:dataGraphShape shui:isNumericLiteral ;
+.
+
+shui:numberFieldEditorScore10
+    a shui:WidgetScore ;
+    shui:widget shui:NumberFieldEditor ;
+    shui:score 10 ;
+    shui:shapesGraphShape shui:hasDatatypeNumericConstraint ;
+.
+
+shui:prefersNumberFieldEditor
+    a sh:NodeShape ;
+    sh:property [
+        sh:path shui:editor ;
+        sh:hasValue shui:NumberFieldEditor ;
+    ] ;
+.
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
 shui:richTextEditorScore40
     a shui:WidgetScore ;
     shui:widget shui:RichTextEditor ;
@@ -624,6 +657,24 @@ shui:hasImageFileExtension
     sh:flags "i" ;
 .
 
+shui:isNumericLiteral
+    a sh:NodeShape ;
+    sh:or (
+        [
+            sh:datatype xsd:decimal ;
+        ]
+        [
+            sh:datatype xsd:integer ;
+        ]
+        [
+            sh:datatype xsd:double ;
+        ]
+        [
+            sh:datatype xsd:float ;
+        ]
+    ) ;
+.
+
 
 #######################
 # Shapes Graph Shapes #
@@ -741,5 +792,26 @@ shui:hasDatatypeHTMLConstraint
     sh:property [
         sh:path sh:datatype ;
         sh:hasValue rdf:HTML ;
+    ] ;
+.
+
+shui:hasDatatypeNumericConstraint
+    a sh:NodeShape ;
+    sh:property [
+        sh:path sh:datatype ;
+        sh:or (
+            [
+                sh:hasValue xsd:decimal ;
+            ]
+            [
+                sh:hasValue xsd:integer ;
+            ]
+            [
+                sh:hasValue xsd:double ;
+            ]
+            [
+                sh:hasValue xsd:float ;
+            ]
+        ) ;
     ] ;
 .
