@@ -86,8 +86,8 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                        return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes);
                    case shui("BlankNodeEditor"):
                        return renderBlankNodeEditor(renderer, uiComponent, value, index, classes);
-                   case shui("BooleanSelectEditor"):
-                       return renderBooleanSelectEditor(renderer, uiComponent, value, index, classes);
+                   case shui("BooleanEditor"):
+                       return renderBooleanEditor(renderer, uiComponent, value, index, classes);
                    case shui("DatePickerEditor"):
                        return renderDatePickerEditor(renderer, uiComponent, value, index, classes);
                    case shui("DateTimePickerEditor"):
@@ -317,13 +317,13 @@ function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent
    `;
 }
 
-function renderBooleanSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    return html`
-       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.labelClass, classes.booleanSelectEditorLabelClass)) || '0'}`)}">
-           <label class="${twMerge(classes.labelClass, classes.booleanSelectEditorLabelClass)}"
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.labelClass, classes.booleanEditorLabelClass)) || '0'}`)}">
+           <label class="${twMerge(classes.labelClass, classes.booleanEditorLabelClass)}"
                   for="${uiComponent.path}-${index}">
                <input
-                       class="${twMerge(classes.globalFieldClass, classes.booleanSelectEditorClass, 'mb-0')}"
+                       class="${twMerge(classes.globalFieldClass, classes.booleanEditorClass, 'mb-0')}"
                        id="${uiComponent.path}-${index}"
                        type="checkbox"
                        ?checked="${value.value.value === "true"}"
@@ -685,7 +685,7 @@ export function getDefaultTermForWidget(widget: string | undefined, uiComponent:
          return df.namedNode('');
       case shui('BlankNodeEditor'):
          return df.blankNode();
-      case shui('BooleanSelectEditor'):
+      case shui('BooleanEditor'):
          return df.literal('false', XSD('boolean'));
       case shui('DatePickerEditor'):
          return df.literal('', XSD('date'));

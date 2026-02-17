@@ -67,8 +67,8 @@ export type TailwindClasses = {
    textFieldEditorClass?: string;
    textAreaEditorClass?: string;
    numberFieldEditorClass?: string;
-   booleanSelectEditorClass?: string;
-   booleanSelectEditorLabelClass?: string;
+   booleanEditorClass?: string;
+   booleanEditorLabelClass?: string;
    datePickerEditorClass?: string;
    dateTimePickerEditorClass?: string;
    enumSelectEditorClass?: string;
