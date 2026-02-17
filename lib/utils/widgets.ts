@@ -49,31 +49,6 @@ export function renderUIComponents(renderer: ShaclRenderer, uiComponents: UIComp
    `;
 }
 export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UIComponent, classes: TailwindClasses) {
-   if (uiComponent.children) {
-      return html`
-          <div class="mb-4">
-              ${renderPlusIcon(renderer, uiComponent, classes)}
-
-              ${renderLabel(uiComponent, classes)}
-
-              ${uiComponent.children.map((childComponents: UIComponent[], index: number): TemplateResult => {
-                  return html`
-                      <div class="${twMerge(classes.childComponentClass)}">
-                          ${renderXIcon(uiComponent, classes, () => {
-                              uiComponent.children!.splice(index, 1);
-                              uiComponent.values.splice(index, 1);
-                              renderer.rerender();
-                          }, false)}
-
-                          ${renderUIComponents(renderer, childComponents, classes)}
-                      </div>
-                  `;
-              })}
-
-              ${renderDescription(uiComponent, classes)}
-          </div>
-      `;
-   }
    return html`
        <div class="mb-4">
            ${renderPlusIcon(renderer, uiComponent, classes)}
@@ -92,6 +67,8 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                        return renderDatePickerEditor(renderer, uiComponent, value, index, classes);
                    case shui("DateTimePickerEditor"):
                        return renderDateTimePickerEditor(renderer, uiComponent, value, index, classes);
+                   case shui("DetailsEditor"):
+                       return renderDetailsEditor(renderer, uiComponent, value, index, classes);
                    case shui("EnumSelectEditor"):
                        return renderEnumSelectEditor(renderer, uiComponent, value, index, classes);
                    case shui("IRIEditor"):
@@ -149,30 +126,13 @@ function renderLabel(uiComponent: UIComponent, classes: TailwindClasses) {
 
 function renderPlusIcon(renderer: ShaclRenderer, uiComponent: UIComponent, classes: TailwindClasses) {
    let onClick: () => void;
-   if (uiComponent.node) {
-      // A new children component must be added on click.
-      onClick = () => {
-         const newFocusNode = df.namedNode(`urn:uuid:${crypto.randomUUID()}`);
-         const newChildComponents: UIComponent[] = (uiComponent.defaultChild ?? []).map(child => {
-            const clonedChild = structuredClone(child);
-            clonedChild.focusNode = newFocusNode;
-            return clonedChild;
-         });
-         uiComponent.children = [...(uiComponent.children || []), newChildComponents];
-         uiComponent.values.push({
-            value: newFocusNode,
-         });
-         renderer.rerender();
-      }
-   } else {
-      onClick = () => {
-         uiComponent.values.push({
-            value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent),
-            widgets: [],
-            selectedWidget: uiComponent.defaultWidget,
-         });
-         renderer.rerender();
-      }
+   onClick = () => {
+      uiComponent.values.push({
+         value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent),
+         widgets: [],
+         selectedWidget: uiComponent.defaultWidget,
+      });
+      renderer.rerender();
    }
 
    return uiComponent.maxCount === undefined || uiComponent.values.length < uiComponent.maxCount ? html`
@@ -386,6 +346,21 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
+       </div>
+   `;
+}
+
+function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, _value: UIComponentValue, index: number, classes: TailwindClasses) {
+   const childComponents = uiComponent.children ? uiComponent.children[index] : [];
+   return html`
+       <div class="${twMerge(classes.detailsEditorClass)}">
+           ${renderXIcon(uiComponent, classes, () => {
+               uiComponent.children!.splice(index, 1);
+               uiComponent.values.splice(index, 1);
+               renderer.rerender();
+           }, false)}
+
+           ${renderUIComponents(renderer, childComponents, classes)}
        </div>
    `;
 }
@@ -691,6 +666,17 @@ export function getDefaultTermForWidget(widget: string | undefined, uiComponent:
          return df.literal('', XSD('date'));
       case shui('DateTimePickerEditor'):
          return df.literal('', XSD('dateTime'));
+      case shui('DetailsEditor'):
+         const newFocusNode = df.namedNode(`urn:uuid:${crypto.randomUUID()}`);
+         if (uiComponent.children != undefined) {
+            const newChildComponents: UIComponent[] = (uiComponent.defaultChild ?? []).map(child => {
+               const clonedChild = structuredClone(child);
+               clonedChild.focusNode = newFocusNode;
+               return clonedChild;
+            });
+            uiComponent.children = [...(uiComponent.children || []), newChildComponents];
+         }
+         return newFocusNode;
       case shui('EnumSelectEditor'):
          return uiComponent.options && uiComponent.options.length > 0 ? cloneTerm(uiComponent.options[0]) : df.literal('');
       case shui('IRIEditor'):

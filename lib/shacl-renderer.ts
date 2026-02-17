@@ -34,12 +34,13 @@ const TwLitElement = TW(LitElement);
  * @textFieldEditorClass Tailwind CSS classes applied to text field editors.
  * @textAreaEditorClass Tailwind CSS classes applied to text area editors.
  * @numberFieldEditorClass Tailwind CSS classes applied to number field editors.
- * @booleanSelectEditorClass Tailwind CSS classes applied to boolean select editors.
- * @booleanSelectEditorLabelClass Tailwind CSS classes applied to boolean select editor labels.
+ * @booleanEditorClass Tailwind CSS classes applied to boolean select editors.
+ * @booleanEditorLabelClass Tailwind CSS classes applied to boolean select editor labels.
  * @datePickerEditorClass Tailwind CSS classes applied to date picker editors.
  * @dateTimePickerEditorClass Tailwind CSS classes applied to date-time picker editors.
  * @enumSelectEditorClass Tailwind CSS classes applied to enumeration select editors.
  * @enumSelectEditorIconClass Tailwind CSS classes applied to enumeration select editor icons.
+ * @detailsEditorClass Tailwind CSS classes applied to details editors used for editing nested shapes.
  * @plusIconClass Tailwind CSS classes applied to plus icons used for adding values.
  * @xIconClass Tailwind CSS classes applied to x icons used for removing values.
  */
@@ -132,10 +133,10 @@ export class ShaclRenderer extends TwLitElement {
   numberFieldEditorClass: string = '';
 
   @property()
-  booleanSelectEditorClass: string = 'mr-2';
+  booleanEditorClass: string = 'mr-2';
 
   @property()
-  booleanSelectEditorLabelClass: string = '';
+  booleanEditorLabelClass: string = '';
 
   @property()
   datePickerEditorClass: string = '';
@@ -150,13 +151,13 @@ export class ShaclRenderer extends TwLitElement {
   enumSelectEditorIconClass: string = 'h-4 w-4 text-gray-500';
 
   @property()
+  detailsEditorClass: string = 'ml-4 border-l pl-4 relative';
+
+  @property()
   plusIconClass: string = 'size-6 float-right text-green-600';
 
   @property()
   xIconClass: string = 'size-5 -mr-1 mt-4';
-
-  @property()
-  childComponentClass: string = 'ml-4 border-l pl-4 relative';
 
   @property()
   groupClass: string = 'md:flex md:gap-x-4 md:flex-wrap';
@@ -195,15 +196,15 @@ export class ShaclRenderer extends TwLitElement {
       textFieldEditorClass: this.textFieldEditorClass,
       textAreaEditorClass: this.textAreaEditorClass,
       numberFieldEditorClass: this.numberFieldEditorClass,
-      booleanSelectEditorClass: this.booleanSelectEditorClass,
-      booleanSelectEditorLabelClass: this.booleanSelectEditorLabelClass,
+      booleanEditorClass: this.booleanEditorClass,
+      booleanEditorLabelClass: this.booleanEditorLabelClass,
       datePickerEditorClass: this.datePickerEditorClass,
       dateTimePickerEditorClass: this.dateTimePickerEditorClass,
       enumSelectEditorClass: this.enumSelectEditorClass,
       enumSelectEditorIconClass: this.enumSelectEditorIconClass,
       plusIconClass: this.plusIconClass,
       xIconClass: this.xIconClass,
-      childComponentClass: this.childComponentClass,
+      detailsEditorClass: this.detailsEditorClass,
       groupClass: this.groupClass,
       groupLabelClass: this.groupLabelClass,
       groupElementClass: this.groupElementClass,

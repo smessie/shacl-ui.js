@@ -113,6 +113,7 @@ ex:AddressShape
     sh:path schema:address ;
     sh:name "Address" ;
     sh:node ex:AddressNodeShape ;
+    shui:editor shui:DetailsEditor ;
 .
 
 ex:AddressNodeShape

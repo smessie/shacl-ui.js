@@ -74,9 +74,9 @@ export type TailwindClasses = {
    enumSelectEditorClass?: string;
    enumSelectEditorIconClass?: string;
    iriEditorClass?: string;
+   detailsEditorClass?: string;
    plusIconClass?: string;
    xIconClass?: string;
-   childComponentClass?: string;
    groupClass?: string;
    groupLabelClass?: string;
    groupElementClass?: string;
