@@ -1,7 +1,7 @@
 import type {Term} from "@rdfjs/types";
 import type {RdfStore} from "rdf-stores";
-import type {UIComponent, WidgetScore} from "./types.ts";
-import {RDF, SHUI, shui, xsd} from "./namespaces.ts";
+import type {WidgetScore} from "./types.ts";
+import {RDF, SHUI} from "./namespaces.ts";
 // @ts-ignore
 import {Validator} from "shacl-engine";
 import {DataFactory} from "rdf-data-factory";
@@ -110,86 +110,4 @@ async function scoreValidation(focusNode: Term, targetGraph: RdfStore, shapes: T
    } catch (error) {
       return false;
    }
-}
-
-export function scoreHardcoded(uiComponent: UIComponent): WidgetScore[] {
-   // Skip the scoring function for now
-   const widgets: WidgetScore[] = [];
-   if (uiComponent.datatype === xsd("string") && uiComponent.singleLine !== false) {
-      widgets.push(...[
-         {
-            widget: shui("TextFieldEditor"),
-            source: shui("TextFieldEditorScore10"),
-            score: 10
-         },
-         {
-            widget: shui("TextFieldWithLangEditor"),
-            source: shui("TextFieldWithLangEditorScore1"),
-            score: 1
-         },
-      ]);
-   }
-   if (uiComponent.datatype === xsd("string") && uiComponent.singleLine !== true) {
-      widgets.push(...[{
-         widget: shui("TextAreaEditor"),
-         source: shui("TextAreaEditorScore10"),
-         score: 10
-      }, {
-         widget: shui("TextAreaWithLangEditor"),
-         source: shui("TextAreaWithLangEditorScore1"),
-         score: 1
-      }]);
-   }
-   if (uiComponent.datatype === xsd("boolean")) {
-      widgets.push({
-         widget: shui("BooleanSelectEditor"),
-         source: shui("BooleanSelectEditorScore10"),
-         score: 10
-      });
-   }
-   if (uiComponent.datatype === xsd("integer")) {
-      widgets.push({
-         widget: shui("NumberFieldEditor"),
-         source: shui("NumberFieldEditorScore10"),
-         score: 10
-      });
-   }
-   if (uiComponent.datatype === xsd("date")) {
-      widgets.push(
-         {
-            widget: shui("DatePickerEditor"),
-            source: shui("DatePickerEditorScore10"),
-            score: 10
-         });
-   }
-   if (uiComponent.datatype === xsd("dateTime")) {
-      widgets.push(
-         {
-            widget: shui("DateTimePickerEditor"),
-            source: shui("DateTimePickerEditorScore10"),
-            score: 10
-         });
-   }
-   if (uiComponent.options && uiComponent.options.length > 0) {
-      widgets.push(
-         {
-            widget: shui("EnumSelectEditor"),
-            source: shui("EnumSelectEditorScore40"),
-            score: 40
-         });
-   }
-
-   // Always add a TextFieldEditor with score 0 as a fallback option
-   widgets.push(
-      {
-         widget: shui("TextFieldEditor"),
-         source: shui("TextFieldEditorScore0"),
-         score: 0
-      }
-   );
-
-   // Select the highest scoring widget
-   widgets.sort((a, b) => b.score - a.score);
-
-   return widgets;
 }
