@@ -58,6 +58,11 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
             // If sh:node is present, we need to recursively construct UI components for the nested shape
             children = await Promise.all(pathValues.map(async (object) => constructUiComponents(shapesGraph, node.value, dataGraph, object, widgetScoringGraph)));
          }
+         // Also consider child properties defined directly on the PropertyShape.
+         if (shapesGraph.getQuads(uiProperty.object, SH("property"), null).length > 0) {
+            const directChildren = await Promise.all(pathValues.map(async (object) => constructUiComponents(shapesGraph, uiProperty.object.value, dataGraph, object, widgetScoringGraph)));
+            children = [...(children ?? []), ...directChildren];
+         }
          values = pathValues.map(object => ({value: cloneTerm(object)}));
       } else if (pathType === "inverse") {
          const pathValues = path && focusNode ? dataGraph.getQuads(null, df.namedNode(path.value), focusNode).map(quad => quad.subject) : [];
@@ -65,6 +70,12 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
             // If sh:node is present, we need to recursively construct UI components for the nested shape
             children = await Promise.all(pathValues.map(async (subject) => constructUiComponents(shapesGraph, node.value, dataGraph, subject, widgetScoringGraph)));
          }
+         // Also consider child properties defined directly on the PropertyShape.
+         if (shapesGraph.getQuads(uiProperty.object, SH("property"), null).length > 0) {
+            const directChildren = await Promise.all(pathValues.map(async (subject) => constructUiComponents(shapesGraph, uiProperty.object.value, dataGraph, subject, widgetScoringGraph)));
+            children = [...(children ?? []), ...directChildren];
+         }
+
          values = pathValues.map(subject => ({value: cloneTerm(subject)}));
       }
 
