@@ -52,6 +52,22 @@ export function DCTERMS(property: string): NamedNode {
    return df.namedNode(dcterms(property));
 }
 
+export function skos(property: string): string {
+   return `http://www.w3.org/2004/02/skos/core#${property}`;
+}
+
+export function SKOS(property: string): NamedNode {
+   return df.namedNode(skos(property));
+}
+
+export function schema(property: string): string {
+   return `https://schema.org/${property}`;
+}
+
+export function SCHEMA(property: string): NamedNode {
+   return df.namedNode(schema(property));
+}
+
 export function prefix(full?: string): string | undefined {
    if (!full) return full;
    full = full.replace('http://www.w3.org/ns/shacl#', 'sh:');

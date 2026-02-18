@@ -87,7 +87,7 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                        return html`
                            <div class="relative">
                                <label class="block text-gray-700 text-sm font-bold mb-2">
-                                   ${uiComponent.label} (${uiComponent.path}) - Unsupported widget:
+                                   ${uiComponent.label} (${value.path.path}) - Unsupported widget:
                                    ${value.selectedWidget ?? 'none'}
                                </label>
                                ${renderXIcon(uiComponent, {
@@ -117,8 +117,7 @@ function renderDescription(uiComponent: UIComponent, classes: TailwindClasses) {
 
 function renderLabel(uiComponent: UIComponent, classes: TailwindClasses) {
    return html`
-       <label class="${twMerge(classes.labelClass)}"
-              for="${uiComponent.path}">
+       <label class="${twMerge(classes.labelClass)}">
            ${uiComponent.label}
        </label>
    `;
@@ -129,6 +128,7 @@ function renderPlusIcon(renderer: ShaclRenderer, uiComponent: UIComponent, class
    onClick = () => {
       uiComponent.values.push({
          value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent),
+         path: uiComponent.paths[0],
          widgets: [],
          selectedWidget: uiComponent.defaultWidget,
       });
@@ -166,7 +166,7 @@ function renderAutoCompleteEditor(
    index: number,
    classes: TailwindClasses,
 ) {
-   const key = `${uiComponent.path}-${index}`;
+   const key = `${value.path.path}-${index}`;
 
    const open = renderer.autoCompleteEditorOpen[key] ?? false;
    const filterText = renderer.autoCompleteEditorFilter[key] ?? '';
@@ -281,10 +281,10 @@ function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, 
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.labelClass, classes.booleanEditorLabelClass)) || '0'}`)}">
            <label class="${twMerge(classes.labelClass, classes.booleanEditorLabelClass)}"
-                  for="${uiComponent.path}-${index}">
+                  for="${value.path.path}-${index}">
                <input
                        class="${twMerge(classes.globalFieldClass, classes.booleanEditorClass, 'mb-0')}"
-                       id="${uiComponent.path}-${index}"
+                       id="${value.path.path}-${index}"
                        type="checkbox"
                        ?checked="${value.value.value === "true"}"
                        @change="${(e: Event) => {
@@ -307,7 +307,7 @@ function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponen
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    required
                    type="date"
                    min="${uiComponent.minInclusive ?? nothing}"
@@ -331,7 +331,7 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    required
                    type="datetime-local"
                    min="${uiComponent.minInclusive ?? nothing}"
@@ -369,7 +369,7 @@ function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponen
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.enumSelectEditorClass)) || '0'}`)}">
            <select
-                   id="${uiComponent.path}-${index}"
+                   id="${value.path.path}-${index}"
                    required
                    class="${twMerge(
                            classes.globalFieldClass,
@@ -422,7 +422,7 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    required
                    type="url"
                    pattern="${uiComponent.pattern ?? nothing}"
@@ -446,7 +446,7 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    required
                    type="number"
                    step="${getDataType(uiComponent, value) === xsd('integer') ? '1' : 'any'}"
@@ -473,7 +473,7 @@ function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass)) || '0'}`)}">
            <textarea
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    required
                    rows="4"
                    placeholder="${uiComponent.label}"
@@ -495,7 +495,7 @@ function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0')}"
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    type="text"
                    pattern="${uiComponent.pattern ?? nothing}"
                    required
@@ -520,7 +520,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
        <div class="${twMerge('flex rounded-md shadow-sm', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass)) || '0'}`)}">
            <!-- Literal value -->
            <input
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    type="text"
                    pattern="${uiComponent.pattern ?? nothing}"
                    required
@@ -599,7 +599,7 @@ function renderTextAreaWithLangEditor(
 
            <!-- Literal value (textarea) -->
            <textarea
-                   id="${uiComponent.path}"
+                   id="${value.path.path}"
                    required
                    rows="4"
                    placeholder="${uiComponent.label}"

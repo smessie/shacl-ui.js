@@ -3,8 +3,7 @@ import type {Term} from "@rdfjs/types";
 export type UIComponent = {
    iri: Term;
    focusNode?: Term;
-   path: string;
-   pathType: PathType;
+   paths: Path[];
    node?: Term;
    label?: string;
    description?: string;
@@ -29,8 +28,14 @@ export type UIComponent = {
 
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence";
 
+export type Path = {
+   path: string;
+   type: PathType;
+};
+
 export type UIComponentValue = {
    value: Term;
+   path: Path;
    widgets?: WidgetScore[];
    selectedWidget?: string;
 }
