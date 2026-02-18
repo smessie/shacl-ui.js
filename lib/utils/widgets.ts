@@ -166,7 +166,7 @@ function renderAutoCompleteEditor(
    index: number,
    classes: TailwindClasses,
 ) {
-   const key = `${value.path.path}-${index}`;
+   const key = `${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
    const open = renderer.autoCompleteEditorOpen[key] ?? false;
    const filterText = renderer.autoCompleteEditorFilter[key] ?? '';
@@ -365,32 +365,52 @@ function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, 
    `;
 }
 
-function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderEnumSelectEditor(
+   renderer: ShaclRenderer,
+   uiComponent: UIComponent,
+   value: UIComponentValue,
+   index: number,
+   classes: TailwindClasses
+) {
+   const key = `${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+
+   const open = renderer.enumSelectEditorOpen[key] ?? false;
+
+   const options = uiComponent.options ?? [];
+
+   const selectedOption = options.find(
+      o => o.value.value === value.value.value
+   );
+
    return html`
-       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.enumSelectEditorClass)) || '0'}`)}">
-           <select
+       <div class="${twMerge(
+               'relative',
+               `mb-${findTailwindMarginBottomValue(
+                       twMerge(
+                               classes.globalFieldClass,
+                               classes.globalInputFieldClass,
+                               classes.enumSelectEditorClass
+                       )
+               ) || '0'}`
+       )}">
+
+           <!-- Trigger button -->
+           <div
                    id="${value.path.path}-${index}"
-                   required
                    class="${twMerge(
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
                            classes.enumSelectEditorClass,
-                           'appearance-none pr-10 mb-0'
+                           'appearance-none pr-10 mb-0 cursor-pointer flex items-center'
                    )}"
-                   @change="${(e: Event) => {
-                       const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
-                   }}"
+                   @click="${() =>
+                           renderer.setEnumSelectEditorOpen?.(key, !open)
+                   }"
            >
-               ${uiComponent.options?.map(option => html`
-                   <option
-                           value="${option.value}"
-                           ?selected="${value.value?.equals(option)}"
-                   >
-                       ${option.value}
-                   </option>
-               `)}
-           </select>
+                <span class="flex-1">
+                    ${selectedOption?.label ?? uiComponent.label}
+                </span>
+           </div>
 
            <!-- Chevron icon -->
            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-8">
@@ -409,10 +429,45 @@ function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponen
                    />
                </svg>
            </div>
+
            ${renderXIcon(uiComponent, classes, () => {
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
+
+           <!-- Dropdown -->
+           ${open ? html`
+                <ul class="${twMerge(
+                   classes.autoCompleteEditorDropdownClass,
+                   'absolute z-50 w-full mt-1'
+           )}">
+                    ${options.map(option => html`
+                        <li
+                            class="${twMerge(
+                   classes.autoCompleteEditorOptionClass,
+                   option.value.value === value.value.value
+                           ? 'bg-gray-100'
+                           : ''
+           )}"
+                            @mousedown="${() => {
+               value.value.value = option.value.value;
+               renderer.setEnumSelectEditorOpen(key, false);
+           }}"
+                        >
+                            <div class="${twMerge(classes.autoCompleteEditorLabelClass)}">
+                                ${option.label}
+                            </div>
+
+                            ${option.description ? html`
+                                <div class="${twMerge(classes.autoCompleteEditorDescriptionClass)}">
+                                    ${option.description}
+                                </div>
+                            ` : nothing}
+                        </li>
+                    `)}
+                </ul>
+            ` : ''}
+
        </div>
    `;
 }
@@ -678,7 +733,7 @@ export function getDefaultTermForWidget(widget: string | undefined, uiComponent:
          }
          return newFocusNode;
       case shui('EnumSelectEditor'):
-         return uiComponent.options && uiComponent.options.length > 0 ? cloneTerm(uiComponent.options[0]) : df.literal('');
+         return uiComponent.options && uiComponent.options.length > 0 ? cloneTerm(uiComponent.options[0].value) : df.literal('');
       case shui('IRIEditor'):
          return df.namedNode('');
       case shui('NumberFieldEditor'):

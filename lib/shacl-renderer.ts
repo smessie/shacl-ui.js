@@ -177,6 +177,9 @@ export class ShaclRenderer extends TwLitElement {
   @state()
   autoCompleteEditorFilter: Record<string, string> = {};
 
+  @state()
+  enumSelectEditorOpen: Record<string, boolean> = {};
+
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
   }
@@ -284,6 +287,13 @@ export class ShaclRenderer extends TwLitElement {
   setAutoCompleteEditorFilter(key: string, value: string) {
     this.autoCompleteEditorFilter = {
       ...this.autoCompleteEditorFilter,
+      [key]: value
+    };
+  }
+
+  setEnumSelectEditorOpen(key: string, value: boolean) {
+    this.enumSelectEditorOpen = {
+      ...this.enumSelectEditorOpen,
       [key]: value
     };
   }

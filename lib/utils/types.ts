@@ -12,7 +12,7 @@ export type UIComponent = {
    values: UIComponentValue[];
    children?: UIComponent[][];
    defaultChild?: UIComponent[];
-   options?: Term[];
+   options?: LabeledValue[];
    singleLine?: boolean;
    notInShapesGraph?: boolean;
    minCount?: number;

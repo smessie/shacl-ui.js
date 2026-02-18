@@ -1,4 +1,4 @@
-import type {RdfStore} from "rdf-stores";
+import {RdfStore} from "rdf-stores";
 import {DataFactory} from "rdf-data-factory";
 import type {Quad, Quad_Object, Quad_Subject} from "rdf-js";
 import * as RDF from 'rdf-js';
@@ -8,6 +8,7 @@ import {DCTERMS, rdf, RDF as RDF_, RDFS, SCHEMA, SH, SKOS} from "./namespaces.ts
 import {score} from "./score.ts";
 import {getDefaultTermForWidget} from "./widgets.ts";
 import {cloneTerm} from "./rdf.ts";
+import {rdfDereferencer} from "rdf-dereference";
 
 const df: RDF.DataFactory = new DataFactory();
 
@@ -75,7 +76,7 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
 
       let instances: LabeledValue[] | undefined = undefined;
       if (clazz) {
-         instances = dataGraph.getQuads(null, RDF_("type"), clazz).map(quad => toLabeledValue(quad.subject, dataGraph));
+         instances = await Promise.all(dataGraph.getQuads(null, RDF_("type"), clazz).map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph)));
       }
 
       const element: UIComponent = {
@@ -102,7 +103,16 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
       // Check if sh:in is present for enumerations, and if so, get all options
       const inQuad = shapesGraph.getQuads(uiProperty.object, SH("in"), null)[0];
       if (inQuad) {
-         element.options = extractEnumOptions(inQuad, shapesGraph);
+         element.options = await Promise.all(extractEnumOptions(inQuad, shapesGraph).map(async (option) => {
+            if (option.termType === "NamedNode" || option.termType === "BlankNode") {
+               return await toLabeledValue(option, dataGraph, shapesGraph);
+            } else {
+               return {
+                  value: cloneTerm(option),
+                  label: option.value,
+               };
+            }
+         }));
       }
 
       // Check if sh:group is present for grouping, and if so, extract group information
@@ -262,12 +272,46 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
    return quads;
 }
 
-function toLabeledValue(term: Term, dataGraph: RdfStore): LabeledValue {
-   const labelQuad = dataGraph.getQuads(term, RDFS("label"), null)[0]
+async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfStore): Promise<LabeledValue> {
+   let labelQuad = dataGraph.getQuads(term, RDFS("label"), null)[0]
       || dataGraph.getQuads(term, DCTERMS("title"), null)[0]
       || dataGraph.getQuads(term, SKOS("prefLabel"), null)[0]
-      || dataGraph.getQuads(term, SCHEMA("name"), null)[0];
-   const descriptionQuad = dataGraph.getQuads(term, RDFS("comment"), null)[0] || dataGraph.getQuads(term, DCTERMS("description"), null)[0];
+      || dataGraph.getQuads(term, SCHEMA("name"), null)[0]
+      // Or try to retrieve label from shapes graph if not found in data graph.
+      || shapesGraph.getQuads(term, RDFS("label"), null)[0]
+      || shapesGraph.getQuads(term, DCTERMS("title"), null)[0]
+      || shapesGraph.getQuads(term, SKOS("prefLabel"), null)[0]
+      || shapesGraph.getQuads(term, SCHEMA("name"), null)[0];
+
+   let descriptionQuad = dataGraph.getQuads(term, RDFS("comment"), null)[0]
+      || dataGraph.getQuads(term, DCTERMS("description"), null)[0]
+      // Or try to retrieve description from shapes graph if not found in data graph.
+      || shapesGraph.getQuads(term, RDFS("comment"), null)[0]
+      || shapesGraph.getQuads(term, DCTERMS("description"), null)[0];
+
+   // If still no label found, we will try to dereference the term and try to get the label from the dereferenced graph.
+   if ((!labelQuad || !descriptionQuad) && term.termType === "NamedNode") {
+      try {
+         const dereferencedGraph = RdfStore.createDefault();
+         const dereferencedOutput = await rdfDereferencer.dereference(term.value);
+         await new Promise((resolve, reject) => {
+            dereferencedGraph.import(dereferencedOutput.data).on("end", resolve).on("error", reject);
+         });
+         if (!labelQuad) {
+            labelQuad = dereferencedGraph.getQuads(term, RDFS("label"), null)[0]
+               || dereferencedGraph.getQuads(term, DCTERMS("title"), null)[0]
+               || dereferencedGraph.getQuads(term, SKOS("prefLabel"), null)[0]
+               || dereferencedGraph.getQuads(term, SCHEMA("name"), null)[0];
+         }
+         if (!descriptionQuad) {
+            descriptionQuad = dereferencedGraph.getQuads(term, RDFS("comment"), null)[0]
+               || dereferencedGraph.getQuads(term, DCTERMS("description"), null)[0];
+         }
+      } catch (error) {
+         // Ignore dereferencing errors.
+      }
+   }
+
    return {
       value: cloneTerm(term),
       label: labelQuad ? labelQuad.object.value : term.value,
