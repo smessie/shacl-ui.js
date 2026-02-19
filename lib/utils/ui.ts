@@ -128,12 +128,8 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
       }
 
       // Configure default widget based on the shape only.
-      element.defaultWidget = (await score(null, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph))[0]?.widget;
-
-      // Make sure we have at least minCount values, by adding empty values if needed.
-      for (let i = values.length; i < (element.minCount ?? 0); i++) {
-         element.values.push({value: getDefaultTermForWidget(element.defaultWidget, element), path: paths[0]})
-      }
+      const defaultWidgetScores = await score(null, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph);
+      element.defaultWidget = defaultWidgetScores[0]?.widget;
 
       // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
       element.values = await Promise.all(element.values.map(async (value) => {
@@ -142,6 +138,16 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
          value.widgets = widgetScores;
          return value;
       }));
+
+      // Make sure we have at least minCount values, by adding empty values if needed.
+      for (let i = values.length; i < (element.minCount ?? 0); i++) {
+         element.values.push({
+            value: getDefaultTermForWidget(element.defaultWidget, element),
+            path: paths[0],
+            selectedWidget: element.defaultWidget,
+            widgets: defaultWidgetScores,
+         });
+      }
 
       elements.push(element);
    }
