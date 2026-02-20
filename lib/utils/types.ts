@@ -1,6 +1,7 @@
 import type {Term} from "@rdfjs/types";
 
 export type UIComponent = {
+   uuid: string;
    iri: Term;
    focusNode?: Term;
    paths: Path[];
@@ -85,4 +86,8 @@ export type TailwindClasses = {
    groupClass?: string;
    groupLabelClass?: string;
    groupElementClass?: string;
+   alternativePathDescriptionClass?: string;
+   alternativePathSelectClass?: string;
+   alternativePathOptionClass?: string;
+   alternativePathOptionSelectedClass?: string;
 };

@@ -94,10 +94,10 @@ export class ShaclRenderer extends TwLitElement {
 
 
   @property()
-  labelClass: string = 'block text-gray-700 text-sm font-bold mb-2';
+  labelClass: string = 'block text-gray-700 text-sm font-bold mb-1';
 
   @property()
-  descriptionClass: string = 'mt-1 text-xs text-gray-500';
+  descriptionClass: string = '-mt-1 text-xs text-gray-500 mb-2';
 
   @property()
   globalFieldClass: string = 'text-gray-700 leading-tight mb-2';
@@ -154,10 +154,10 @@ export class ShaclRenderer extends TwLitElement {
   detailsEditorClass: string = 'ml-4 border-l pl-4 relative';
 
   @property()
-  plusIconClass: string = 'size-6 float-right text-green-600';
+  plusIconClass: string = 'size-6 float-right text-green-600 cursor-pointer hover:text-green-700';
 
   @property()
-  xIconClass: string = 'size-5 -mr-1 mt-4';
+  xIconClass: string = 'size-5 -mr-1 mt-4 cursor-pointer';
 
   @property()
   groupClass: string = 'md:flex md:gap-x-4 md:flex-wrap';
@@ -167,6 +167,18 @@ export class ShaclRenderer extends TwLitElement {
 
   @property()
   groupElementClass: string = 'md:flex-1';
+
+  @property()
+  alternativePathDescriptionClass: string = 'text-xs italic text-gray-500 mb-2 -mt-1 hover:text-gray-700 cursor-pointer';
+
+  @property()
+  alternativePathSelectClass: string = 'absolute z-50 bg-white border rounded shadow-md -mt-t';
+
+  @property()
+  alternativePathOptionClass: string = 'px-2 py-1 text-sm hover:bg-gray-100 cursor-pointer';
+
+  @property()
+  alternativePathOptionSelectedClass: string = 'font-bold';
 
   @state()
   ui: UIComponent[] = [];
@@ -179,6 +191,9 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   enumSelectEditorOpen: Record<string, boolean> = {};
+
+  @state()
+  alternativePathSelectOpen: Record<string, boolean> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -211,6 +226,10 @@ export class ShaclRenderer extends TwLitElement {
       groupClass: this.groupClass,
       groupLabelClass: this.groupLabelClass,
       groupElementClass: this.groupElementClass,
+      alternativePathDescriptionClass: this.alternativePathDescriptionClass,
+      alternativePathSelectClass: this.alternativePathSelectClass,
+      alternativePathOptionClass: this.alternativePathOptionClass,
+      alternativePathOptionSelectedClass: this.alternativePathOptionSelectedClass,
     }
     const renderer = this;
     return html`
@@ -237,6 +256,34 @@ export class ShaclRenderer extends TwLitElement {
     } else {
       return outputQuads;
     }
+  }
+
+  setAlternativePathSelectOpen(key: string, value: boolean) {
+    this.alternativePathSelectOpen = {
+      ...this.alternativePathSelectOpen,
+      [key]: value
+    }
+  }
+
+  setAutoCompleteEditorOpen(key: string, value: boolean) {
+    this.autoCompleteEditorOpen = {
+      ...this.autoCompleteEditorOpen,
+      [key]: value
+    };
+  }
+
+  setAutoCompleteEditorFilter(key: string, value: string) {
+    this.autoCompleteEditorFilter = {
+      ...this.autoCompleteEditorFilter,
+      [key]: value
+    };
+  }
+
+  setEnumSelectEditorOpen(key: string, value: boolean) {
+    this.enumSelectEditorOpen = {
+      ...this.enumSelectEditorOpen,
+      [key]: value
+    };
   }
 
   protected async willUpdate(changedProperties: PropertyValues) {
@@ -275,27 +322,6 @@ export class ShaclRenderer extends TwLitElement {
     if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
       this.ui = await Promise.all(await constructUiComponents(this.shapesStore, this.constraintShape, this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
     }
-  }
-
-  setAutoCompleteEditorOpen(key: string, value: boolean) {
-    this.autoCompleteEditorOpen = {
-      ...this.autoCompleteEditorOpen,
-      [key]: value
-    };
-  }
-
-  setAutoCompleteEditorFilter(key: string, value: string) {
-    this.autoCompleteEditorFilter = {
-      ...this.autoCompleteEditorFilter,
-      [key]: value
-    };
-  }
-
-  setEnumSelectEditorOpen(key: string, value: boolean) {
-    this.enumSelectEditorOpen = {
-      ...this.enumSelectEditorOpen,
-      [key]: value
-    };
   }
 }
 

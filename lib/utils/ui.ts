@@ -80,6 +80,7 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
       }
 
       const element: UIComponent = {
+         uuid: self.crypto.randomUUID(),
          iri: cloneTerm(uiProperty.object),
          focusNode: focusNode ? cloneTerm(focusNode) : undefined,
          paths: paths,

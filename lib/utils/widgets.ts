@@ -55,56 +55,87 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
 
            ${renderLabel(uiComponent, classes)}
 
-           ${uiComponent.values.map((value, index) => {
-               switch (value.selectedWidget) {
-                   case shui("AutoCompleteEditor"):
-                       return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes);
-                   case shui("BlankNodeEditor"):
-                       return renderBlankNodeEditor(renderer, uiComponent, value, index, classes);
-                   case shui("BooleanEditor"):
-                       return renderBooleanEditor(renderer, uiComponent, value, index, classes);
-                   case shui("DatePickerEditor"):
-                       return renderDatePickerEditor(renderer, uiComponent, value, index, classes);
-                   case shui("DateTimePickerEditor"):
-                       return renderDateTimePickerEditor(renderer, uiComponent, value, index, classes);
-                   case shui("DetailsEditor"):
-                       return renderDetailsEditor(renderer, uiComponent, value, index, classes);
-                   case shui("EnumSelectEditor"):
-                       return renderEnumSelectEditor(renderer, uiComponent, value, index, classes);
-                   case shui("IRIEditor"):
-                       return renderIRIEditor(renderer, uiComponent, value, index, classes);
-                   case shui("NumberFieldEditor"):
-                       return renderNumberFieldEditor(renderer, uiComponent, value, index, classes);
-                   case shui("TextAreaEditor"):
-                       return renderTextAreaEditor(renderer, uiComponent, value, index, classes);
-                   case shui("TextAreaWithLangEditor"):
-                       return renderTextAreaWithLangEditor(renderer, uiComponent, value, index, classes);
-                   case shui("TextFieldEditor"):
-                       return renderTextFieldEditor(renderer, uiComponent, value, index, classes);
-                   case shui("TextFieldWithLangEditor"):
-                       return renderTextFieldWithLangEditor(renderer, uiComponent, value, index, classes);
-                   default:
-                       return html`
-                           <div class="relative">
-                               <label class="block text-gray-700 text-sm font-bold mb-2">
-                                   ${uiComponent.label} (${value.path.path}) - Unsupported widget:
-                                   ${value.selectedWidget ?? 'none'}
-                               </label>
-                               ${renderXIcon(uiComponent, {
-                                   ...classes,
-                                   xIconClass: twMerge(classes.xIconClass, 'mt-0')
-                               }, () => {
-                                   uiComponent.values.splice(index, 1);
-                                   renderer.rerender();
-                               })}
-                           </div>
-                       `;
-               }
-           })}
-
            ${renderDescription(uiComponent, classes)}
+
+           ${uiComponent.values.map((value, index) => {
+               const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+               const open = renderer.alternativePathSelectOpen[key] ?? false;
+               return html`
+
+                   ${renderWidget(renderer, uiComponent, value, index, classes)}
+
+                   ${uiComponent.paths.length > 1 ? html`
+                       <p class="${twMerge(classes.alternativePathDescriptionClass)}"
+                          @click="${() => renderer.setAlternativePathSelectOpen(key, !open)}">
+                           Click to choose an alternative path.
+                       </p>
+
+                       ${open ? html`
+                           <ul class="${twMerge(classes.alternativePathSelectClass)}">
+                               ${uiComponent.paths.map(path => html`
+                                   <li class="${twMerge(classes.alternativePathOptionClass, path.path === value.path.path ? classes.alternativePathOptionSelectedClass : '')}"
+                                       @click="${() => {
+                                           value.path = path;
+                                           renderer.setAlternativePathSelectOpen(key, false);
+                                           renderer.rerender();
+                                       }}">
+                                       ${path.path}
+                                   </li>
+                               `)}
+                           </ul>
+                       ` : nothing}
+                   ` : nothing}
+               `;
+           })}
        </div>
    `;
+}
+
+function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   switch (value.selectedWidget) {
+      case shui("AutoCompleteEditor"):
+         return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes);
+      case shui("BlankNodeEditor"):
+         return renderBlankNodeEditor(renderer, uiComponent, value, index, classes);
+      case shui("BooleanEditor"):
+         return renderBooleanEditor(renderer, uiComponent, value, index, classes);
+      case shui("DatePickerEditor"):
+         return renderDatePickerEditor(renderer, uiComponent, value, index, classes);
+      case shui("DateTimePickerEditor"):
+         return renderDateTimePickerEditor(renderer, uiComponent, value, index, classes);
+      case shui("DetailsEditor"):
+         return renderDetailsEditor(renderer, uiComponent, value, index, classes);
+      case shui("EnumSelectEditor"):
+         return renderEnumSelectEditor(renderer, uiComponent, value, index, classes);
+      case shui("IRIEditor"):
+         return renderIRIEditor(renderer, uiComponent, value, index, classes);
+      case shui("NumberFieldEditor"):
+         return renderNumberFieldEditor(renderer, uiComponent, value, index, classes);
+      case shui("TextAreaEditor"):
+         return renderTextAreaEditor(renderer, uiComponent, value, index, classes);
+      case shui("TextAreaWithLangEditor"):
+         return renderTextAreaWithLangEditor(renderer, uiComponent, value, index, classes);
+      case shui("TextFieldEditor"):
+         return renderTextFieldEditor(renderer, uiComponent, value, index, classes);
+      case shui("TextFieldWithLangEditor"):
+         return renderTextFieldWithLangEditor(renderer, uiComponent, value, index, classes);
+      default:
+         return html`
+             <div class="relative">
+                 <label class="block text-gray-700 text-sm font-bold mb-2">
+                     ${uiComponent.label} (${value.path.path}) - Unsupported widget:
+                     ${value.selectedWidget ?? 'none'}
+                 </label>
+                 ${renderXIcon(uiComponent, {
+                     ...classes,
+                     xIconClass: twMerge(classes.xIconClass, 'mt-0')
+                 }, () => {
+                     uiComponent.values.splice(index, 1);
+                     renderer.rerender();
+                 })}
+             </div>
+         `;
+   }
 }
 
 function renderDescription(uiComponent: UIComponent, classes: TailwindClasses) {
@@ -166,7 +197,7 @@ function renderAutoCompleteEditor(
    index: number,
    classes: TailwindClasses,
 ) {
-   const key = `${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+   const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
    const open = renderer.autoCompleteEditorOpen[key] ?? false;
    const filterText = renderer.autoCompleteEditorFilter[key] ?? '';
@@ -372,7 +403,7 @@ function renderEnumSelectEditor(
    index: number,
    classes: TailwindClasses
 ) {
-   const key = `${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+   const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
    const open = renderer.enumSelectEditorOpen[key] ?? false;
 
@@ -404,7 +435,7 @@ function renderEnumSelectEditor(
                            'appearance-none pr-10 mb-0 cursor-pointer flex items-center'
                    )}"
                    @click="${() =>
-                           renderer.setEnumSelectEditorOpen?.(key, !open)
+                           renderer.setEnumSelectEditorOpen(key, !open)
                    }"
            >
                 <span class="flex-1">
