@@ -296,25 +296,27 @@ async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfS
       || shapesGraph.getQuads(term, DCTERMS("description"), null)[0];
 
    // If still no label found, we will try to dereference the term and try to get the label from the dereferenced graph.
-   if ((!labelQuad || !descriptionQuad) && term.termType === "NamedNode") {
-      try {
-         const dereferencedGraph = RdfStore.createDefault();
-         const dereferencedOutput = await rdfDereferencer.dereference(term.value);
-         await new Promise((resolve, reject) => {
-            dereferencedGraph.import(dereferencedOutput.data).on("end", resolve).on("error", reject);
-         });
-         if (!labelQuad) {
-            labelQuad = dereferencedGraph.getQuads(term, RDFS("label"), null)[0]
-               || dereferencedGraph.getQuads(term, DCTERMS("title"), null)[0]
-               || dereferencedGraph.getQuads(term, SKOS("prefLabel"), null)[0]
-               || dereferencedGraph.getQuads(term, SCHEMA("name"), null)[0];
+   for (const iriToDereference of [term.value, `https://ajuvercr.github.io/lov-mirror/by-iri/${encodeURIComponent(encodeURIComponent(term.value))}.ttl`]) {
+      if ((!labelQuad || !descriptionQuad) && term.termType === "NamedNode") {
+         try {
+            const dereferencedGraph = RdfStore.createDefault();
+            const dereferencedOutput = await rdfDereferencer.dereference(iriToDereference);
+            await new Promise((resolve, reject) => {
+               dereferencedGraph.import(dereferencedOutput.data).on("end", resolve).on("error", reject);
+            });
+            if (!labelQuad) {
+               labelQuad = dereferencedGraph.getQuads(term, RDFS("label"), null)[0]
+                  || dereferencedGraph.getQuads(term, DCTERMS("title"), null)[0]
+                  || dereferencedGraph.getQuads(term, SKOS("prefLabel"), null)[0]
+                  || dereferencedGraph.getQuads(term, SCHEMA("name"), null)[0];
+            }
+            if (!descriptionQuad) {
+               descriptionQuad = dereferencedGraph.getQuads(term, RDFS("comment"), null)[0]
+                  || dereferencedGraph.getQuads(term, DCTERMS("description"), null)[0];
+            }
+         } catch (error) {
+            // Ignore dereferencing errors.
          }
-         if (!descriptionQuad) {
-            descriptionQuad = dereferencedGraph.getQuads(term, RDFS("comment"), null)[0]
-               || dereferencedGraph.getQuads(term, DCTERMS("description"), null)[0];
-         }
-      } catch (error) {
-         // Ignore dereferencing errors.
       }
    }
 
