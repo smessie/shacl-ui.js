@@ -6,6 +6,7 @@ import {RDF, SHUI} from "./namespaces.ts";
 import {Validator} from "shacl-engine";
 import {DataFactory} from "rdf-data-factory";
 import * as RDFJS from 'rdf-js';
+import {toLabeledValue} from "./ui.ts";
 
 const df: RDFJS.DataFactory = new DataFactory();
 
@@ -59,7 +60,7 @@ export async function score(focusNode: Term | null, dataGraph: RdfStore, constra
 
       // If both validations pass, return the widget and its score
       results.push({
-         widget: widget.value,
+         widget: await toLabeledValue(widget, dataGraph, shapesGraph),
          source: widgetScore.value,
          score: score,
       });
@@ -79,7 +80,7 @@ export async function score(focusNode: Term | null, dataGraph: RdfStore, constra
       if (b.score !== a.score) {
          return b.score - a.score;
       }
-      return a.widget.localeCompare(b.widget);
+      return a.widget.value.value.localeCompare(b.widget.value.value);
    });
    return results;
 }

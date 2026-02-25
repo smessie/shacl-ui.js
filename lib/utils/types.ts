@@ -10,6 +10,7 @@ export type UIComponent = {
    description?: string;
    datatype?: string;
    defaultWidget?: string;
+   defaultWidgets?: WidgetScore[];
    values: UIComponentValue[];
    children?: UIComponent[][];
    defaultChild?: UIComponent[];
@@ -54,7 +55,7 @@ export type LabeledValue = {
 }
 
 export type WidgetScore = {
-   widget: string;
+   widget: LabeledValue;
    source: string;
    score: number;
 };
@@ -90,4 +91,11 @@ export type TailwindClasses = {
    alternativePathSelectClass?: string;
    alternativePathOptionClass?: string;
    alternativePathOptionSelectedClass?: string;
+   selectWidgetIconClass?: string;
+   selectWidgetDropdownClass?: string;
+   selectWidgetOptionClass?: string;
+   selectWidgetOptionSelectedClass?: string;
+   selectWidgetLabelClass?: string;
+   selectWidgetDescriptionClass?: string;
+   selectWidgetScoreClass?: string;
 };

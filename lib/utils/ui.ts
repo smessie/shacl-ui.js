@@ -130,12 +130,27 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
 
       // Configure default widget based on the shape only.
       const defaultWidgetScores = await score(null, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph);
-      element.defaultWidget = defaultWidgetScores[0]?.widget;
+      element.defaultWidget = defaultWidgetScores[0]?.widget.value.value;
+      element.defaultWidgets = defaultWidgetScores;
+
+      if (focusNode) {
+         const dataGraphWithDefault = RdfStore.createDefault();
+         dataGraphWithDefault.import(dataGraph.match());
+         const defaultTerm = getDefaultTermForWidget(element.defaultWidget, element, true);
+         for (const path of paths) {
+            if (path.type === "predicate") {
+               dataGraphWithDefault.addQuad(df.quad(focusNode as Quad_Subject, df.namedNode(path.path), defaultTerm as Quad_Object));
+            } else if (path.type === "inverse") {
+               dataGraphWithDefault.addQuad(df.quad(defaultTerm as Quad_Subject, df.namedNode(path.path), focusNode as Quad_Object));
+            }
+         }
+         element.defaultWidgets = await score(focusNode, dataGraphWithDefault, uiProperty.object, shapesGraph, widgetScoringGraph);
+      }
 
       // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
       element.values = await Promise.all(element.values.map(async (value) => {
          const widgetScores = await score(value.value, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph);
-         value.selectedWidget = widgetScores[0]?.widget;
+         value.selectedWidget = widgetScores[0]?.widget.value.value;
          value.widgets = widgetScores;
          return value;
       }));
@@ -279,7 +294,7 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
    return quads;
 }
 
-async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfStore): Promise<LabeledValue> {
+export async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfStore): Promise<LabeledValue> {
    let labelQuad = dataGraph.getQuads(term, RDFS("label"), null)[0]
       || dataGraph.getQuads(term, DCTERMS("title"), null)[0]
       || dataGraph.getQuads(term, SKOS("prefLabel"), null)[0]
@@ -301,7 +316,7 @@ async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfS
       if ((!labelQuad || !descriptionQuad) && term.termType === "NamedNode") {
          try {
             const dereferencedGraph = RdfStore.createDefault();
-            const dereferencedOutput = await rdfDereferencer.dereference(iriToDereference);
+            const dereferencedOutput = await rdfDereferencer.dereference(iriToDereference, {headers: {"Accept": "application/n-quads,text/turtle;q=0.95,application/ld+json;q=0.9,application/n-triples;q=0.8,*/*;q=0.1"}});
             await new Promise((resolve, reject) => {
                dereferencedGraph.import(dereferencedOutput.data).on("end", resolve).on("error", reject);
             });

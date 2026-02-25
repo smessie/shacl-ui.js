@@ -62,7 +62,15 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                const open = renderer.alternativePathSelectOpen[key] ?? false;
                return html`
 
-                   ${renderWidget(renderer, uiComponent, value, index, classes)}
+                   <div class="flex items-start gap-2">
+                       <div class="flex-1 min-w-0">
+                           ${renderWidget(renderer, uiComponent, value, index, classes)}
+                       </div>
+
+                       <div class="shrink-0 mt-2">
+                           ${renderSelectWidgetIcon(renderer, uiComponent, value, index, classes)}
+                       </div>
+                   </div>
 
                    ${uiComponent.paths.length > 1 ? html`
                        <p class="${twMerge(classes.alternativePathDescriptionClass)}"
@@ -160,7 +168,7 @@ function renderPlusIcon(renderer: ShaclRenderer, uiComponent: UIComponent, class
       uiComponent.values.push({
          value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent),
          path: uiComponent.paths[0],
-         widgets: [],
+         widgets: uiComponent.defaultWidgets,
          selectedWidget: uiComponent.defaultWidget,
       });
       renderer.rerender();
@@ -188,6 +196,77 @@ function renderXIcon(uiComponent: UIComponent, classes: TailwindClasses, onClick
            </svg>
        </div>
    ` : nothing;
+}
+
+function renderSelectWidgetIcon(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses
+) {
+   const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+   const open = renderer.selectWidgetIconOpen?.[key] ?? false;
+
+   const widgets = value.widgets ?? [];
+
+   return html`
+       <div class="relative inline-block">
+
+           <svg
+                   xmlns="http://www.w3.org/2000/svg"
+                   fill="none"
+                   viewBox="0 0 24 24"
+                   stroke-width="1.5"
+                   stroke="currentColor"
+                   class="${twMerge(classes.selectWidgetIconClass)}"
+                   @click="${() =>
+                           renderer.setSelectWidgetIconOpen(key, !open)
+                   }"
+           >
+               <path
+                       stroke-linecap="round"
+                       stroke-linejoin="round"
+                       d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75"
+               />
+           </svg>
+
+           ${open && widgets.length > 0 ? html`
+               <ul class="${twMerge(classes.selectWidgetDropdownClass)}">
+                   ${widgets.map(widgetScore => {
+                       const widget = widgetScore.widget;
+                       const selected =
+                               value.selectedWidget === widget.value.value;
+
+                       return html`
+                           <li
+                                   class="${twMerge(classes.selectWidgetOptionClass, selected ? classes.selectWidgetOptionSelectedClass : '')}"
+                                   @mousedown="${() => {
+                                       value.selectedWidget = widget.value.value;
+                                       renderer.setSelectWidgetIconOpen(key, false);
+                                       renderer.rerender();
+                                   }}"
+                           >
+                               <div class="flex items-center justify-between">
+                                   <div>
+                                       <div class="${twMerge(classes.selectWidgetLabelClass)}">
+                                           ${widget.label}
+                                       </div>
+
+                                       ${widget.description ? html`
+                                           <div class="${twMerge(classes.selectWidgetDescriptionClass)}">
+                                               ${widget.description}
+                                           </div>
+                                       ` : nothing}
+                                   </div>
+
+                                   <div class="${twMerge(classes.selectWidgetScoreClass)}">
+                                       ${widgetScore.score}
+                                   </div>
+                               </div>
+                           </li>
+                       `;
+                   })}
+               </ul>
+           ` : nothing}
+
+       </div>
+   `;
 }
 
 function renderAutoCompleteEditor(
@@ -740,7 +819,7 @@ function renderTextAreaWithLangEditor(
    `;
 }
 
-export function getDefaultTermForWidget(widget: string | undefined, uiComponent: UIComponent): Term {
+export function getDefaultTermForWidget(widget: string | undefined, uiComponent: UIComponent, dryRun: boolean = false): Term {
    switch (widget) {
       case shui('AutoCompleteEditor'):
          return df.namedNode('');
@@ -754,7 +833,7 @@ export function getDefaultTermForWidget(widget: string | undefined, uiComponent:
          return df.literal('', XSD('dateTime'));
       case shui('DetailsEditor'):
          const newFocusNode = df.namedNode(`urn:uuid:${crypto.randomUUID()}`);
-         if (uiComponent.children != undefined) {
+         if (uiComponent.children != undefined && !dryRun) {
             const newChildComponents: UIComponent[] = (uiComponent.defaultChild ?? []).map(child => {
                const clonedChild = structuredClone(child);
                clonedChild.focusNode = newFocusNode;

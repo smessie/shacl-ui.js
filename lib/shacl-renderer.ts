@@ -59,7 +59,7 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   dataGraphUrl: string = '';
 
-  @property()
+  @state()
   dataStore: RdfStore | null = null;
 
   @property()
@@ -71,7 +71,7 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   shapesGraphUrl: string = '';
 
-  @property()
+  @state()
   shapesStore: RdfStore | null = null;
 
   @property()
@@ -180,6 +180,27 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   alternativePathOptionSelectedClass: string = 'font-bold';
 
+  @property()
+  selectWidgetIconClass: string = 'size-6 cursor-pointer text-gray-500 hover:text-gray-700';
+
+  @property()
+  selectWidgetDropdownClass: string = 'absolute right-0 mt-2 origin-top-right transform translate-x-0 z-50 min-w-64 bg-white border border-gray-300 rounded-md shadow-lg max-h-80 w-md overflow-auto max-w-[85vw]';
+
+  @property()
+  selectWidgetOptionClass: string = 'px-4 py-2 cursor-pointer hover:bg-gray-100';
+
+  @property()
+  selectWidgetOptionSelectedClass: string = 'bg-gray-100';
+
+  @property()
+  selectWidgetLabelClass: string = 'font-medium text-gray-800';
+
+  @property()
+  selectWidgetDescriptionClass: string = 'text-sm text-gray-500';
+
+  @property()
+  selectWidgetScoreClass: string = 'text-xs text-gray-400 ml-3';
+
   @state()
   ui: UIComponent[] = [];
 
@@ -194,6 +215,9 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   alternativePathSelectOpen: Record<string, boolean> = {};
+
+  @state()
+  selectWidgetIconOpen: Record<string, boolean> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -230,6 +254,13 @@ export class ShaclRenderer extends TwLitElement {
       alternativePathSelectClass: this.alternativePathSelectClass,
       alternativePathOptionClass: this.alternativePathOptionClass,
       alternativePathOptionSelectedClass: this.alternativePathOptionSelectedClass,
+      selectWidgetIconClass: this.selectWidgetIconClass,
+      selectWidgetDropdownClass: this.selectWidgetDropdownClass,
+      selectWidgetOptionClass: this.selectWidgetOptionClass,
+      selectWidgetOptionSelectedClass: this.selectWidgetOptionSelectedClass,
+      selectWidgetLabelClass: this.selectWidgetLabelClass,
+      selectWidgetDescriptionClass: this.selectWidgetDescriptionClass,
+      selectWidgetScoreClass: this.selectWidgetScoreClass
     }
     const renderer = this;
     return html`
@@ -282,6 +313,13 @@ export class ShaclRenderer extends TwLitElement {
   setEnumSelectEditorOpen(key: string, value: boolean) {
     this.enumSelectEditorOpen = {
       ...this.enumSelectEditorOpen,
+      [key]: value
+    };
+  }
+
+  setSelectWidgetIconOpen(key: string, value: boolean) {
+    this.selectWidgetIconOpen = {
+      ...this.selectWidgetIconOpen,
       [key]: value
     };
   }
