@@ -34,6 +34,7 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
       const minCount = shapesGraph.getQuads(uiProperty.object, SH("minCount"), null)[0]?.object;
       const maxCount = shapesGraph.getQuads(uiProperty.object, SH("maxCount"), null)[0]?.object;
       const clazz = shapesGraph.getQuads(uiProperty.object, SH("class"), null)[0]?.object;
+      const rootClass = shapesGraph.getQuads(uiProperty.object, SH("rootClass"), null)[0]?.object;
       const node = shapesGraph.getQuads(uiProperty.object, SH("node"), null)[0]?.object;
       const propertiesLength = shapesGraph.getQuads(uiProperty.object, SH("property"), null).length;
       const defaultChild: UIComponent[] | undefined = node ? await constructUiComponents(shapesGraph, node.value, dataGraph, null, widgetScoringGraph) :
@@ -79,6 +80,12 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
          instances = await Promise.all(dataGraph.getQuads(null, RDF_("type"), clazz).map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph)));
       }
 
+      let subclasses: LabeledValue[] | undefined = undefined;
+      if (rootClass) {
+         subclasses = [await toLabeledValue(rootClass, dataGraph, shapesGraph)];
+         await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
+      }
+
       const element: UIComponent = {
          uuid: self.crypto.randomUUID(),
          iri: cloneTerm(uiProperty.object),
@@ -95,6 +102,8 @@ export async function constructUiComponents(shapesGraph: RdfStore, constraintSha
          maxCount: maxCount ? parseInt(maxCount.value) : undefined,
          class: cloneTerm(clazz),
          instances: instances,
+         rootClass: cloneTerm(rootClass),
+         subclasses: subclasses,
          pattern: pattern,
          minInclusive: minInclusive,
          maxInclusive: maxInclusive,
@@ -273,6 +282,16 @@ function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGrou
    }
 }
 
+async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: LabeledValue[]): Promise<void> {
+   const subclassObjects = dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject);
+   for (const obj of subclassObjects) {
+      const labeledValue = await toLabeledValue(obj, dataGraph, shapesGraph);
+      subclasses.push(labeledValue);
+      await extractSubclasses(obj, dataGraph, shapesGraph, subclasses);
+   }
+}
+
+
 export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
    const quads = [];
    for (const component of uiComponents) {
@@ -285,7 +304,7 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
             console.warn(`Unsupported path type ${value.path.type} for component ${component.iri.value}, skipping quad generation for this component`);
          }
       }
-      if (component.node && component.children) {
+      if (component.children) {
          for (const child of component.children) {
             quads.push(...uiComponentsToQuads(child));
          }

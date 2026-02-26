@@ -201,6 +201,24 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   selectWidgetScoreClass: string = 'text-xs text-gray-400 ml-3';
 
+  @property()
+  subClassEditorClass: string = 'relative';
+
+  @property()
+  subClassEditorDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+
+  @property()
+  subClassEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+
+  @property()
+  subClassEditorOptionSelectedClass: string = 'bg-gray-100';
+
+  @property()
+  subClassEditorLabelClass: string = 'font-medium';
+
+  @property()
+  subClassEditorDescriptionClass: string = 'text-sm text-gray-500';
+
   @state()
   ui: UIComponent[] = [];
 
@@ -218,6 +236,12 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   selectWidgetIconOpen: Record<string, boolean> = {};
+
+  @state()
+  subClassEditorOpen: Record<string, boolean> = {};
+
+  @state()
+  subClassEditorFilter: Record<string, string> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -260,7 +284,13 @@ export class ShaclRenderer extends TwLitElement {
       selectWidgetOptionSelectedClass: this.selectWidgetOptionSelectedClass,
       selectWidgetLabelClass: this.selectWidgetLabelClass,
       selectWidgetDescriptionClass: this.selectWidgetDescriptionClass,
-      selectWidgetScoreClass: this.selectWidgetScoreClass
+      selectWidgetScoreClass: this.selectWidgetScoreClass,
+      subClassEditorClass: this.subClassEditorClass,
+      subClassEditorDropdownClass: this.subClassEditorDropdownClass,
+      subClassEditorOptionClass: this.subClassEditorOptionClass,
+      subClassEditorOptionSelectedClass: this.subClassEditorOptionSelectedClass,
+      subClassEditorLabelClass: this.subClassEditorLabelClass,
+      subClassEditorDescriptionClass: this.subClassEditorDescriptionClass,
     }
     const renderer = this;
     return html`
@@ -278,7 +308,7 @@ export class ShaclRenderer extends TwLitElement {
    * Retrieves the current data graph entered by the user in the form as a string in the specified content type.
    * If contentType is not provided, returns the data graph as an array of RDF quads.
    * @param contentType
-   * @returns {Promise<string | Quad[]>} The current data graph as a string in the specified content type, or as a array of quads if no content type is provided.
+   * @returns {Promise<string | Quad[]>} The current data graph as a string in the specified content type, or as an array of quads if no content type is provided.
    */
   async data(contentType?: string): Promise<string | Quad[]> {
     const outputQuads = uiComponentsToQuads(this.ui);
@@ -320,6 +350,20 @@ export class ShaclRenderer extends TwLitElement {
   setSelectWidgetIconOpen(key: string, value: boolean) {
     this.selectWidgetIconOpen = {
       ...this.selectWidgetIconOpen,
+      [key]: value
+    };
+  }
+
+  setSubClassEditorOpen(key: string, value: boolean) {
+    this.subClassEditorOpen = {
+      ...this.subClassEditorOpen,
+      [key]: value
+    };
+  }
+
+  setSubClassEditorFilter(key: string, value: string) {
+    this.subClassEditorFilter = {
+      ...this.subClassEditorFilter,
       [key]: value
     };
   }

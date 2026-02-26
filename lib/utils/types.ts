@@ -21,6 +21,8 @@ export type UIComponent = {
    maxCount?: number;
    class?: Term;
    instances?: LabeledValue[];
+   rootClass?: Term;
+   subclasses?: LabeledValue[];
    pattern?: string;
    minInclusive?: string;
    maxInclusive?: string;
@@ -98,4 +100,10 @@ export type TailwindClasses = {
    selectWidgetLabelClass?: string;
    selectWidgetDescriptionClass?: string;
    selectWidgetScoreClass?: string;
+   subClassEditorClass?: string;
+   subClassEditorDropdownClass?: string;
+   subClassEditorOptionClass?: string;
+   subClassEditorOptionSelectedClass?: string;
+   subClassEditorLabelClass?: string;
+   subClassEditorDescriptionClass?: string;
 };

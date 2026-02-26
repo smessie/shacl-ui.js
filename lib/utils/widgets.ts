@@ -119,6 +119,8 @@ function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: 
          return renderIRIEditor(renderer, uiComponent, value, index, classes);
       case shui("NumberFieldEditor"):
          return renderNumberFieldEditor(renderer, uiComponent, value, index, classes);
+      case shui("SubClassEditor"):
+         return renderSubClassEditor(renderer, uiComponent, value, index, classes);
       case shui("TextAreaEditor"):
          return renderTextAreaEditor(renderer, uiComponent, value, index, classes);
       case shui("TextAreaWithLangEditor"):
@@ -198,8 +200,7 @@ function renderXIcon(uiComponent: UIComponent, classes: TailwindClasses, onClick
    ` : nothing;
 }
 
-function renderSelectWidgetIcon(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses
-) {
+function renderSelectWidgetIcon(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
    const open = renderer.selectWidgetIconOpen?.[key] ?? false;
 
@@ -633,6 +634,95 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
    `;
 }
 
+function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+
+   const open = renderer.subClassEditorOpen[key] ?? false;
+   const filterText = renderer.subClassEditorFilter[key] ?? '';
+
+   const subclasses = uiComponent.subclasses ?? [];
+
+   // If a value is already stored, find its label
+   const storedKey = value.value.value;
+   const selectedSubclass = subclasses.find(
+      i => i.value.value === storedKey
+   );
+
+   const displayText =
+      filterText ||
+      selectedSubclass?.label ||
+      '';
+
+   const filteredInstances = subclasses.filter(subclass =>
+      subclass.label.toLowerCase().includes(displayText.toLowerCase())
+   );
+
+   return html`
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.subClassEditorClass)) || '0'}`)}">
+           <!-- Input -->
+           <input
+                   class="${twMerge(
+      classes.globalFieldClass,
+      classes.globalInputFieldClass,
+      classes.subClassEditorClass,
+      'mb-0'
+   )}"
+                   autocomplete="off"
+                   .value="${displayText}"
+                   placeholder="${uiComponent.label}"
+                   @focus="${() => renderer.setSubClassEditorOpen(key, true)}"
+                   @input="${(e: Event) => {
+      const input = e.target as HTMLInputElement;
+
+      // Update filter only (do NOT overwrite stored key yet)
+      renderer.setSubClassEditorFilter(key, input.value);
+      renderer.setSubClassEditorOpen(key, true);
+
+      // Clear stored key while typing
+      value.value.value = '';
+   }}"
+                   @blur="${() => {
+      setTimeout(() => {
+         renderer.setSubClassEditorOpen(key, false);
+         renderer.setSubClassEditorFilter(key, '');
+      }, 150);
+   }}"
+           />
+           ${renderXIcon(uiComponent, classes, () => {
+      uiComponent.values.splice(index, 1);
+      renderer.rerender();
+   })}
+
+           <!-- Dropdown -->
+           ${open && filteredInstances.length > 0 ? html`
+               <ul class="${twMerge(classes.subClassEditorDropdownClass)}">
+                   ${filteredInstances.map(instance => html`
+                       <li
+                               class="${twMerge(classes.subClassEditorOptionClass, instance.value.value === value.value.value ? classes.subClassEditorOptionSelectedClass : '')}"
+                               @mousedown="${() => {
+      value.value.value = instance.value.value;
+      renderer.setSubClassEditorFilter(key, instance.label);
+      renderer.setSubClassEditorOpen(key, false);
+   }}"
+                       >
+                           <div class="${twMerge(classes.subClassEditorLabelClass)}">
+                               ${instance.label}
+                           </div>
+
+                           ${instance.description ? html`
+                               <div class="${twMerge(classes.subClassEditorDescriptionClass)}">
+                                   ${instance.description}
+                               </div>
+                           ` : nothing}
+                       </li>
+                   `)}
+               </ul>
+           ` : ''}
+
+       </div>
+   `;
+}
+
 function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass)) || '0'}`)}">
@@ -848,6 +938,8 @@ export function getDefaultTermForWidget(widget: string | undefined, uiComponent:
          return df.namedNode('');
       case shui('NumberFieldEditor'):
          return df.literal('0', df.namedNode(uiComponent.datatype ?? xsd('decimal')));
+      case shui('SubClassEditor'):
+         return uiComponent.subclasses && uiComponent.subclasses.length > 0 ? cloneTerm(uiComponent.subclasses[0].value) : df.namedNode('');
       case shui('TextAreaEditor'):
          return df.literal('');
       case shui('TextAreaWithLangEditor'):
