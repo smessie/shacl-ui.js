@@ -196,6 +196,7 @@ function renderPlusIcon(renderer: ShaclRenderer, uiComponent: UIComponent, class
       uiComponent.values.push({
          value: value,
          path: path,
+         class: uiComponent.classes?.[0]?.iri,
          widgets: uiComponent.defaultWidgets,
          selectedWidget: uiComponent.defaultWidget,
       });
@@ -529,7 +530,7 @@ function renderDetailsClassSelect(renderer: ShaclRenderer, uiComponent: UICompon
    const classOptions = uiComponent.classes ?? [];
 
    // If a value is already stored, find its label
-   const storedKey = uiComponent.class?.value;
+   const storedKey = value.class?.value;
    const selectedClass = classOptions.find(
       c => c.value.value.value === storedKey
    );
@@ -565,11 +566,11 @@ function renderDetailsClassSelect(renderer: ShaclRenderer, uiComponent: UICompon
                        renderer.setDetailsClassSelectOpen(key, true);
 
                        // Clear stored key while typing
-                       const newTerm = mutateTerm(uiComponent.class ?? df.namedNode(''), '');
+                       const newTerm = mutateTerm(value.class ?? df.namedNode(''), '');
                        const path: Path = {path: rdf('type'), type: 'predicate'};
-                       renderer.removeFromDataStore(value.value, path, uiComponent.class);
+                       renderer.removeFromDataStore(value.value, path, value.class);
                        renderer.addToDataStore(value.value, path, newTerm);
-                       uiComponent.class = newTerm;
+                       value.class = newTerm;
                    }}"
                    @blur="${() => {
                        setTimeout(() => {
@@ -587,11 +588,11 @@ function renderDetailsClassSelect(renderer: ShaclRenderer, uiComponent: UICompon
                                class="${twMerge(classes.detailsClassSelectOptionClass)}"
                                @mousedown="${() => {
                                    // Update the rdf:type triple.
-                                   const newTerm = mutateTerm(uiComponent.class ?? df.namedNode(''), c.value.value.value);
+                                   const newTerm = mutateTerm(value.class ?? df.namedNode(''), c.value.value.value);
                                    const path: Path = {path: rdf('type'), type: 'predicate'};
-                                   renderer.removeFromDataStore(value.value, path, uiComponent.class);
+                                   renderer.removeFromDataStore(value.value, path, value.class);
                                    renderer.addToDataStore(value.value, path, newTerm);
-                                   uiComponent.class = newTerm;
+                                   value.class = newTerm;
 
                                    // Update the children of the details editor to match the selected class.
                                    const classValue = uiComponent.classes?.find(cv => cv.value.value.value === c.value.value.value);
@@ -1120,8 +1121,8 @@ export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string 
                   clonedChild.focusNode = newFocusNode;
                   return clonedChild;
                });
-            } else if (uiComponent.class && uiComponent.classes) {
-               const classValue = uiComponent.classes.find(cv => cv.value.value.value === uiComponent.class?.value);
+            } else if (uiComponent.classes && uiComponent.classes.length > 0) {
+               const classValue = uiComponent.classes[0];
                if (classValue) {
                   newChildComponents = classValue.children ? classValue.children.map(child => {
                      const clonedChild = structuredClone(child);
@@ -1130,7 +1131,7 @@ export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string 
                   }) : [];
                }
                if (addToDatastore) {
-                  renderer.addToDataStore(newFocusNode, {path: rdf('type'), type: 'predicate'}, uiComponent.class);
+                  renderer.addToDataStore(newFocusNode, {path: rdf('type'), type: 'predicate'}, classValue.iri);
                }
             }
             if (addToDatastore) {

@@ -19,7 +19,6 @@ export type UIComponent = {
    notInShapesGraph?: boolean;
    minCount?: number;
    maxCount?: number;
-   class?: Term;
    classes?: ClassValue[];
    instances?: LabeledValue[];
    rootClass?: Term;
@@ -41,6 +40,7 @@ export type Path = {
 export type UIComponentValue = {
    value: Term;
    path: Path;
+   class?: Term;
    widgets?: WidgetScore[];
    selectedWidget?: string;
 }
@@ -52,6 +52,7 @@ export type UIGroup = {
 }
 
 export type ClassValue = {
+   iri: Term;
    value: LabeledValue;
    children?: UIComponent[];
 }

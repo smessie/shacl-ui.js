@@ -62,6 +62,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       if (classes) {
          classValues = await Promise.all(classes.map(async (clazz) => {
             const classValue: ClassValue = {
+               iri: clazz,
                value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
             };
             // Find NodeShape with sh:targetClass equal to the class, and if found, construct UI components for that NodeShape and add them as children of the class value.
@@ -130,7 +131,6 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          defaultChild: defaultChild,
          minCount: minCount ? parseInt(minCount.value) : undefined,
          maxCount: maxCount ? parseInt(maxCount.value) : undefined,
-         class: classes?.[0],
          classes: classValues,
          instances: instances,
          rootClass: rootClass,
@@ -203,6 +203,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          element.values.push({
             value: value,
             path: path,
+            class: element.classes?.[0]?.iri,
             selectedWidget: element.defaultWidget,
             widgets: defaultWidgetScores,
          });
@@ -336,8 +337,8 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
          } else {
             console.warn(`Unsupported path type ${value.path.type} for component ${component.iri.value}, skipping quad generation for this component`);
          }
-         if (component.class && value.selectedWidget === shui('DetailsEditor')) {
-            quads.push(df.quad(value.value as Quad_Subject, RDF_('type'), component.class as Quad_Object));
+         if (value.class && value.selectedWidget === shui('DetailsEditor')) {
+            quads.push(df.quad(value.value as Quad_Subject, RDF_('type'), value.class as Quad_Object));
          }
       }
       if (component.children) {
