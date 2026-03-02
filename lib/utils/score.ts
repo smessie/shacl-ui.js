@@ -10,7 +10,7 @@ import {toLabeledValue} from "./ui.ts";
 
 const df: RDFJS.DataFactory = new DataFactory();
 
-export async function score(focusNode: Term | null, dataGraph: RdfStore, constraintShape: Term, shapesGraph: RdfStore, widgetScoringGraph: RdfStore): Promise<WidgetScore[]> {
+export async function score(focusNode: Term | null, dataGraph: RdfStore, constraintShape: Term, shapesGraph: RdfStore, widgetScoringGraph: RdfStore, dereferenceForLabelResolution: boolean): Promise<WidgetScore[]> {
    let results: WidgetScore[] = [];
 
    // Get all shui:WidgetScore instances from the widgetScoringGraph
@@ -60,7 +60,7 @@ export async function score(focusNode: Term | null, dataGraph: RdfStore, constra
 
       // If both validations pass, return the widget and its score
       results.push({
-         widget: await toLabeledValue(widget, dataGraph, shapesGraph),
+         widget: await toLabeledValue(widget, dataGraph, shapesGraph, dereferenceForLabelResolution),
          source: widgetScore.value,
          score: score,
       });

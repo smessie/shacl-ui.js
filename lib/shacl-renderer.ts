@@ -51,6 +51,9 @@ export class ShaclRenderer extends TwLitElement {
   @property({type: Boolean})
   useLightDom: boolean = false;
 
+  @property({type: Boolean})
+  dereferenceForLabelResolution: boolean = false;
+
   @property()
   dataGraph: string = '';
 

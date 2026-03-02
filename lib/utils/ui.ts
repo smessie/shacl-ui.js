@@ -56,13 +56,13 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       }
       let instances: LabeledValue[] | undefined = undefined;
       if (classes) {
-         instances = await Promise.all(classes.map(clazz => dataGraph.getQuads(null, RDF_("type"), clazz).map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph))).flat());
+         instances = await Promise.all(classes.map(clazz => dataGraph.getQuads(null, RDF_("type"), clazz).map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution))).flat());
       }
       let classValues: ClassValue[] | undefined = undefined;
       if (classes) {
          classValues = await Promise.all(classes.map(async (clazz) => {
             const classValue: ClassValue = {
-               value: await toLabeledValue(clazz, dataGraph, shapesGraph),
+               value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
             };
             // Find NodeShape with sh:targetClass equal to the class, and if found, construct UI components for that NodeShape and add them as children of the class value.
             const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
@@ -75,8 +75,8 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
 
       let subclasses: LabeledValue[] | undefined = undefined;
       if (rootClass) {
-         subclasses = [await toLabeledValue(rootClass, dataGraph, shapesGraph)];
-         await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
+         subclasses = [await toLabeledValue(rootClass, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)];
+         await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses, renderer.dereferenceForLabelResolution);
       }
 
       let values: UIComponentValue[] = [];
@@ -146,7 +146,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       if (inQuad) {
          element.options = await Promise.all(extractShaclList(inQuad.object, shapesGraph).map(async (option) => {
             if (option.termType === "NamedNode" || option.termType === "BlankNode") {
-               return await toLabeledValue(option, dataGraph, shapesGraph);
+               return await toLabeledValue(option, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution);
             } else {
                return {
                   value: df.fromTerm(option as any),
@@ -169,7 +169,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       }
 
       // Configure default widget based on the shape only.
-      const defaultWidgetScores = await score(null, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph);
+      const defaultWidgetScores = await score(null, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
       element.defaultWidget = defaultWidgetScores[0]?.widget.value.value;
       element.defaultWidgets = defaultWidgetScores;
 
@@ -184,12 +184,12 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
                dataGraphWithDefault.addQuad(df.quad(defaultTerm as Quad_Subject, df.namedNode(path.path), focusNode as Quad_Object));
             }
          }
-         element.defaultWidgets = await score(focusNode, dataGraphWithDefault, uiProperty.object, shapesGraph, widgetScoringGraph);
+         element.defaultWidgets = await score(focusNode, dataGraphWithDefault, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
       }
 
       // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
       element.values = await Promise.all(element.values.map(async (value) => {
-         const widgetScores = await score(value.value, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph);
+         const widgetScores = await score(value.value, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
          value.selectedWidget = widgetScores[0]?.widget.value.value;
          value.widgets = widgetScores;
          return value;
@@ -315,12 +315,12 @@ function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGrou
    }
 }
 
-async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: LabeledValue[]): Promise<void> {
+async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: LabeledValue[], dereferenceForLabelResolution: boolean): Promise<void> {
    const subclassObjects = dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject);
    for (const obj of subclassObjects) {
-      const labeledValue = await toLabeledValue(obj, dataGraph, shapesGraph);
+      const labeledValue = await toLabeledValue(obj, dataGraph, shapesGraph, dereferenceForLabelResolution);
       subclasses.push(labeledValue);
-      await extractSubclasses(obj, dataGraph, shapesGraph, subclasses);
+      await extractSubclasses(obj, dataGraph, shapesGraph, subclasses, dereferenceForLabelResolution);
    }
 }
 
@@ -349,7 +349,7 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
    return quads;
 }
 
-export async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfStore): Promise<LabeledValue> {
+export async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfStore, dereferenceForLabelResolution: boolean): Promise<LabeledValue> {
    let labelQuad = dataGraph.getQuads(term, RDFS("label"), null)[0]
       || dataGraph.getQuads(term, DCTERMS("title"), null)[0]
       || dataGraph.getQuads(term, SKOS("prefLabel"), null)[0]
@@ -366,27 +366,29 @@ export async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGrap
       || shapesGraph.getQuads(term, RDFS("comment"), null)[0]
       || shapesGraph.getQuads(term, DCTERMS("description"), null)[0];
 
-   // If still no label found, we will try to dereference the term and try to get the label from the dereferenced graph.
-   for (const iriToDereference of [term.value, `https://ajuvercr.github.io/lov-mirror/by-iri/${encodeURIComponent(encodeURIComponent(term.value))}.ttl`]) {
-      if ((!labelQuad || !descriptionQuad) && term.termType === "NamedNode") {
-         try {
-            const dereferencedGraph = RdfStore.createDefault();
-            const dereferencedOutput = await rdfDereferencer.dereference(iriToDereference, {headers: {"Accept": "application/n-quads,text/turtle;q=0.95,application/ld+json;q=0.9,application/n-triples;q=0.8,*/*;q=0.1"}});
-            await new Promise((resolve, reject) => {
-               dereferencedGraph.import(dereferencedOutput.data).on("end", resolve).on("error", reject);
-            });
-            if (!labelQuad) {
-               labelQuad = dereferencedGraph.getQuads(term, RDFS("label"), null)[0]
-                  || dereferencedGraph.getQuads(term, DCTERMS("title"), null)[0]
-                  || dereferencedGraph.getQuads(term, SKOS("prefLabel"), null)[0]
-                  || dereferencedGraph.getQuads(term, SCHEMA("name"), null)[0];
+   if (dereferenceForLabelResolution) {
+      // If still no label found, we will try to dereference the term and try to get the label from the dereferenced graph.
+      for (const iriToDereference of [term.value, `https://ajuvercr.github.io/lov-mirror/by-iri/${encodeURIComponent(encodeURIComponent(term.value))}.ttl`]) {
+         if ((!labelQuad || !descriptionQuad) && term.termType === "NamedNode") {
+            try {
+               const dereferencedGraph = RdfStore.createDefault();
+               const dereferencedOutput = await rdfDereferencer.dereference(iriToDereference, {headers: {"Accept": "application/n-quads,text/turtle;q=0.95,application/ld+json;q=0.9,application/n-triples;q=0.8,*/*;q=0.1"}});
+               await new Promise((resolve, reject) => {
+                  dereferencedGraph.import(dereferencedOutput.data).on("end", resolve).on("error", reject);
+               });
+               if (!labelQuad) {
+                  labelQuad = dereferencedGraph.getQuads(term, RDFS("label"), null)[0]
+                     || dereferencedGraph.getQuads(term, DCTERMS("title"), null)[0]
+                     || dereferencedGraph.getQuads(term, SKOS("prefLabel"), null)[0]
+                     || dereferencedGraph.getQuads(term, SCHEMA("name"), null)[0];
+               }
+               if (!descriptionQuad) {
+                  descriptionQuad = dereferencedGraph.getQuads(term, RDFS("comment"), null)[0]
+                     || dereferencedGraph.getQuads(term, DCTERMS("description"), null)[0];
+               }
+            } catch (error) {
+               // Ignore dereferencing errors.
             }
-            if (!descriptionQuad) {
-               descriptionQuad = dereferencedGraph.getQuads(term, RDFS("comment"), null)[0]
-                  || dereferencedGraph.getQuads(term, DCTERMS("description"), null)[0];
-            }
-         } catch (error) {
-            // Ignore dereferencing errors.
          }
       }
    }
