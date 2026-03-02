@@ -1,12 +1,13 @@
-import type {TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
+import type {Path, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from 'tailwind-merge';
-import {shui, xsd, XSD} from "./namespaces.ts";
+import {rdf, shui, xsd, XSD} from "./namespaces.ts";
+import type {Quad_Object, Quad_Subject} from "rdf-js";
 import * as RDF from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
 import {findTailwindHeightValue, findTailwindMarginBottomValue} from "./tailwind.ts";
 import type {Literal, Term} from "@rdfjs/types";
-import {cloneTerm} from "./rdf.ts";
+import {mutateTerm} from "./rdf.ts";
 import {ShaclRenderer} from "../shacl-renderer.ts";
 
 const df: RDF.DataFactory = new DataFactory();
@@ -83,6 +84,28 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                                ${uiComponent.paths.map(path => html`
                                    <li class="${twMerge(classes.alternativePathOptionClass, path.path === value.path.path ? classes.alternativePathOptionSelectedClass : '')}"
                                        @click="${() => {
+                                           // Find all quads for the current path and re-add them with the new path.
+                                           if (uiComponent.focusNode && value.path) {
+                                               const oldPathTerm = df.namedNode(value.path.path);
+                                               const newPathTerm = df.namedNode(path.path);
+                                               if (value.path.type === "predicate") {
+                                                   const quads = renderer.dataStore?.getQuads(uiComponent.focusNode as Quad_Subject, oldPathTerm, null);
+                                                   quads?.forEach(quad => {
+                                                       renderer.dataStore?.addQuad(df.quad(quad.subject, newPathTerm, quad.object));
+                                                       renderer.dataStore?.removeQuad(quad);
+                                                   });
+                                               } else if (value.path.type === "inverse") {
+                                                   const quads = renderer.dataStore?.getQuads(null, oldPathTerm, uiComponent.focusNode as Quad_Object);
+                                                   quads?.forEach(quad => {
+                                                       renderer.dataStore?.addQuad(df.quad(quad.subject, newPathTerm, quad.object));
+                                                       renderer.dataStore?.removeQuad(quad);
+                                                   });
+                                               } else {
+                                                   console.warn(`Unsupported path type ${value.path.type} for component ${uiComponent.uuid}, cannot update path in dataStore`);
+                                               }
+                                           } else {
+                                               console.warn(`Cannot update path in dataStore for component ${uiComponent.uuid} because it is missing a focus node or current path.`);
+                                           }
                                            value.path = path;
                                            renderer.setAlternativePathSelectOpen(key, false);
                                            renderer.rerender();
@@ -140,6 +163,7 @@ function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: 
                      ...classes,
                      xIconClass: twMerge(classes.xIconClass, 'mt-0')
                  }, () => {
+                     renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
                      uiComponent.values.splice(index, 1);
                      renderer.rerender();
                  })}
@@ -167,12 +191,15 @@ function renderLabel(uiComponent: UIComponent, classes: TailwindClasses) {
 function renderPlusIcon(renderer: ShaclRenderer, uiComponent: UIComponent, classes: TailwindClasses) {
    let onClick: () => void;
    onClick = () => {
+      const value = getDefaultTermForWidget(renderer, uiComponent.defaultWidget, uiComponent);
+      const path = uiComponent.paths[0];
       uiComponent.values.push({
-         value: getDefaultTermForWidget(uiComponent.defaultWidget, uiComponent),
-         path: uiComponent.paths[0],
+         value: value,
+         path: path,
          widgets: uiComponent.defaultWidgets,
          selectedWidget: uiComponent.defaultWidget,
       });
+      renderer.addToDataStore(uiComponent.focusNode, path, value);
       renderer.rerender();
    }
 
@@ -270,13 +297,7 @@ function renderSelectWidgetIcon(renderer: ShaclRenderer, uiComponent: UIComponen
    `;
 }
 
-function renderAutoCompleteEditor(
-   renderer: ShaclRenderer,
-   uiComponent: UIComponent,
-   value: UIComponentValue,
-   index: number,
-   classes: TailwindClasses,
-) {
+function renderAutoCompleteEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses,) {
    const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
    const open = renderer.autoCompleteEditorOpen[key] ?? false;
@@ -321,7 +342,10 @@ function renderAutoCompleteEditor(
                        renderer.setAutoCompleteEditorOpen(key, true);
 
                        // Clear stored key while typing
-                       value.value.value = '';
+                       const newTerm = mutateTerm(value.value, '');
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
                    @blur="${() => {
                        setTimeout(() => {
@@ -331,6 +355,7 @@ function renderAutoCompleteEditor(
                    }}"
            />
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -342,7 +367,10 @@ function renderAutoCompleteEditor(
                        <li
                                class="${twMerge(classes.autoCompleteEditorOptionClass)}"
                                @mousedown="${() => {
-                                   value.value.value = instance.value.value;
+                                   const newTerm = mutateTerm(value.value, instance.value.value);
+                                   renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                                   renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                                   value.value = newTerm;
                                    renderer.setAutoCompleteEditorFilter(key, instance.label);
                                    renderer.setAutoCompleteEditorOpen(key, false);
                                }}"
@@ -381,6 +409,7 @@ function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent
                    disabled
            />
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -400,12 +429,16 @@ function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, 
                        ?checked="${value.value.value === "true"}"
                        @change="${(e: Event) => {
                            const input = e.target as HTMLInputElement;
-                           value.value.value = input.checked ? "true" : "false";
+                           const newTerm = mutateTerm(value.value, input.checked ? "true" : "false");
+                           renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                           renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                           value.value = newTerm;
                        }}"
                />
                ${uiComponent.label}
            </label>
            ${renderXIcon(uiComponent, {...classes, xIconClass: twMerge(classes.xIconClass, 'mt-0')}, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -426,10 +459,14 @@ function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponen
                    .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            />
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -450,10 +487,14 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
                    .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            />
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -461,28 +502,139 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
    `;
 }
 
-function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, _value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    const childComponents = uiComponent.children ? uiComponent.children[index] : [];
    return html`
        <div class="${twMerge(classes.detailsEditorClass)}">
            ${renderXIcon(uiComponent, classes, () => {
                uiComponent.children!.splice(index, 1);
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, childComponents);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            }, false)}
+
+           ${uiComponent.classes && uiComponent.classes.length > 1 ? renderDetailsClassSelect(renderer, uiComponent, value, index, classes) : nothing}
 
            ${renderUIComponents(renderer, childComponents, classes)}
        </div>
    `;
 }
 
-function renderEnumSelectEditor(
-   renderer: ShaclRenderer,
-   uiComponent: UIComponent,
-   value: UIComponentValue,
-   index: number,
-   classes: TailwindClasses
-) {
+function renderDetailsClassSelect(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+
+   const open = renderer.detailsClassSelectOpen[key] ?? false;
+   const filterText = renderer.detailsClassSelectFilter[key] ?? '';
+
+   const classOptions = uiComponent.classes ?? [];
+
+   // If a value is already stored, find its label
+   const storedKey = uiComponent.class?.value;
+   const selectedClass = classOptions.find(
+      c => c.value.value.value === storedKey
+   );
+
+   const displayText =
+      filterText ||
+      selectedClass?.value.label ||
+      '';
+
+   const filteredClasses = classOptions.filter(c =>
+      c.value.label.toLowerCase().includes(displayText.toLowerCase())
+   );
+
+   return html`
+       <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.detailsClassSelectClass)) || '0'}`)}">
+           <!-- Input -->
+           <input
+                   class="${twMerge(
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           classes.detailsClassSelectClass,
+                           'mb-0'
+                   )}"
+                   autocomplete="off"
+                   .value="${displayText}"
+                   placeholder="Select class for details"
+                   @focus="${() => renderer.setDetailsClassSelectOpen(key, true)}"
+                   @input="${(e: Event) => {
+                       const input = e.target as HTMLInputElement;
+
+                       // Update filter only (do NOT overwrite stored key yet)
+                       renderer.setDetailsClassSelectFilter(key, input.value);
+                       renderer.setDetailsClassSelectOpen(key, true);
+
+                       // Clear stored key while typing
+                       const newTerm = mutateTerm(uiComponent.class ?? df.namedNode(''), '');
+                       const path: Path = {path: rdf('type'), type: 'predicate'};
+                       renderer.removeFromDataStore(value.value, path, uiComponent.class);
+                       renderer.addToDataStore(value.value, path, newTerm);
+                       uiComponent.class = newTerm;
+                   }}"
+                   @blur="${() => {
+                       setTimeout(() => {
+                           renderer.setDetailsClassSelectOpen(key, false);
+                           renderer.setDetailsClassSelectFilter(key, '');
+                       }, 150);
+                   }}"
+           />
+
+           <!-- Dropdown -->
+           ${open && filteredClasses.length > 0 ? html`
+               <ul class="${twMerge(classes.detailsClassSelectDropdownClass)}">
+                   ${filteredClasses.map(c => html`
+                       <li
+                               class="${twMerge(classes.detailsClassSelectOptionClass)}"
+                               @mousedown="${() => {
+                                   // Update the rdf:type triple.
+                                   const newTerm = mutateTerm(uiComponent.class ?? df.namedNode(''), c.value.value.value);
+                                   const path: Path = {path: rdf('type'), type: 'predicate'};
+                                   renderer.removeFromDataStore(value.value, path, uiComponent.class);
+                                   renderer.addToDataStore(value.value, path, newTerm);
+                                   uiComponent.class = newTerm;
+
+                                   // Update the children of the details editor to match the selected class.
+                                   const classValue = uiComponent.classes?.find(cv => cv.value.value.value === c.value.value.value);
+                                   if (classValue) {
+                                       const newChildren = structuredClone(classValue.children ?? []);
+                                       for (const child of newChildren) {
+                                           child.focusNode = uiComponent.values[index].value;
+                                       }
+                                       renderer.removeFromDataStore(uiComponent.focusNode, path, undefined, uiComponent.children![index]);
+                                       for (const child of newChildren) {
+                                          for (const value of child.values) {
+                                              renderer.addToDataStore(child.focusNode, value.path, value.value);
+                                          }
+                                           //renderer.removeFromDataStore(child.focusNode, child.paths[0], child.values[0].value, child.children);
+                                       }
+                                       uiComponent.children![index] = newChildren;
+                                   } else {
+                                       uiComponent.children = [[]];
+                                   }
+
+                                   // Close the dropdown and update the filter text to match the selected class.
+                                   renderer.setDetailsClassSelectFilter(key, c.value.label);
+                                   renderer.setDetailsClassSelectOpen(key, false);
+                               }}"
+                       >
+                           <div class="${twMerge(classes.detailsClassSelectLabelClass)}">
+                               ${c.value.label}
+                           </div>
+
+                           ${c.value.description ? html`
+                               <div class="${twMerge(classes.detailsClassSelectDescriptionClass)}">
+                                   ${c.value.description}
+                               </div>
+                           ` : nothing}
+                       </li>
+                   `)}
+               </ul>
+           ` : ''}
+       </div>
+   `;
+}
+
+function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
    const open = renderer.enumSelectEditorOpen[key] ?? false;
@@ -542,6 +694,7 @@ function renderEnumSelectEditor(
            </div>
 
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -554,16 +707,19 @@ function renderEnumSelectEditor(
            )}">
                     ${options.map(option => html`
                         <li
-                            class="${twMerge(
-                   classes.autoCompleteEditorOptionClass,
-                   option.value.value === value.value.value
-                           ? 'bg-gray-100'
-                           : ''
-           )}"
-                            @mousedown="${() => {
-               value.value.value = option.value.value;
-               renderer.setEnumSelectEditorOpen(key, false);
-           }}"
+                                class="${twMerge(
+                                        classes.autoCompleteEditorOptionClass,
+                                        option.value.value === value.value.value
+                                                ? 'bg-gray-100'
+                                                : ''
+                                )}"
+                                @mousedown="${() => {
+                                    const newTerm = mutateTerm(value.value, option.value.value);
+                                    renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                                    renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                                    value.value = newTerm;
+                                    renderer.setEnumSelectEditorOpen(key, false);
+                                }}"
                         >
                             <div class="${twMerge(classes.autoCompleteEditorLabelClass)}">
                                 ${option.label}
@@ -596,10 +752,14 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            />
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -623,10 +783,14 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
                    .value="${value.value.value ?? ''}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            />
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -662,36 +826,40 @@ function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
            <!-- Input -->
            <input
                    class="${twMerge(
-      classes.globalFieldClass,
-      classes.globalInputFieldClass,
-      classes.subClassEditorClass,
-      'mb-0'
-   )}"
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           classes.subClassEditorClass,
+                           'mb-0'
+                   )}"
                    autocomplete="off"
                    .value="${displayText}"
                    placeholder="${uiComponent.label}"
                    @focus="${() => renderer.setSubClassEditorOpen(key, true)}"
                    @input="${(e: Event) => {
-      const input = e.target as HTMLInputElement;
+                       const input = e.target as HTMLInputElement;
 
-      // Update filter only (do NOT overwrite stored key yet)
-      renderer.setSubClassEditorFilter(key, input.value);
-      renderer.setSubClassEditorOpen(key, true);
+                       // Update filter only (do NOT overwrite stored key yet)
+                       renderer.setSubClassEditorFilter(key, input.value);
+                       renderer.setSubClassEditorOpen(key, true);
 
-      // Clear stored key while typing
-      value.value.value = '';
-   }}"
+                       // Clear stored key while typing
+                       const newTerm = mutateTerm(value.value, '');
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
+                   }}"
                    @blur="${() => {
-      setTimeout(() => {
-         renderer.setSubClassEditorOpen(key, false);
-         renderer.setSubClassEditorFilter(key, '');
-      }, 150);
-   }}"
+                       setTimeout(() => {
+                           renderer.setSubClassEditorOpen(key, false);
+                           renderer.setSubClassEditorFilter(key, '');
+                       }, 150);
+                   }}"
            />
            ${renderXIcon(uiComponent, classes, () => {
-      uiComponent.values.splice(index, 1);
-      renderer.rerender();
-   })}
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
+               uiComponent.values.splice(index, 1);
+               renderer.rerender();
+           })}
 
            <!-- Dropdown -->
            ${open && filteredInstances.length > 0 ? html`
@@ -700,10 +868,13 @@ function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                        <li
                                class="${twMerge(classes.subClassEditorOptionClass, instance.value.value === value.value.value ? classes.subClassEditorOptionSelectedClass : '')}"
                                @mousedown="${() => {
-      value.value.value = instance.value.value;
-      renderer.setSubClassEditorFilter(key, instance.label);
-      renderer.setSubClassEditorOpen(key, false);
-   }}"
+                                   const newTerm = mutateTerm(value.value, instance.value.value);
+                                   renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                                   renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                                   value.value = newTerm;
+                                   renderer.setSubClassEditorFilter(key, instance.label);
+                                   renderer.setSubClassEditorOpen(key, false);
+                               }}"
                        >
                            <div class="${twMerge(classes.subClassEditorLabelClass)}">
                                ${instance.label}
@@ -734,10 +905,14 @@ function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            >${value.value.value ?? ''}</textarea>
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -758,10 +933,14 @@ function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent
                    placeholder="${uiComponent.label}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            />
            ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
            })}
@@ -789,7 +968,10 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
                    )}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            />
 
@@ -820,11 +1002,15 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
                        aria-label="Language tag"
                        @change="${(e: Event) => {
                            const input = e.target as HTMLInputElement;
-                           (value.value as Literal).language = input.value;
+                           const newTerm = mutateTerm(value.value, undefined, input.value);
+                           renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                           renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                           value.value = newTerm;
                        }}"
                />
 
                ${renderXIcon(uiComponent, classes, () => {
+                   renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                    uiComponent.values.splice(index, 1);
                    renderer.rerender();
                })}
@@ -833,13 +1019,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
    `;
 }
 
-function renderTextAreaWithLangEditor(
-   renderer: ShaclRenderer,
-   uiComponent: UIComponent,
-   value: UIComponentValue,
-   index: number,
-   classes: TailwindClasses
-) {
+function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    return html`
        <div class="${twMerge(
                'flex rounded-md shadow-sm',
@@ -866,7 +1046,10 @@ function renderTextAreaWithLangEditor(
                    )}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLTextAreaElement;
-                       value.value.value = input.value;
+                       const newTerm = mutateTerm(value.value, input.value);
+                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                       value.value = newTerm;
                    }}"
            >${value.value.value ?? ''}</textarea>
 
@@ -896,11 +1079,15 @@ function renderTextAreaWithLangEditor(
                        )}"
                        @change="${(e: Event) => {
                            const input = e.target as HTMLInputElement;
-                           (value.value as Literal).language = input.value;
+                           const newTerm = mutateTerm(value.value, undefined, input.value);
+                           renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                           renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                           value.value = newTerm;
                        }}"
                />
 
                ${renderXIcon(uiComponent, classes, () => {
+                   renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                    uiComponent.values.splice(index, 1);
                    renderer.rerender();
                })}
@@ -909,7 +1096,7 @@ function renderTextAreaWithLangEditor(
    `;
 }
 
-export function getDefaultTermForWidget(widget: string | undefined, uiComponent: UIComponent, dryRun: boolean = false): Term {
+export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string | undefined, uiComponent: UIComponent, addChildren: boolean = true, addToDatastore: boolean = true): Term {
    switch (widget) {
       case shui('AutoCompleteEditor'):
          return df.namedNode('');
@@ -923,23 +1110,43 @@ export function getDefaultTermForWidget(widget: string | undefined, uiComponent:
          return df.literal('', XSD('dateTime'));
       case shui('DetailsEditor'):
          const newFocusNode = df.namedNode(`urn:uuid:${crypto.randomUUID()}`);
-         if (uiComponent.children != undefined && !dryRun) {
-            const newChildComponents: UIComponent[] = (uiComponent.defaultChild ?? []).map(child => {
-               const clonedChild = structuredClone(child);
-               clonedChild.focusNode = newFocusNode;
-               return clonedChild;
-            });
+         if (uiComponent.children != undefined && addChildren) {
+            // If defaultChild is set on the uiComponent, use it as default children for the details editor
+            // Otherwise, if class and classes are set on the uiComponent, find the classValue that matches the class and use its children as default children for the details editor
+            let newChildComponents: UIComponent[] = []
+            if (uiComponent.defaultChild) {
+               newChildComponents = uiComponent.defaultChild.map(child => {
+                  const clonedChild = structuredClone(child);
+                  clonedChild.focusNode = newFocusNode;
+                  return clonedChild;
+               });
+            } else if (uiComponent.class && uiComponent.classes) {
+               const classValue = uiComponent.classes.find(cv => cv.value.value.value === uiComponent.class?.value);
+               if (classValue) {
+                  newChildComponents = classValue.children ? classValue.children.map(child => {
+                     const clonedChild = structuredClone(child);
+                     clonedChild.focusNode = newFocusNode;
+                     return clonedChild;
+                  }) : [];
+               }
+               if (addToDatastore) {
+                  renderer.addToDataStore(newFocusNode, {path: rdf('type'), type: 'predicate'}, uiComponent.class);
+               }
+            }
+            if (addToDatastore) {
+               addChildrenToDataStore(renderer, newChildComponents);
+            }
             uiComponent.children = [...(uiComponent.children || []), newChildComponents];
          }
          return newFocusNode;
       case shui('EnumSelectEditor'):
-         return uiComponent.options && uiComponent.options.length > 0 ? cloneTerm(uiComponent.options[0].value) : df.literal('');
+         return uiComponent.options && uiComponent.options.length > 0 ? df.fromTerm(uiComponent.options[0].value as any) : df.literal('');
       case shui('IRIEditor'):
          return df.namedNode('');
       case shui('NumberFieldEditor'):
          return df.literal('0', df.namedNode(uiComponent.datatype ?? xsd('decimal')));
       case shui('SubClassEditor'):
-         return uiComponent.subclasses && uiComponent.subclasses.length > 0 ? cloneTerm(uiComponent.subclasses[0].value) : df.namedNode('');
+         return uiComponent.subclasses && uiComponent.subclasses.length > 0 ? df.fromTerm(uiComponent.subclasses[0].value as any) : df.namedNode('');
       case shui('TextAreaEditor'):
          return df.literal('');
       case shui('TextAreaWithLangEditor'):
@@ -950,6 +1157,21 @@ export function getDefaultTermForWidget(widget: string | undefined, uiComponent:
          return df.literal('', 'en');
       default:
          return df.literal('');
+   }
+}
+
+function addChildrenToDataStore(renderer: ShaclRenderer, children: UIComponent[]) {
+   for (const child of children) {
+      if (child.focusNode && child.paths.length > 0 && child.values.length > 0) {
+         for (const value of child.values) {
+            renderer.addToDataStore(child.focusNode, value.path, value.value);
+         }
+
+         // Recursively add grandchildren to the data store
+         if (child.children) {
+            child.children.forEach(grandChildren => addChildrenToDataStore(renderer, grandChildren));
+         }
+      }
    }
 }
 

@@ -41,19 +41,19 @@ export async function serializeRdf(quads: Quad[], contentType: string): Promise<
    return await stringifyStream(textStream);
 }
 
-export function cloneTerm(term: Term): Term {
+export function mutateTerm(term: Term, value?: string, languageOrDatatype?: string | RDF.NamedNode | RDF.DirectionalLanguage): Term {
    if (!term) {
       return term;
    }
    switch (term.termType) {
       case "NamedNode":
-         return df.namedNode(term.value);
+         return df.namedNode(value ?? term.value);
       case "BlankNode":
-         return df.blankNode(term.value);
+         return df.blankNode(value ?? term.value);
       case "Literal":
-         return df.literal(term.value, term.language || term.datatype);
+         return df.literal(value ?? term.value, languageOrDatatype ?? (term.language || term.datatype));
       case "Variable":
-         return df.variable!(term.value);
+         return df.variable!(value ?? term.value);
       case "DefaultGraph":
          return df.defaultGraph();
       default:

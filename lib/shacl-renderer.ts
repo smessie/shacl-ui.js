@@ -5,10 +5,11 @@ import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./utils/rdf.ts";
 import {constructUiComponents, uiComponentsToQuads} from "./utils/ui.ts";
 import {renderUIComponents} from "./utils/widgets.ts";
-import type {TailwindClasses, UIComponent} from "./utils/types.ts";
+import type {Path, TailwindClasses, UIComponent} from "./utils/types.ts";
 import * as RDF from "rdf-js";
-import {type Quad} from "rdf-js";
+import {type Quad, type Quad_Object, type Quad_Subject} from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
+import type {Term} from "@rdfjs/types";
 
 const df: RDF.DataFactory = new DataFactory();
 
@@ -219,6 +220,24 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   subClassEditorDescriptionClass: string = 'text-sm text-gray-500';
 
+  @property()
+  detailsClassSelectClass: string = 'relative';
+
+  @property()
+  detailsClassSelectDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+
+  @property()
+  detailsClassSelectOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+
+  @property()
+  detailsClassSelectOptionSelectedClass: string = 'bg-gray-100';
+
+  @property()
+  detailsClassSelectLabelClass: string = 'font-medium';
+
+  @property()
+  detailsClassSelectDescriptionClass: string = 'text-sm text-gray-500';
+
   @state()
   ui: UIComponent[] = [];
 
@@ -242,6 +261,12 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   subClassEditorFilter: Record<string, string> = {};
+
+  @state()
+  detailsClassSelectOpen: Record<string, boolean> = {};
+
+  @state()
+  detailsClassSelectFilter: Record<string, string> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -291,6 +316,12 @@ export class ShaclRenderer extends TwLitElement {
       subClassEditorOptionSelectedClass: this.subClassEditorOptionSelectedClass,
       subClassEditorLabelClass: this.subClassEditorLabelClass,
       subClassEditorDescriptionClass: this.subClassEditorDescriptionClass,
+      detailsClassSelectClass: this.detailsClassSelectClass,
+      detailsClassSelectDropdownClass: this.detailsClassSelectDropdownClass,
+      detailsClassSelectOptionClass: this.detailsClassSelectOptionClass,
+      detailsClassSelectOptionSelectedClass: this.detailsClassSelectOptionSelectedClass,
+      detailsClassSelectLabelClass: this.detailsClassSelectLabelClass,
+      detailsClassSelectDescriptionClass: this.detailsClassSelectDescriptionClass,
     }
     const renderer = this;
     return html`
@@ -368,6 +399,57 @@ export class ShaclRenderer extends TwLitElement {
     };
   }
 
+  setDetailsClassSelectOpen(key: string, value: boolean) {
+    this.detailsClassSelectOpen = {
+      ...this.detailsClassSelectOpen,
+      [key]: value
+    };
+  }
+
+  setDetailsClassSelectFilter(key: string, value: string) {
+    this.detailsClassSelectFilter = {
+      ...this.detailsClassSelectFilter,
+      [key]: value
+    };
+  }
+
+  addToDataStore(focusNode?: Term, path?: Path, value?: Term) {
+    if (this.dataStore && focusNode && path && value) {
+      const pathTerm = df.namedNode(path.path);
+      if (path.type === "predicate") {
+        this.dataStore.addQuad(df.quad(focusNode as Quad_Subject, pathTerm, value as Quad_Object));
+      } else if (path.type === "inverse") {
+        this.dataStore.addQuad(df.quad(value as Quad_Subject, pathTerm, focusNode as Quad_Object));
+      } else {
+        console.warn(`Unsupported path type for addition: ${path.type}`);
+      }
+    } else {
+      console.warn('Cannot add to data store: missing dataStore, focusNode, path, or value');
+    }
+  }
+
+  removeFromDataStore(focusNode?: Term, path?: Path, value?: Term, child?: UIComponent[]) {
+    if (child) {
+      for (const childComponent of child) {
+        for (const [index, childValue] of childComponent.values.entries()) {
+          this.removeFromDataStore(childComponent.focusNode, childValue.path, childValue.value, childComponent.children?.[index]);
+        }
+      }
+    }
+    if (this.dataStore && focusNode && path && value) {
+      const pathTerm = df.namedNode(path.path);
+      if (path.type === "predicate") {
+        this.dataStore.removeMatches(focusNode, pathTerm, value);
+      } else if (path.type === "inverse") {
+        this.dataStore.removeMatches(value, pathTerm, focusNode);
+      } else {
+        console.warn(`Unsupported path type for removal: ${path.type}`);
+      }
+    } else {
+      console.warn('Cannot remove from data store: missing dataStore, focusNode, path, or value');
+    }
+  }
+
   protected async willUpdate(changedProperties: PropertyValues) {
     let reconstructUi = false;
     if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {
@@ -402,7 +484,7 @@ export class ShaclRenderer extends TwLitElement {
       reconstructUi = true;
     }
     if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
-      this.ui = await Promise.all(await constructUiComponents(this.shapesStore, this.constraintShape, this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
+      this.ui = await Promise.all(await constructUiComponents(this, this.shapesStore, this.constraintShape, this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
     }
   }
 }

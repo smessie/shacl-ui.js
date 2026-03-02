@@ -20,6 +20,7 @@ export type UIComponent = {
    minCount?: number;
    maxCount?: number;
    class?: Term;
+   classes?: ClassValue[];
    instances?: LabeledValue[];
    rootClass?: Term;
    subclasses?: LabeledValue[];
@@ -48,6 +49,11 @@ export type UIGroup = {
    iri: Term;
    label?: string;
    order?: number;
+}
+
+export type ClassValue = {
+   value: LabeledValue;
+   children?: UIComponent[];
 }
 
 export type LabeledValue = {
@@ -106,4 +112,10 @@ export type TailwindClasses = {
    subClassEditorOptionSelectedClass?: string;
    subClassEditorLabelClass?: string;
    subClassEditorDescriptionClass?: string;
+   detailsClassSelectClass?: string;
+   detailsClassSelectDropdownClass?: string;
+   detailsClassSelectOptionClass?: string;
+   detailsClassSelectOptionSelectedClass?: string;
+   detailsClassSelectLabelClass?: string;
+   detailsClassSelectDescriptionClass?: string;
 };
