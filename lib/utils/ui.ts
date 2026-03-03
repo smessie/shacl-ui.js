@@ -57,7 +57,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       }
       let instances: LabeledValue[] | undefined = undefined;
       if (classes) {
-         instances = await Promise.all(classes.map(clazz => dataGraph.getQuads(null, RDF_("type"), clazz).map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution))).flat());
+         instances = await Promise.all(classes.map(clazz => [...dataGraph.getQuads(null, RDF_("type"), clazz), ...shapesGraph.getQuads(null, RDF_("type"), clazz)].map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution))).flat());
       }
       let classValues: ClassValue[] | undefined = undefined;
       if (classes) {
@@ -102,7 +102,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          } else if (classes) {
             const nestedComponents = await Promise.all(pathValues.map(async (value) => {
                const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
-               return await constructUiComponents(renderer, shapesGraph, usedClass.value, dataGraph, value, widgetScoringGraph);
+               return await constructUiComponents(renderer, shapesGraph, usedClass?.value, dataGraph, value, widgetScoringGraph);
             }));
             children = [...(children ?? []), ...nestedComponents];
          }
@@ -320,7 +320,7 @@ function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGrou
 }
 
 async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: Term[]): Promise<void> {
-   const subclassObjects = dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject);
+   const subclassObjects = [... dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject), ...shapesGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject)];
    for (const subclass of subclassObjects) {
       subclasses.push(subclass);
       await extractSubclasses(subclass, dataGraph, shapesGraph, subclasses);
