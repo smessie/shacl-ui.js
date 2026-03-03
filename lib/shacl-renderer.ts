@@ -241,6 +241,27 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   detailsClassSelectDescriptionClass: string = 'text-sm text-gray-500';
 
+  @property()
+  instancesSelectEditorClass: string = 'relative min-h-9';
+
+  @property()
+  instancesSelectEditorIconClass: string = 'size-4 text-gray-500';
+
+  @property()
+  instancesSelectEditorDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+
+  @property()
+  instancesSelectEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+
+  @property()
+  instancesSelectEditorOptionSelectedClass: string = 'bg-gray-100';
+
+  @property()
+  instancesSelectEditorLabelClass: string = 'font-medium';
+
+  @property()
+  instancesSelectEditorDescriptionClass: string = 'text-sm text-gray-500';
+
   @state()
   ui: UIComponent[] = [];
 
@@ -270,6 +291,9 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   detailsClassSelectFilter: Record<string, string> = {};
+
+  @state()
+  instancesSelectEditorOpen: Record<string, boolean> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -325,6 +349,13 @@ export class ShaclRenderer extends TwLitElement {
       detailsClassSelectOptionSelectedClass: this.detailsClassSelectOptionSelectedClass,
       detailsClassSelectLabelClass: this.detailsClassSelectLabelClass,
       detailsClassSelectDescriptionClass: this.detailsClassSelectDescriptionClass,
+      instancesSelectEditorClass: this.instancesSelectEditorClass,
+      instancesSelectEditorIconClass: this.instancesSelectEditorIconClass,
+      instancesSelectEditorDropdownClass: this.instancesSelectEditorDropdownClass,
+      instancesSelectEditorOptionClass: this.instancesSelectEditorOptionClass,
+      instancesSelectEditorOptionSelectedClass: this.instancesSelectEditorOptionSelectedClass,
+      instancesSelectEditorLabelClass: this.instancesSelectEditorLabelClass,
+      instancesSelectEditorDescriptionClass: this.instancesSelectEditorDescriptionClass,
     }
     const renderer = this;
     return html`
@@ -412,6 +443,13 @@ export class ShaclRenderer extends TwLitElement {
   setDetailsClassSelectFilter(key: string, value: string) {
     this.detailsClassSelectFilter = {
       ...this.detailsClassSelectFilter,
+      [key]: value
+    };
+  }
+
+  setInstancesSelectEditorOpen(key: string, value: boolean) {
+    this.instancesSelectEditorOpen = {
+      ...this.instancesSelectEditorOpen,
       [key]: value
     };
   }

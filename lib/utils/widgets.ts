@@ -138,6 +138,8 @@ function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: 
          return renderDetailsEditor(renderer, uiComponent, value, index, classes);
       case shui("EnumSelectEditor"):
          return renderEnumSelectEditor(renderer, uiComponent, value, index, classes);
+      case shui("InstancesSelectEditor"):
+         return renderInstancesSelectEditor(renderer, uiComponent, value, index, classes);
       case shui("IRIEditor"):
          return renderIRIEditor(renderer, uiComponent, value, index, classes);
       case shui("NumberFieldEditor"):
@@ -740,6 +742,116 @@ function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponen
    `;
 }
 
+function renderInstancesSelectEditor(
+   renderer: ShaclRenderer,
+   uiComponent: UIComponent,
+   value: UIComponentValue,
+   index: number,
+   classes: TailwindClasses
+) {
+   const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
+
+   const open = renderer.instancesSelectEditorOpen?.[key] ?? false;
+
+   const instances = uiComponent.instances ?? [];
+
+   const selectedInstance = instances.find(
+      i => i.value.value === value.value.value
+   );
+
+   return html`
+       <div class="${twMerge(
+               'relative',
+               `mb-${findTailwindMarginBottomValue(
+                       twMerge(
+                               classes.globalFieldClass,
+                               classes.globalInputFieldClass,
+                               classes.instancesSelectEditorClass
+                       )
+               ) || '0'}`
+       )}">
+
+           <!-- Trigger -->
+           <div
+                   id="${value.path.path}-${index}"
+                   class="${twMerge(
+                           classes.globalFieldClass,
+                           classes.globalInputFieldClass,
+                           classes.instancesSelectEditorClass,
+                           'appearance-none pr-10 mb-0 cursor-pointer flex items-center'
+                   )}"
+                   @click="${() =>
+                           renderer.setInstancesSelectEditorOpen?.(key, !open)
+                   }"
+           >
+                <span class="flex-1">
+                    ${selectedInstance?.label ?? ''}
+                </span>
+           </div>
+
+           <!-- Chevron -->
+           <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-8">
+               <svg
+                       class="${classes.instancesSelectEditorIconClass}"
+                       xmlns="http://www.w3.org/2000/svg"
+                       fill="none"
+                       viewBox="0 0 24 24"
+                       stroke="currentColor"
+                       stroke-width="2"
+               >
+                   <path
+                           stroke-linecap="round"
+                           stroke-linejoin="round"
+                           d="M19 9l-7 7-7-7"
+                   />
+               </svg>
+           </div>
+
+           ${renderXIcon(uiComponent, classes, () => {
+               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
+               uiComponent.values.splice(index, 1);
+               renderer.rerender();
+           })}
+
+           <!-- Dropdown -->
+           ${open ? html`
+               <ul class="${twMerge(
+                       classes.instancesSelectEditorDropdownClass,
+                       'absolute z-50 w-full mt-1'
+               )}">
+                   ${instances.map(instance => html`
+                       <li
+                               class="${twMerge(
+                                       classes.instancesSelectEditorOptionClass,
+                                       instance.value.value === value.value.value
+                                               ? 'bg-gray-100'
+                                               : ''
+                               )}"
+                               @mousedown="${() => {
+                                   const newTerm = mutateTerm(value.value, instance.value.value);
+                                   renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                                   renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                                   value.value = newTerm;
+                                   renderer.setInstancesSelectEditorOpen?.(key, false);
+                               }}"
+                       >
+                           <div class="${twMerge(classes.instancesSelectEditorLabelClass)}">
+                               ${instance.label}
+                           </div>
+
+                           ${instance.description ? html`
+                               <div class="${twMerge(classes.instancesSelectEditorDescriptionClass)}">
+                                   ${instance.description}
+                               </div>
+                           ` : nothing}
+                       </li>
+                   `)}
+               </ul>
+           ` : ''}
+       </div>
+   `;
+}
+
 function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass)) || '0'}`)}">
@@ -1142,6 +1254,8 @@ export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string 
          return newFocusNode;
       case shui('EnumSelectEditor'):
          return uiComponent.options && uiComponent.options.length > 0 ? df.fromTerm(uiComponent.options[0].value as any) : df.literal('');
+      case shui('InstancesSelectEditor'):
+         return uiComponent.instances && uiComponent.instances.length > 0 ? df.fromTerm(uiComponent.instances[0].value as any) : df.namedNode('');
       case shui('IRIEditor'):
          return df.namedNode('');
       case shui('NumberFieldEditor'):

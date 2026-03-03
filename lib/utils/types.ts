@@ -119,4 +119,11 @@ export type TailwindClasses = {
    detailsClassSelectOptionSelectedClass?: string;
    detailsClassSelectLabelClass?: string;
    detailsClassSelectDescriptionClass?: string;
+   instancesSelectEditorClass?: string;
+   instancesSelectEditorIconClass?: string;
+   instancesSelectEditorDropdownClass?: string;
+   instancesSelectEditorOptionClass?: string;
+   instancesSelectEditorOptionSelectedClass?: string;
+   instancesSelectEditorLabelClass?: string;
+   instancesSelectEditorDescriptionClass?: string;
 };
