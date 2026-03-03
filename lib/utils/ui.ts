@@ -48,6 +48,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       if (clazz) {
          if (clazz.termType === "NamedNode") {
             classes = [clazz];
+            await extractSubclasses(clazz, dataGraph, shapesGraph, classes);
          } else if (clazz.termType === "BlankNode") {
             classes = extractShaclList(clazz, shapesGraph);
          } else {
@@ -74,10 +75,12 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          }));
       }
 
-      let subclasses: LabeledValue[] | undefined = undefined;
+      let labeledSubclasses: LabeledValue[] | undefined = undefined;
+      let subclasses: Term[] | undefined = undefined;
       if (rootClass) {
-         subclasses = [await toLabeledValue(rootClass, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)];
-         await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses, renderer.dereferenceForLabelResolution);
+         subclasses = [rootClass];
+         await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
+         labeledSubclasses = await Promise.all(subclasses.map(async (subclass) => await toLabeledValue(subclass, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)));
       }
 
       let values: UIComponentValue[] = [];
@@ -134,7 +137,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          classes: classValues,
          instances: instances,
          rootClass: rootClass,
-         subclasses: subclasses,
+         subclasses: labeledSubclasses,
          pattern: pattern,
          minInclusive: minInclusive,
          maxInclusive: maxInclusive,
@@ -316,12 +319,11 @@ function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGrou
    }
 }
 
-async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: LabeledValue[], dereferenceForLabelResolution: boolean): Promise<void> {
+async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: Term[]): Promise<void> {
    const subclassObjects = dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject);
-   for (const obj of subclassObjects) {
-      const labeledValue = await toLabeledValue(obj, dataGraph, shapesGraph, dereferenceForLabelResolution);
-      subclasses.push(labeledValue);
-      await extractSubclasses(obj, dataGraph, shapesGraph, subclasses, dereferenceForLabelResolution);
+   for (const subclass of subclassObjects) {
+      subclasses.push(subclass);
+      await extractSubclasses(subclass, dataGraph, shapesGraph, subclasses);
    }
 }
 
