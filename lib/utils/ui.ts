@@ -2,7 +2,7 @@ import {RdfStore} from "rdf-stores";
 import {DataFactory} from "rdf-data-factory";
 import type {Quad, Quad_Object, Quad_Subject} from "rdf-js";
 import * as RDF from 'rdf-js';
-import type {NamedNode, Term} from "@rdfjs/types";
+import type {Term} from "@rdfjs/types";
 import type {ClassValue, LabeledValue, Path, UIComponent, UIComponentValue, UIGroup} from "./types.ts";
 import {DCTERMS, rdf, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
 import {score} from "./score.ts";
@@ -12,8 +12,8 @@ import {ShaclRenderer} from "../shacl-renderer.ts";
 
 const df: RDF.DataFactory = new DataFactory();
 
-export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph: RdfStore, constraintShape: string, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore): Promise<UIComponent[]> {
-   const rootNode: NamedNode = df.namedNode(constraintShape);
+export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph: RdfStore, constraintShape: Term, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore): Promise<UIComponent[]> {
+   const rootNode: Term = constraintShape;
    const elements: UIComponent[] = [];
    for (const uiProperty of shapesGraph.getQuads(rootNode, SH("property"), null)) {
       const pathQuads = shapesGraph.getQuads(uiProperty.object, SH("path"), null);
@@ -37,8 +37,8 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       const rootClass = shapesGraph.getQuads(uiProperty.object, SH("rootClass"), null)[0]?.object;
       const node = shapesGraph.getQuads(uiProperty.object, SH("node"), null)[0]?.object;
       const propertiesLength = shapesGraph.getQuads(uiProperty.object, SH("property"), null).length;
-      const defaultChild: UIComponent[] | undefined = node ? await constructUiComponents(renderer, shapesGraph, node.value, dataGraph, null, widgetScoringGraph) :
-         (propertiesLength > 0 ? await constructUiComponents(renderer, shapesGraph, uiProperty.object.value, dataGraph, null, widgetScoringGraph) : undefined);
+      const defaultChild: UIComponent[] | undefined = node ? await constructUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph) :
+         (propertiesLength > 0 ? await constructUiComponents(renderer, shapesGraph, uiProperty.object, dataGraph, null, widgetScoringGraph) : undefined);
       const pattern = shapesGraph.getQuads(uiProperty.object, SH("pattern"), null)[0]?.object.value;
       const minInclusive = shapesGraph.getQuads(uiProperty.object, SH("minInclusive"), null)[0]?.object.value;
       const maxInclusive = shapesGraph.getQuads(uiProperty.object, SH("maxInclusive"), null)[0]?.object.value;
@@ -69,7 +69,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
             // Find NodeShape with sh:targetClass equal to the class, and if found, construct UI components for that NodeShape and add them as children of the class value.
             const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
             if (nodeShapeQuad) {
-               classValue.children = await constructUiComponents(renderer, shapesGraph, nodeShapeQuad.subject.value, dataGraph, undefined, widgetScoringGraph);
+               classValue.children = await constructUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
             }
             return classValue;
          }));
@@ -97,18 +97,18 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
 
          if (node) {
             // If sh:node is present, we need to recursively construct UI components for the nested shape
-            const nestedComponents = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, node.value, dataGraph, value, widgetScoringGraph)));
+            const nestedComponents = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
             children = [...(children ?? []), ...nestedComponents];
          } else if (classes) {
             const nestedComponents = await Promise.all(pathValues.map(async (value) => {
                const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
-               return await constructUiComponents(renderer, shapesGraph, usedClass?.value, dataGraph, value, widgetScoringGraph);
+               return await constructUiComponents(renderer, shapesGraph, usedClass, dataGraph, value, widgetScoringGraph);
             }));
             children = [...(children ?? []), ...nestedComponents];
          }
          // Also consider child properties defined directly on the PropertyShape.
          if (propertiesLength > 0) {
-            const directChildren = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, uiProperty.object.value, dataGraph, value, widgetScoringGraph)));
+            const directChildren = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, uiProperty.object, dataGraph, value, widgetScoringGraph)));
             children = [...(children ?? []), ...directChildren];
          }
 

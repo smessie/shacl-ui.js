@@ -553,7 +553,7 @@ export class ShaclRenderer extends TwLitElement {
       reconstructUi = true;
     }
     if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
-      this.ui = await Promise.all(await constructUiComponents(this, this.shapesStore, this.constraintShape, this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
+      this.ui = await Promise.all(await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
     }
   }
 }
