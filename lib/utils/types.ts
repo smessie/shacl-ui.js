@@ -126,4 +126,10 @@ export type TailwindClasses = {
    instancesSelectEditorOptionSelectedClass?: string;
    instancesSelectEditorLabelClass?: string;
    instancesSelectEditorDescriptionClass?: string;
+   richTextEditorClass?: string;
+   richTextEditorToolbarClass?: string;
+   richTextEditorButtonClass?: string;
+   richTextEditorSelectClass?: string;
+   richTextEditorContentClass?: string;
+   richTextEditorRawContentClass?: string;
 };

@@ -188,6 +188,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
             }
          }
          element.defaultWidgets = await score(focusNode, dataGraphWithDefault, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+         element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
       }
 
       // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.

@@ -10,6 +10,7 @@ import * as RDF from "rdf-js";
 import {type Quad, type Quad_Object, type Quad_Subject} from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
 import type {Term} from "@rdfjs/types";
+import './styles/tailwind.global.css';
 
 const df: RDF.DataFactory = new DataFactory();
 
@@ -262,6 +263,24 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   instancesSelectEditorDescriptionClass: string = 'text-sm text-gray-500';
 
+  @property()
+  richTextEditorClass: string = 'border rounded-md shadow-sm';
+
+  @property()
+  richTextEditorToolbarClass: string = 'flex flex-wrap gap-1 border-b rounded-t-md bg-gray-50 p-2 pr-8';
+
+  @property()
+  richTextEditorButtonClass: string = 'px-2 py-1 text-sm hover:bg-gray-200 rounded cursor-pointer justify-center flex items-center';
+
+  @property()
+  richTextEditorSelectClass: string = 'text-sm border rounded px-1 cursor-pointer';
+
+  @property()
+  richTextEditorContentClass: string = 'min-h-50 p-3 focus:outline-none prose max-w-none';
+
+  @property()
+  richTextEditorRawContentClass: string = 'w-full min-h-50 p-2 focus:outline-none';
+
   @state()
   ui: UIComponent[] = [];
 
@@ -294,6 +313,9 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   instancesSelectEditorOpen: Record<string, boolean> = {};
+
+  @state()
+  richTextHtmlMode: Record<string, boolean> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -356,6 +378,12 @@ export class ShaclRenderer extends TwLitElement {
       instancesSelectEditorOptionSelectedClass: this.instancesSelectEditorOptionSelectedClass,
       instancesSelectEditorLabelClass: this.instancesSelectEditorLabelClass,
       instancesSelectEditorDescriptionClass: this.instancesSelectEditorDescriptionClass,
+      richTextEditorClass: this.richTextEditorClass,
+      richTextEditorToolbarClass: this.richTextEditorToolbarClass,
+      richTextEditorButtonClass: this.richTextEditorButtonClass,
+      richTextEditorSelectClass: this.richTextEditorSelectClass,
+      richTextEditorContentClass: this.richTextEditorContentClass,
+      richTextEditorRawContentClass: this.richTextEditorRawContentClass
     }
     const renderer = this;
     return html`
