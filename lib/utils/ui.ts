@@ -13,6 +13,9 @@ import {ShaclRenderer} from "../shacl-renderer.ts";
 const df: RDF.DataFactory = new DataFactory();
 
 export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph: RdfStore, constraintShape: Term, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore): Promise<UIComponent[]> {
+   if (!constraintShape) {
+      return [];
+   }
    const rootNode: Term = constraintShape;
    const elements: UIComponent[] = [];
    for (const uiProperty of shapesGraph.getQuads(rootNode, SH("property"), null)) {
