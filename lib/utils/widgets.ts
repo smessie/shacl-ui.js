@@ -7,7 +7,7 @@ import * as RDF from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
 import {findTailwindHeightValue, findTailwindMarginBottomValue} from "./tailwind.ts";
 import type {Literal, Term} from "@rdfjs/types";
-import {mutateTerm} from "./rdf.ts";
+import {expandPrefixedIRI, mutateTerm} from "./rdf.ts";
 import {ShaclRenderer} from "../shacl-renderer.ts";
 
 const df: RDF.DataFactory = new DataFactory();
@@ -859,8 +859,11 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
                    pattern="${uiComponent.pattern ?? nothing}"
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
-                   @change="${(e: Event) => {
+                   @change="${async (e: Event) => {
                        const input = e.target as HTMLInputElement;
+                       if (renderer.expandPrefixes) {
+                           input.value = await expandPrefixedIRI(input.value);
+                       }
                        const newTerm = mutateTerm(value.value, input.value);
                        renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
                        renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);

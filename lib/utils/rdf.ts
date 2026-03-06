@@ -6,7 +6,7 @@ import type {Stream, Term} from "@rdfjs/types";
 import * as RDF from "rdf-js";
 import {type Quad} from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
-import { write } from '@jeswr/pretty-turtle';
+import {write} from '@jeswr/pretty-turtle';
 
 const df: RDF.DataFactory = new DataFactory();
 
@@ -65,4 +65,24 @@ export function mutateTerm(term: Term, value?: string, languageOrDatatype?: stri
       default:
          throw new Error(`Unknown term type: ${term.termType}`);
    }
+}
+
+export async function expandPrefixedIRI(prefixed: string): Promise<string> {
+   // If the prefixed IRI is actually already expanded, return it as is
+   if (!prefixed.includes(':') || prefixed.startsWith('http://') || prefixed.startsWith('https://') || prefixed.startsWith('urn:')) {
+      return prefixed;
+   }
+   const [prefix, suffix] = prefixed.split(':');
+   try {
+      const response = await fetch(
+         `https://prefixcc-proxy.smessie.com/${prefix}.file.json`,
+      );
+      const json = await response.json();
+      const namespace = json[prefix];
+      if (namespace) {
+         prefixed = namespace + suffix;
+      }
+   } catch (_) {
+   }
+   return prefixed;
 }
