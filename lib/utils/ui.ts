@@ -46,6 +46,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       const minInclusive = shapesGraph.getQuads(uiProperty.object, SH("minInclusive"), null)[0]?.object.value;
       const maxInclusive = shapesGraph.getQuads(uiProperty.object, SH("maxInclusive"), null)[0]?.object.value;
       const order = shapesGraph.getQuads(uiProperty.object, SH("order"), null)[0]?.object.value;
+      const nodeKind = shapesGraph.getQuads(uiProperty.object, SH("nodeKind"), null)[0]?.object;
 
       let classes: Term[] | undefined = undefined;
       if (clazz) {
@@ -145,6 +146,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          minInclusive: minInclusive,
          maxInclusive: maxInclusive,
          order: order ? parseFloat(order) : undefined,
+         nodeKind: nodeKind,
       }
 
       // Check if sh:in is present for enumerations, and if so, get all options

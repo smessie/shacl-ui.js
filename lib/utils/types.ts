@@ -28,6 +28,7 @@ export type UIComponent = {
    maxInclusive?: string;
    order?: number;
    group?: UIGroup;
+   nodeKind?: Term;
 };
 
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence";

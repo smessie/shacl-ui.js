@@ -1,7 +1,7 @@
 import type {Path, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from 'tailwind-merge';
-import {rdf, RDF as RDF_, shui, XSD, xsd} from "./namespaces.ts";
+import {rdf, RDF as RDF_, SH, shui, XSD, xsd} from "./namespaces.ts";
 import type {Quad_Object, Quad_Subject} from "rdf-js";
 import * as RDF from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
@@ -1444,7 +1444,11 @@ export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string 
       case shui('DateTimePickerEditor'):
          return df.literal('', XSD('dateTime'));
       case shui('DetailsEditor'):
-         const newFocusNode = df.namedNode(`urn:uuid:${crypto.randomUUID()}`);
+         const newFocusNode = uiComponent.nodeKind?.equals(SH('BlankNode')) || uiComponent.nodeKind?.equals(SH('BlankNodeOrLiteral'))
+            ? df.blankNode()
+            : (uiComponent.nodeKind?.equals(SH('IRI')) || uiComponent.nodeKind?.equals(SH('IRIOrLiteral'))
+               ? df.namedNode(`urn:uuid:${crypto.randomUUID()}`)
+               : renderer.preferSkolemizedBlankNodes ? df.namedNode(`urn:uuid:${crypto.randomUUID()}`) : df.blankNode());
          if (uiComponent.children != undefined && addChildren) {
             // If defaultChild is set on the uiComponent, use it as default children for the details editor
             // Otherwise, if class and classes are set on the uiComponent, find the classValue that matches the class and use its children as default children for the details editor
