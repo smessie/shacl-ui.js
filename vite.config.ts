@@ -4,6 +4,7 @@ import dts from "vite-plugin-dts";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from '@tailwindcss/vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
+import tailwindShadowDOM from "vite-plugin-tailwind-shadowdom";
 
 export default defineConfig({
    plugins: [
@@ -16,6 +17,7 @@ export default defineConfig({
          },
          protocolImports: true,
       }),
+      tailwindShadowDOM()
    ],
    build: {
       copyPublicDir: false,

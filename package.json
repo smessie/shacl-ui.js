@@ -3,10 +3,14 @@
   "version": "0.0.1",
   "type": "module",
   "files": [
-    "dist"
+    "dist/lib",
+    "dist/shacl-renderer.js",
+    "dist/shacl-renderer.d.ts",
+    "dist/shacl-renderer.css"
   ],
-  "main": "./dist/shacl-renderer.umd.cjs",
+  "main": "./dist/shacl-renderer.js",
   "module": "./dist/shacl-renderer.js",
+  "types": "./dist/shacl-renderer.d.ts",
   "exports": {
     ".": {
       "import": "./dist/shacl-renderer.js",
@@ -19,14 +23,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@jeswr/pretty-turtle": "^1.8.2",
     "@tailwindcss/typography": "^0.5.19",
     "lit": "^3.3.1",
     "rdf-dereference": "^5.0.0",
     "rdf-parse": "^5.0.0",
-    "rdf-serialize": "^5.0.0",
     "rdf-stores": "^2.1.1",
     "shacl-engine": "^1.1.0",
-    "streamify-array": "^2.0.0",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
@@ -43,6 +46,7 @@
     "vite": "^7.2.4",
     "vite-plugin-dts": "^4.5.4",
     "vite-plugin-node-polyfills": "^0.24.0",
+    "vite-plugin-tailwind-shadowdom": "^1.1.1",
     "vite-tsconfig-paths": "^6.0.4"
   }
 }
