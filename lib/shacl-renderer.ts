@@ -1,4 +1,4 @@
-import {html, LitElement, type PropertyValues} from 'lit'
+import {css, html, LitElement, type PropertyValues, unsafeCSS} from 'lit'
 import {customElement, property, state} from 'lit/decorators.js'
 import {TW} from "./shared/tailwindMixin";
 import type {RdfStore} from "rdf-stores";
@@ -10,6 +10,7 @@ import * as RDF from "rdf-js";
 import {type Quad, type Quad_Object, type Quad_Subject} from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
 import type {Term} from "@rdfjs/types";
+import tailwindStyles from './styles/tailwind.global.css?inline';
 import './styles/tailwind.global.css';
 
 const df: RDF.DataFactory = new DataFactory();
@@ -49,8 +50,15 @@ const TwLitElement = TW(LitElement);
 @customElement('shacl-renderer')
 export class ShaclRenderer extends TwLitElement {
 
+  static styles = [css`${unsafeCSS(tailwindStyles)}`];
+
+  loading: boolean = true;
+
   @property({type: Boolean})
   useLightDom: boolean = false;
+
+  @property({ reflect: true })
+  theme: 'dark' | 'light' = window.matchMedia("(prefers-color-scheme: dark)").matches ? 'dark' : 'light';
 
   @property({type: Boolean})
   dereferenceForLabelResolution: boolean = false;
@@ -99,31 +107,37 @@ export class ShaclRenderer extends TwLitElement {
 
 
   @property()
-  labelClass: string = 'block text-gray-700 text-sm font-bold mb-1';
+  componentClass: string = 'bg-white dark:bg-zinc-800';
 
   @property()
-  descriptionClass: string = '-mt-1 text-xs text-gray-500 mb-2';
+  spinnerClass: string = 'h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-700 dark:border-zinc-700 dark:border-t-zinc-200';
 
   @property()
-  globalFieldClass: string = 'text-gray-700 leading-tight mb-2';
+  labelClass: string = 'block text-zinc-700 dark:text-zinc-100 text-sm font-bold mb-1';
 
   @property()
-  globalInputFieldClass: string = 'w-full shadow appearance-none border rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-gray-400';
+  descriptionClass: string = '-mt-1 text-xs text-zinc-500 dark:text-zinc-200 mb-2';
+
+  @property()
+  globalFieldClass: string = 'text-zinc-700 dark:text-zinc-100 leading-tight mb-2';
+
+  @property()
+  globalInputFieldClass: string = 'w-full shadow appearance-none border dark:border-zinc-200 rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-zinc-400 dark:focus:border-zinc-300';
 
   @property()
   autoCompleteEditorClass: string = 'relative';
 
   @property()
-  autoCompleteEditorDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+  autoCompleteEditorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
 
   @property()
-  autoCompleteEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+  autoCompleteEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
 
   @property()
   autoCompleteEditorLabelClass: string = 'font-medium';
 
   @property()
-  autoCompleteEditorDescriptionClass: string = 'text-sm text-gray-500';
+  autoCompleteEditorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-200';
 
   @property()
   blankNodeEditorClass: string = '';
@@ -153,127 +167,127 @@ export class ShaclRenderer extends TwLitElement {
   enumSelectEditorClass: string = '';
 
   @property()
-  enumSelectEditorIconClass: string = 'h-4 w-4 text-gray-500';
+  enumSelectEditorIconClass: string = 'h-4 w-4 text-zinc-500 dark:text-zinc-400';
 
   @property()
-  detailsEditorClass: string = 'ml-4 border-l pl-4 relative';
+  detailsEditorClass: string = 'ml-4 border-l dark:border-zinc-200 pl-4 relative';
 
   @property()
-  plusIconClass: string = 'size-6 float-right text-green-600 cursor-pointer hover:text-green-700';
+  plusIconClass: string = 'size-6 float-right text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-500';
 
   @property()
-  xIconClass: string = 'size-5 -mr-1 mt-4 cursor-pointer';
+  xIconClass: string = 'size-5 -mr-1 mt-4 cursor-pointer text-zinc-900 dark:text-zinc-50';
 
   @property()
   groupClass: string = 'md:flex md:gap-x-4 md:flex-wrap';
 
   @property()
-  groupLabelClass: string = 'font-bold md:basis-full';
+  groupLabelClass: string = 'font-bold md:basis-full dark:text-zinc-50 text-zinc-800';
 
   @property()
   groupElementClass: string = 'md:flex-1';
 
   @property()
-  alternativePathDescriptionClass: string = 'text-xs italic text-gray-500 mb-2 -mt-1 hover:text-gray-700 cursor-pointer';
+  alternativePathDescriptionClass: string = 'text-xs italic text-zinc-500 dark:text-zinc-200 mb-2 -mt-1 hover:text-zinc-700 dark:hover:text-zinc-100 cursor-pointer';
 
   @property()
-  alternativePathSelectClass: string = 'absolute z-50 bg-white border rounded shadow-md -mt-t';
+  alternativePathSelectClass: string = 'absolute z-50 bg-white dark:bg-zinc-800 border dark:border-zinc-600 rounded shadow-md -mt-t';
 
   @property()
-  alternativePathOptionClass: string = 'px-2 py-1 text-sm hover:bg-gray-100 cursor-pointer';
+  alternativePathOptionClass: string = 'px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer';
 
   @property()
   alternativePathOptionSelectedClass: string = 'font-bold';
 
   @property()
-  selectWidgetIconClass: string = 'size-6 cursor-pointer text-gray-500 hover:text-gray-700';
+  selectWidgetIconClass: string = 'size-6 cursor-pointer text-zinc-500 dark:text-zinc-200 hover:text-zinc-700 dark:hover:text-zinc-100';
 
   @property()
-  selectWidgetDropdownClass: string = 'absolute right-0 mt-2 origin-top-right transform translate-x-0 z-50 min-w-64 bg-white border border-gray-300 rounded-md shadow-lg max-h-80 w-md overflow-auto max-w-[85vw]';
+  selectWidgetDropdownClass: string = 'absolute right-0 mt-2 origin-top-right transform translate-x-0 z-50 min-w-64 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg max-h-80 w-md overflow-auto max-w-[85vw]';
 
   @property()
-  selectWidgetOptionClass: string = 'px-4 py-2 cursor-pointer hover:bg-gray-100';
+  selectWidgetOptionClass: string = 'px-4 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
 
   @property()
-  selectWidgetOptionSelectedClass: string = 'bg-gray-100';
+  selectWidgetOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
 
   @property()
-  selectWidgetLabelClass: string = 'font-medium text-gray-800';
+  selectWidgetLabelClass: string = 'font-medium text-zinc-800 dark:text-zinc-200';
 
   @property()
-  selectWidgetDescriptionClass: string = 'text-sm text-gray-500';
+  selectWidgetDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
 
   @property()
-  selectWidgetScoreClass: string = 'text-xs text-gray-400 ml-3';
+  selectWidgetScoreClass: string = 'text-xs text-zinc-400 dark:text-zinc-500 ml-3';
 
   @property()
   subClassEditorClass: string = 'relative';
 
   @property()
-  subClassEditorDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+  subClassEditorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
 
   @property()
-  subClassEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+  subClassEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
 
   @property()
-  subClassEditorOptionSelectedClass: string = 'bg-gray-100';
+  subClassEditorOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
 
   @property()
   subClassEditorLabelClass: string = 'font-medium';
 
   @property()
-  subClassEditorDescriptionClass: string = 'text-sm text-gray-500';
+  subClassEditorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
 
   @property()
   detailsClassSelectClass: string = 'relative';
 
   @property()
-  detailsClassSelectDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+  detailsClassSelectDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
 
   @property()
-  detailsClassSelectOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+  detailsClassSelectOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
 
   @property()
-  detailsClassSelectOptionSelectedClass: string = 'bg-gray-100';
+  detailsClassSelectOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
 
   @property()
   detailsClassSelectLabelClass: string = 'font-medium';
 
   @property()
-  detailsClassSelectDescriptionClass: string = 'text-sm text-gray-500';
+  detailsClassSelectDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
 
   @property()
   instancesSelectEditorClass: string = 'relative min-h-9';
 
   @property()
-  instancesSelectEditorIconClass: string = 'size-4 text-gray-500';
+  instancesSelectEditorIconClass: string = 'size-4 text-zinc-500 dark:text-zinc-400';
 
   @property()
-  instancesSelectEditorDropdownClass: string = 'absolute z-50 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+  instancesSelectEditorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
 
   @property()
-  instancesSelectEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-gray-100';
+  instancesSelectEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
 
   @property()
-  instancesSelectEditorOptionSelectedClass: string = 'bg-gray-100';
+  instancesSelectEditorOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
 
   @property()
   instancesSelectEditorLabelClass: string = 'font-medium';
 
   @property()
-  instancesSelectEditorDescriptionClass: string = 'text-sm text-gray-500';
+  instancesSelectEditorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
 
   @property()
-  richTextEditorClass: string = 'border rounded-md shadow-sm';
+  richTextEditorClass: string = 'border dark:border-zinc-600 rounded-md shadow-sm';
 
   @property()
-  richTextEditorToolbarClass: string = 'flex flex-wrap gap-1 border-b rounded-t-md bg-gray-50 p-2 pr-8';
+  richTextEditorToolbarClass: string = 'flex flex-wrap gap-1 border-b dark:border-zinc-600 rounded-t-md bg-zinc-50 dark:bg-zinc-800 p-2 pr-8';
 
   @property()
-  richTextEditorButtonClass: string = 'px-2 py-1 text-sm hover:bg-gray-200 rounded cursor-pointer justify-center flex items-center';
+  richTextEditorButtonClass: string = 'px-2 py-1 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded cursor-pointer justify-center flex items-center';
 
   @property()
-  richTextEditorSelectClass: string = 'text-sm border rounded px-1 cursor-pointer';
+  richTextEditorSelectClass: string = 'text-sm border dark:border-zinc-600 rounded px-1 cursor-pointer';
 
   @property()
   richTextEditorContentClass: string = 'min-h-50 p-3 focus:outline-none prose max-w-none';
@@ -323,6 +337,8 @@ export class ShaclRenderer extends TwLitElement {
 
   render() {
     const tailwindClasses: TailwindClasses = {
+      componentClass: this.componentClass,
+      spinnerClass: this.spinnerClass,
       labelClass: this.labelClass,
       descriptionClass: this.descriptionClass,
       globalFieldClass: this.globalFieldClass,
@@ -387,10 +403,20 @@ export class ShaclRenderer extends TwLitElement {
     }
     const renderer = this;
     return html`
-      <div>
-        ${renderUIComponents(renderer, this.ui, tailwindClasses)}
+      <div class="${this.componentClass}">
+        ${this.loading
+           ? html`
+             <div class="flex items-center justify-center py-10">
+               <div
+                  class="${this.spinnerClass}">
+               </div>
+             </div>
+           `
+           : html`
+             ${renderUIComponents(renderer, this.ui, tailwindClasses)}
+           `}
       </div>
-    `
+    `;
   }
 
   rerender() {
@@ -522,38 +548,45 @@ export class ShaclRenderer extends TwLitElement {
   protected async willUpdate(changedProperties: PropertyValues) {
     let reconstructUi = false;
     if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {
+      this.loading = true;
       console.log('dataGraph changed to', this.dataGraph)
       this.dataStore = await parseRdf(this.dataGraph, this.dataGraphContentType);
       reconstructUi = true;
     }
     if (changedProperties.has('dataGraphUrl') && this.dataGraphUrl && this.dataGraphUrl.trim().length !== 0) {
+      this.loading = true;
       console.log('dataGraphUrl changed to', this.dataGraphUrl)
       this.dataStore = await dereferenceRdf(new URL(this.dataGraphUrl, window.location.href).href);
       reconstructUi = true;
     }
     if (changedProperties.has('shapesGraph') || changedProperties.has('shapesGraphContentType')) {
+      this.loading = true;
       console.log('shapesGraph changed to', this.shapesGraph)
       this.shapesStore = await parseRdf(this.shapesGraph, this.shapesGraphContentType);
       console.log('Constructed UI:', this.ui);
       reconstructUi = true;
     }
     if (changedProperties.has('shapesGraphUrl') && this.shapesGraphUrl && this.shapesGraphUrl.trim().length !== 0) {
+      this.loading = true;
       console.log('shapesGraphUrl changed to', this.shapesGraphUrl)
       this.shapesStore = await dereferenceRdf(new URL(this.shapesGraphUrl, window.location.href).href);
       reconstructUi = true;
     }
     if (changedProperties.has('widgetScoringGraph') || changedProperties.has('widgetScoringGraphContentType')) {
+      this.loading = true;
       console.log('widgetScoringGraph changed to', this.widgetScoringGraph)
       this.widgetScoringStore = await parseRdf(this.widgetScoringGraph, this.widgetScoringGraphContentType);
       reconstructUi = true;
     }
     if (changedProperties.has('widgetScoringGraphUrl') && this.widgetScoringGraphUrl && this.widgetScoringGraphUrl.trim().length !== 0) {
+      this.loading = true;
       console.log('widgetScoringGraphUrl changed to', this.widgetScoringGraphUrl)
       this.widgetScoringStore = await dereferenceRdf(new URL(this.widgetScoringGraphUrl, window.location.href).href);
       reconstructUi = true;
     }
     if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
       this.ui = await Promise.all(await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
+      this.loading = false;
     }
   }
 }

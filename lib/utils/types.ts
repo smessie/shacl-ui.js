@@ -70,6 +70,8 @@ export type WidgetScore = {
 };
 
 export type TailwindClasses = {
+   componentClass?: string;
+   spinnerClass?: string;
    labelClass?: string;
    descriptionClass?: string;
    globalFieldClass?: string;

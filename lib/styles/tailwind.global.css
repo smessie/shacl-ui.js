@@ -1,3 +1,11 @@
 @import "tailwindcss";
 @source inline("mb-{0..100} h-{0..100}");
 @plugin "@tailwindcss/typography";
+@custom-variant dark (
+    &:where(:host([theme="dark"]), :host([theme="dark"]) *)
+);
+@media (prefers-color-scheme: dark) {
+    :host(:not([theme])) {
+        color-scheme: dark;
+    }
+}

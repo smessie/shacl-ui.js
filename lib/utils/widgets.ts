@@ -159,7 +159,7 @@ function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: 
       default:
          return html`
              <div class="relative">
-                 <label class="block text-gray-700 text-sm font-bold mb-2">
+                 <label class="${twMerge(classes.labelClass)}">
                      ${uiComponent.label} (${value.path.path}) - Unsupported widget:
                      ${value.selectedWidget ?? 'none'}
                  </label>
