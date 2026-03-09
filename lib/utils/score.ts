@@ -82,6 +82,16 @@ export async function score(focusNode: Term | null, dataGraph: RdfStore, constra
       }
       return a.widget.value.value.localeCompare(b.widget.value.value);
    });
+
+   // Filter out duplicate widgets, keeping only the one with the highest score (which should be the first one due to sorting)
+   const seenWidgets = new Set<string>();
+   results = results.filter(r => {
+      if (seenWidgets.has(r.widget.value.value)) {
+         return false;
+      }
+      seenWidgets.add(r.widget.value.value);
+      return true;
+   });
    return results;
 }
 
