@@ -196,14 +196,6 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
       }
 
-      // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
-      element.values = await Promise.all(element.values.map(async (value) => {
-         const widgetScores = await score(value.value, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
-         value.selectedWidget = widgetScores[0]?.widget.value.value;
-         value.widgets = widgetScores;
-         return value;
-      }));
-
       // Make sure we have at least minCount values, by adding empty values if needed.
       for (let i = values.length; i < (element.minCount ?? 0); i++) {
          const value = getDefaultTermForWidget(renderer, element.defaultWidget, element, true, !!focusNode);
@@ -217,6 +209,14 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
             widgets: defaultWidgetScores,
          });
       }
+
+      // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
+      element.values = await Promise.all(element.values.map(async (value) => {
+         const widgetScores = await score(value.value, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+         value.selectedWidget = widgetScores[0]?.widget.value.value;
+         value.widgets = widgetScores;
+         return value;
+      }));
 
       elements.push(element);
    }
