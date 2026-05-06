@@ -29,6 +29,10 @@ export type UIComponent = {
    order?: number;
    group?: UIGroup;
    nodeKind?: Term;
+   orNode?: OrNode[];
+   orDatatype?: OrDatatype[];
+   orClass?: OrClass[];
+   selectedOrIndex?: number;
 };
 
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence";
@@ -44,6 +48,8 @@ export type UIComponentValue = {
    class?: Term;
    widgets?: WidgetScore[];
    selectedWidget?: string;
+   /** Which or-option (index into orNode / orDatatype / orClass) this specific value uses. */
+   selectedOrIndex?: number;
 }
 
 export type UIGroup = {
@@ -69,6 +75,23 @@ export type WidgetScore = {
    source: string;
    score: number;
 };
+
+export type OrNode = {
+   node: Term;
+   values: UIComponentValue[];
+   children?: UIComponent[][];
+   defaultChild?: UIComponent[];
+}
+
+export type OrDatatype = {
+   datatype: string;
+}
+
+export type OrClass = {
+   class: Term;
+   classValue: ClassValue;
+   instances: LabeledValue[];
+}
 
 export type TailwindClasses = {
    componentClass?: string;
@@ -135,4 +158,10 @@ export type TailwindClasses = {
    richTextEditorSelectClass?: string;
    richTextEditorContentClass?: string;
    richTextEditorRawContentClass?: string;
+   orSelectorClass?: string;
+   orSelectorDropdownClass?: string;
+   orSelectorOptionClass?: string;
+   orSelectorOptionSelectedClass?: string;
+   orSelectorLabelClass?: string;
+   orSelectorDescriptionClass?: string;
 };

@@ -1,4 +1,4 @@
-import type {Path, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
+import type {LabeledValue, Path, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from 'tailwind-merge';
 import {rdf, RDF as RDF_, SH, shui, XSD, xsd} from "./namespaces.ts";
@@ -9,6 +9,9 @@ import {findTailwindHeightValue, findTailwindMarginBottomValue} from "./tailwind
 import type {Literal, Term} from "@rdfjs/types";
 import {expandPrefixedIRI, mutateTerm} from "./rdf.ts";
 import {ShaclRenderer} from "../shacl-renderer.ts";
+import {toLabeledValue} from "./ui.ts";
+import type {RdfStore} from "rdf-stores";
+import {until} from 'lit/directives/until.js';
 
 const df: RDF.DataFactory = new DataFactory();
 
@@ -65,6 +68,7 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
 
                    <div class="flex items-start gap-2">
                        <div class="flex-1 min-w-0">
+                           ${renderOrSelectorForValue(renderer, uiComponent, value, index, classes)}
                            ${renderWidget(renderer, uiComponent, value, index, classes)}
                        </div>
 
@@ -184,6 +188,111 @@ function renderDescription(uiComponent: UIComponent, classes: TailwindClasses) {
    ` : nothing;
 }
 
+/**
+ * Returns a human-readable label for an or-option at the given index.
+ */
+async function getOrOptionLabel(uiComponent: UIComponent, index: number, dataGraph: RdfStore, shapesGraph: RdfStore): Promise<LabeledValue> {
+   const {orNode, orDatatype, orClass} = uiComponent;
+   if (orNode) {
+      const labeledValue = await toLabeledValue(orNode[index]?.node, dataGraph, shapesGraph, false);
+      const iri = orNode[index]?.node?.value ?? '';
+      if (labeledValue.label === iri) {
+         labeledValue.label = iri.split('#').pop()?.split('/').pop() || `Option ${index + 1}`;
+      }
+      return labeledValue
+   } else if (orClass) {
+      return orClass[index]?.classValue?.value;
+   } else if (orDatatype) {
+      const dt = orDatatype[index]?.datatype ?? '';
+      return {
+         value: df.namedNode(orDatatype[index]?.datatype),
+         label: dt.split('#').pop()?.split('/').pop() || dt || `Option ${index + 1}`
+      };
+   }
+   return {
+      value: df.blankNode(),
+      label: `Option ${index + 1}`
+   };
+}
+
+/**
+ * Renders a per-value dropdown that lets the user switch the sh:or option for one specific value.
+ * When the option changes the correct children are swapped in for that value slot.
+ */
+function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, valueIndex: number, classes: TailwindClasses) {
+   const optionCount = (uiComponent.orNode ?? uiComponent.orDatatype ?? uiComponent.orClass)?.length ?? 0;
+   if (optionCount < 2) return nothing;
+
+   const key = `${uiComponent.uuid}-or-${valueIndex}`;
+   const open = renderer.orSelectOpen[key] ?? false;
+   const selectedIndex = value.selectedOrIndex ?? 0;
+   const indices = Array.from({length: optionCount}, (_, i) => i);
+
+   return html`
+       <div class="relative mb-2">
+           <div class="${twMerge(
+                   classes.globalFieldClass,
+                   classes.globalInputFieldClass,
+                   'appearance-none pr-10 mb-0 cursor-pointer flex items-center text-sm'
+           )}"
+                @click="${() => renderer.setOrSelectOpen(key, !open)}">
+               <span class="flex-1">${until(getOrOptionLabel(uiComponent, selectedIndex, renderer.dataStore!, renderer.shapesStore!).then(res => res.label))}</span>
+               <svg class="${twMerge(classes.enumSelectEditorIconClass)}"
+                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                    stroke="currentColor" stroke-width="2">
+                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+               </svg>
+           </div>
+
+           ${open ? html`
+               <ul class="${twMerge(classes.orSelectorDropdownClass, 'absolute z-50 w-full mt-1')}">
+                   ${indices.map(index => {
+                      const labeledValue = getOrOptionLabel(uiComponent, index, renderer.dataStore!, renderer.shapesStore!);
+                      return html`
+                          <li class="${twMerge(
+                                  classes.orSelectorOptionClass,
+                                  index === selectedIndex ? classes.orSelectorOptionSelectedClass : ''
+                          )}"
+                              @mousedown="${() => {
+                                  value.selectedOrIndex = index;
+
+                                  // For orNode: rebuild children for this specific value using the
+                                  // newly selected node shape. Re-use pre-built children where available
+                                  // (values that existed in the data graph at construction time), and
+                                  // fall back to cloning defaultChild for values added afterward.
+                                  if (uiComponent.orNode && uiComponent.orNode[index]) {
+                                      const orOption = uiComponent.orNode[index];
+                                      const existingChildren = orOption.children?.[valueIndex];
+                                      const newChildren = existingChildren !== undefined
+                                              ? existingChildren
+                                              : (orOption.defaultChild ?? []).map(child => {
+                                                  const cloned = structuredClone(child);
+                                                  cloned.focusNode = value.value;
+                                                  return cloned;
+                                              });
+                                      if (!uiComponent.children) uiComponent.children = [];
+                                      uiComponent.children[valueIndex] = newChildren;
+                                  }
+
+                                  renderer.setOrSelectOpen(key, false);
+                                  renderer.rerender();
+                              }}">
+                              <div class="${twMerge(classes.orSelectorLabelClass)}">
+                                  ${until(labeledValue.then(res => res.label))}
+                              </div>
+                              ${until(labeledValue.then(res => res.description)) ? html`
+                                  <div class="${twMerge(classes.orSelectorDescriptionClass)}">
+                                      ${until(labeledValue.then(res => res.description))}
+                                  </div>
+                              ` : nothing}
+                          </li>
+                      `})}
+               </ul>
+           ` : nothing}
+       </div>
+   `;
+}
+
 function renderLabel(uiComponent: UIComponent, classes: TailwindClasses) {
    return html`
        <label class="${twMerge(classes.labelClass)}">
@@ -203,6 +312,7 @@ function renderPlusIcon(renderer: ShaclRenderer, uiComponent: UIComponent, class
          class: uiComponent.classes?.[0]?.iri,
          widgets: uiComponent.defaultWidgets,
          selectedWidget: uiComponent.defaultWidget,
+         selectedOrIndex: uiComponent.selectedOrIndex,
       });
       renderer.addToDataStore(uiComponent.focusNode, path, value);
       renderer.rerender();
@@ -508,7 +618,7 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
 }
 
 function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
-   const childComponents = uiComponent.children ? uiComponent.children[index] : [];
+   const childComponents = uiComponent.children ? (uiComponent.children[index] ?? []) : [];
    return html`
        <div class="${twMerge(classes.detailsEditorClass)}">
            ${renderXIcon(uiComponent, classes, () => {

@@ -3,7 +3,17 @@ import {DataFactory} from "rdf-data-factory";
 import type {Quad, Quad_Object, Quad_Subject} from "rdf-js";
 import * as RDF from 'rdf-js';
 import type {Term} from "@rdfjs/types";
-import type {ClassValue, LabeledValue, Path, UIComponent, UIComponentValue, UIGroup} from "./types.ts";
+import type {
+   ClassValue,
+   LabeledValue,
+   OrClass,
+   OrDatatype,
+   OrNode,
+   Path,
+   UIComponent,
+   UIComponentValue,
+   UIGroup
+} from "./types.ts";
 import {DCTERMS, rdf, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
 import {score} from "./score.ts";
 import {getDefaultTermForWidget} from "./widgets.ts";
@@ -47,6 +57,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       const maxInclusive = shapesGraph.getQuads(uiProperty.object, SH("maxInclusive"), null)[0]?.object.value;
       const order = shapesGraph.getQuads(uiProperty.object, SH("order"), null)[0]?.object.value;
       const nodeKind = shapesGraph.getQuads(uiProperty.object, SH("nodeKind"), null)[0]?.object;
+      const or = shapesGraph.getQuads(uiProperty.object, SH("or"), null)[0]?.object;
 
       let classes: Term[] | undefined = undefined;
       if (clazz) {
@@ -149,6 +160,116 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          nodeKind: nodeKind,
       }
 
+      // Handle sh:or if present; only union of the same constraint is supported.
+      if (or) {
+         const orList = extractShaclList(or, shapesGraph);
+         if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("node"), null).length === 1)) {
+            // Handle sh:or of sh:node constraints.
+            element.orNode = await Promise.all(orList.map(async orListItem => {
+               const node = shapesGraph.getQuads(orListItem, SH("node"), null)[0]?.object;
+               const defaultChild = await constructUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph);
+
+               let values: UIComponentValue[] = [];
+               let children: UIComponent[][] | undefined = undefined;
+               for (const path of paths) {
+                  if (path.type !== "predicate" && path.type !== "inverse") {
+                     console.warn(`Unsupported path type ${path.type} for constraint ${uiProperty.object.value}, skipping value extraction for this path`);
+                     continue;
+                  }
+
+                  const pathValues = path.type === "predicate"
+                     ? (focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.path), null).map(quad => quad.object) : [])
+                     : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
+
+                  // sh:node is present, so we need to recursively construct UI components for the nested shape
+                  const nestedComponents = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
+                  children = [...(children ?? []), ...nestedComponents];
+
+                  pathValues.forEach(value => {
+                     values.push({
+                        value: value,
+                        path: path,
+                     });
+                  });
+               }
+
+               return {
+                  node: node,
+                  values: values,
+                  children: children,
+                  defaultChild: defaultChild,
+               } as OrNode;
+            }));
+         } else if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("datatype"), null).length === 1)) {
+            // Handle sh:or of sh:datatype constraints.
+            element.orDatatype = orList.map(orListItem => {
+               const datatype = shapesGraph.getQuads(orListItem, SH("datatype"), null)[0]?.object;
+               return {
+                  datatype: datatype?.value,
+               } as OrDatatype;
+            });
+         } else if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("class"), null).length === 1)) {
+            // Handle sh:or of sh:class constraints.
+            element.orClass = await Promise.all(orList.map(async orListItem => {
+               const clazz = shapesGraph.getQuads(orListItem, SH("class"), null)[0]?.object;
+               const classTerms: Term[] = [clazz];
+               await extractSubclasses(clazz, dataGraph, shapesGraph, classTerms);
+               const instances = await Promise.all(
+                  classTerms.flatMap(c => [
+                     ...dataGraph.getQuads(null, RDF_("type"), c),
+                     ...shapesGraph.getQuads(null, RDF_("type"), c)
+                  ].map(async quad => toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)))
+               );
+               const classValue: ClassValue = {
+                  iri: clazz,
+                  value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
+               };
+               const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
+               if (nodeShapeQuad) {
+                  classValue.children = await constructUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
+               }
+               return { class: clazz, classValue, instances } as OrClass;
+            }));
+         } else {
+            console.warn(`sh:or is only supported for unions of the same constraint. Allowed constraints are sh:node, sh:datatype, or sh:class.`)
+         }
+
+         // Auto-detect which or-option matches existing data, then apply it so the
+         // rest of the rendering code sees the correct node / children / datatype / classes.
+         let selectedOrIndex = 0;
+         if (element.orDatatype && element.values.length > 0) {
+            const valueDatatype = element.values[0].value.termType === 'Literal'
+               ? (element.values[0].value as any).datatype?.value
+               : undefined;
+            if (valueDatatype) {
+               const matchIndex = element.orDatatype.findIndex(opt => opt.datatype === valueDatatype);
+               if (matchIndex >= 0) selectedOrIndex = matchIndex;
+            }
+         } else if (element.orClass && element.values.length > 0) {
+            const valueType = dataGraph.getQuads(element.values[0].value, RDF_("type"), null)[0]?.object.value;
+            if (valueType) {
+               const matchIndex = element.orClass.findIndex(opt => opt.class.value === valueType);
+               if (matchIndex >= 0) selectedOrIndex = matchIndex;
+            }
+         }
+         applyOrOption(element, selectedOrIndex);
+
+         // Set per-value selectedOrIndex, detecting each value's or-option individually.
+         for (const v of element.values) {
+            if (element.orDatatype) {
+               const dt = v.value.termType === 'Literal' ? (v.value as any).datatype?.value : undefined;
+               const idx = dt ? element.orDatatype.findIndex(opt => opt.datatype === dt) : -1;
+               v.selectedOrIndex = idx >= 0 ? idx : selectedOrIndex;
+            } else if (element.orClass) {
+               const vType = dataGraph.getQuads(v.value, RDF_("type"), null)[0]?.object.value;
+               const idx = vType ? element.orClass.findIndex(opt => opt.class.value === vType) : -1;
+               v.selectedOrIndex = idx >= 0 ? idx : selectedOrIndex;
+            } else {
+               v.selectedOrIndex = selectedOrIndex;
+            }
+         }
+      }
+
       // Check if sh:in is present for enumerations, and if so, get all options
       const inQuad = shapesGraph.getQuads(uiProperty.object, SH("in"), null)[0];
       if (inQuad) {
@@ -207,6 +328,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
             class: element.classes?.[0]?.iri,
             selectedWidget: element.defaultWidget,
             widgets: defaultWidgetScores,
+            selectedOrIndex: element.selectedOrIndex,
          });
       }
 
@@ -367,13 +489,15 @@ export async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGrap
       || shapesGraph.getQuads(term, RDFS("label"), null)[0]
       || shapesGraph.getQuads(term, DCTERMS("title"), null)[0]
       || shapesGraph.getQuads(term, SKOS("prefLabel"), null)[0]
-      || shapesGraph.getQuads(term, SCHEMA("name"), null)[0];
+      || shapesGraph.getQuads(term, SCHEMA("name"), null)[0]
+      || shapesGraph.getQuads(term, SH("name"), null)[0];
 
    let descriptionQuad = dataGraph.getQuads(term, RDFS("comment"), null)[0]
       || dataGraph.getQuads(term, DCTERMS("description"), null)[0]
       // Or try to retrieve description from shapes graph if not found in data graph.
       || shapesGraph.getQuads(term, RDFS("comment"), null)[0]
-      || shapesGraph.getQuads(term, DCTERMS("description"), null)[0];
+      || shapesGraph.getQuads(term, DCTERMS("description"), null)[0]
+      || shapesGraph.getQuads(term, SH("description"), null)[0];
 
    if (dereferenceForLabelResolution) {
       // If still no label found, we will try to dereference the term and try to get the label from the dereferenced graph.
@@ -406,5 +530,30 @@ export async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGrap
       value: term,
       label: labelQuad ? labelQuad.object.value : term.value,
       description: descriptionQuad ? descriptionQuad.object.value : undefined,
+   }
+}
+
+/**
+ * Applies an or-option (from orNode / orDatatype / orClass) to the UIComponent,
+ * populating the relevant fields so the rest of the rendering code can treat the
+ * selected option transparently.
+ */
+function applyOrOption(element: UIComponent, index: number): void {
+   element.selectedOrIndex = index;
+   if (element.orNode && element.orNode[index]) {
+      const option = element.orNode[index];
+      element.node = option.node;
+      element.defaultChild = option.defaultChild;
+      element.children = option.children;
+   } else if (element.orDatatype && element.orDatatype[index]) {
+      element.datatype = element.orDatatype[index].datatype;
+   } else if (element.orClass && element.orClass[index]) {
+      const option = element.orClass[index];
+      element.classes = [option.classValue];
+      element.instances = option.instances;
+      // Ensure children is initialized so getDefaultTermForWidget can populate it.
+      if (element.children === undefined) {
+         element.children = [];
+      }
    }
 }

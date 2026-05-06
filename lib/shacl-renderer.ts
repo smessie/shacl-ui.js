@@ -46,6 +46,11 @@ const TwLitElement = TW(LitElement);
  * @detailsEditorClass Tailwind CSS classes applied to details editors used for editing nested shapes.
  * @plusIconClass Tailwind CSS classes applied to plus icons used for adding values.
  * @xIconClass Tailwind CSS classes applied to x icons used for removing values.
+ * @orSelectorClass Tailwind CSS classes applied to sh:or selector containers.
+ * @orSelectorDropdownClass Tailwind CSS classes applied to sh:or selector dropdowns.
+ * @orSelectorOptionClass Tailwind CSS classes applied to sh:or selector options.
+ * @orSelectorLabelClass Tailwind CSS classes applied to sh:or selector labels.
+ * @orSelectorDescriptionClass Tailwind CSS classes applied to sh:or selector descriptions.
  */
 @customElement('shacl-renderer')
 export class ShaclRenderer extends TwLitElement {
@@ -301,6 +306,24 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   richTextEditorRawContentClass: string = 'w-full min-h-50 p-2 focus:outline-none';
 
+  @property()
+  orSelectorClass: string = 'relative';
+
+  @property()
+  orSelectorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
+
+  @property()
+  orSelectorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
+
+  @property()
+  orSelectorOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
+
+  @property()
+  orSelectorLabelClass: string = 'font-medium';
+
+  @property()
+  orSelectorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-200';
+
   @state()
   ui: UIComponent[] = [];
 
@@ -336,6 +359,9 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   richTextHtmlMode: Record<string, boolean> = {};
+
+  @state()
+  orSelectOpen: Record<string, boolean> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -405,7 +431,13 @@ export class ShaclRenderer extends TwLitElement {
       richTextEditorButtonClass: this.richTextEditorButtonClass,
       richTextEditorSelectClass: this.richTextEditorSelectClass,
       richTextEditorContentClass: this.richTextEditorContentClass,
-      richTextEditorRawContentClass: this.richTextEditorRawContentClass
+      richTextEditorRawContentClass: this.richTextEditorRawContentClass,
+      orSelectorClass: this.orSelectorClass,
+      orSelectorDropdownClass: this.orSelectorDropdownClass,
+      orSelectorOptionClass: this.orSelectorOptionClass,
+      orSelectorOptionSelectedClass: this.orSelectorOptionSelectedClass,
+      orSelectorLabelClass: this.orSelectorLabelClass,
+      orSelectorDescriptionClass: this.orSelectorDescriptionClass,
     }
     const renderer = this;
     return html`
@@ -510,6 +542,13 @@ export class ShaclRenderer extends TwLitElement {
   setInstancesSelectEditorOpen(key: string, value: boolean) {
     this.instancesSelectEditorOpen = {
       ...this.instancesSelectEditorOpen,
+      [key]: value
+    };
+  }
+
+  setOrSelectOpen(key: string, value: boolean) {
+    this.orSelectOpen = {
+      ...this.orSelectOpen,
       [key]: value
     };
   }
