@@ -33,6 +33,7 @@ export type UIComponent = {
    orDatatype?: OrDatatype[];
    orClass?: OrClass[];
    selectedOrIndex?: number;
+   hasValue?: Term;
 };
 
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence";

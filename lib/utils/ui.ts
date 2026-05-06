@@ -58,6 +58,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
       const order = shapesGraph.getQuads(uiProperty.object, SH("order"), null)[0]?.object.value;
       const nodeKind = shapesGraph.getQuads(uiProperty.object, SH("nodeKind"), null)[0]?.object;
       const or = shapesGraph.getQuads(uiProperty.object, SH("or"), null)[0]?.object;
+      const hasValue = shapesGraph.getQuads(uiProperty.object, SH("hasValue"), null)[0]?.object;
 
       let classes: Term[] | undefined = undefined;
       if (clazz) {
@@ -135,6 +136,23 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          });
       }
 
+      // Ensure sh:hasValue term is always present as the first value.
+      if (hasValue) {
+         const idx = values.findIndex(v => v.value.equals(hasValue));
+         if (idx < 0) {
+            // Not in data graph yet – prepend it and add it to the store.
+            const path = paths[0];
+            if (focusNode) {
+               renderer.addToDataStore(focusNode, path, hasValue);
+            }
+            values.unshift({ value: hasValue, path });
+         } else if (idx > 0) {
+            // Already present but not first – move it to the front.
+            const [entry] = values.splice(idx, 1);
+            values.unshift(entry);
+         }
+      }
+
       const element: UIComponent = {
          uuid: self.crypto.randomUUID(),
          iri: uiProperty.object,
@@ -158,6 +176,7 @@ export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph
          maxInclusive: maxInclusive,
          order: order ? parseFloat(order) : undefined,
          nodeKind: nodeKind,
+         hasValue: hasValue,
       }
 
       // Handle sh:or if present; only union of the same constraint is supported.

@@ -64,12 +64,15 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
            ${uiComponent.values.map((value, index) => {
                const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
                const open = renderer.alternativePathSelectOpen[key] ?? false;
+
+               const isHasValue = !!uiComponent.hasValue && index === 0;
+
                return html`
 
                    <div class="flex items-start gap-2">
                        <div class="flex-1 min-w-0">
-                           ${renderOrSelectorForValue(renderer, uiComponent, value, index, classes)}
-                           ${renderWidget(renderer, uiComponent, value, index, classes)}
+                           ${isHasValue ? nothing : renderOrSelectorForValue(renderer, uiComponent, value, index, classes)}
+                           ${renderWidget(renderer, uiComponent, value, index, classes, isHasValue)}
                        </div>
 
                        <div class="shrink-0 mt-2">
@@ -126,40 +129,40 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
    `;
 }
 
-function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    switch (value.selectedWidget) {
       case shui("AutoCompleteEditor"):
-         return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes);
+         return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("BlankNodeEditor"):
-         return renderBlankNodeEditor(renderer, uiComponent, value, index, classes);
+         return renderBlankNodeEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("BooleanEditor"):
-         return renderBooleanEditor(renderer, uiComponent, value, index, classes);
+         return renderBooleanEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("DatePickerEditor"):
-         return renderDatePickerEditor(renderer, uiComponent, value, index, classes);
+         return renderDatePickerEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("DateTimePickerEditor"):
-         return renderDateTimePickerEditor(renderer, uiComponent, value, index, classes);
+         return renderDateTimePickerEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("DetailsEditor"):
-         return renderDetailsEditor(renderer, uiComponent, value, index, classes);
+         return renderDetailsEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("EnumSelectEditor"):
-         return renderEnumSelectEditor(renderer, uiComponent, value, index, classes);
+         return renderEnumSelectEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("InstancesSelectEditor"):
-         return renderInstancesSelectEditor(renderer, uiComponent, value, index, classes);
+         return renderInstancesSelectEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("IRIEditor"):
-         return renderIRIEditor(renderer, uiComponent, value, index, classes);
+         return renderIRIEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("NumberFieldEditor"):
-         return renderNumberFieldEditor(renderer, uiComponent, value, index, classes);
+         return renderNumberFieldEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("RichTextEditor"):
-         return renderRichTextEditor(renderer, uiComponent, value, index, classes);
+         return renderRichTextEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("SubClassEditor"):
-         return renderSubClassEditor(renderer, uiComponent, value, index, classes);
+         return renderSubClassEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("TextAreaEditor"):
-         return renderTextAreaEditor(renderer, uiComponent, value, index, classes);
+         return renderTextAreaEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("TextAreaWithLangEditor"):
-         return renderTextAreaWithLangEditor(renderer, uiComponent, value, index, classes);
+         return renderTextAreaWithLangEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("TextFieldEditor"):
-         return renderTextFieldEditor(renderer, uiComponent, value, index, classes);
+         return renderTextFieldEditor(renderer, uiComponent, value, index, classes, disabled);
       case shui("TextFieldWithLangEditor"):
-         return renderTextFieldWithLangEditor(renderer, uiComponent, value, index, classes);
+         return renderTextFieldWithLangEditor(renderer, uiComponent, value, index, classes, disabled);
       default:
          return html`
              <div class="relative">
@@ -167,7 +170,7 @@ function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: 
                      ${uiComponent.label} (${value.path.path}) - Unsupported widget:
                      ${value.selectedWidget ?? 'none'}
                  </label>
-                 ${renderXIcon(uiComponent, {
+                 ${disabled ? nothing : renderXIcon(uiComponent, {
                      ...classes,
                      xIconClass: twMerge(classes.xIconClass, 'mt-0')
                  }, () => {
@@ -412,7 +415,7 @@ function renderSelectWidgetIcon(renderer: ShaclRenderer, uiComponent: UIComponen
    `;
 }
 
-function renderAutoCompleteEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses,) {
+function renderAutoCompleteEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
    const open = renderer.autoCompleteEditorOpen[key] ?? false;
@@ -438,42 +441,44 @@ function renderAutoCompleteEditor(renderer: ShaclRenderer, uiComponent: UICompon
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.autoCompleteEditorClass)) || '0'}`)}">
            <!-- Input -->
-           <input
-                   class="${twMerge(
-                           classes.globalFieldClass,
-                           classes.globalInputFieldClass,
-                           classes.autoCompleteEditorClass,
-                           'mb-0'
-                   )}"
-                   autocomplete="off"
-                   .value="${displayText}"
-                   placeholder="${uiComponent.label}"
-                   @focus="${() => renderer.setAutoCompleteEditorOpen(key, true)}"
-                   @input="${(e: Event) => {
-                       const input = e.target as HTMLInputElement;
+            <input
+                    class="${twMerge(
+                            classes.globalFieldClass,
+                            classes.globalInputFieldClass,
+                            classes.autoCompleteEditorClass,
+                            'mb-0',
+                            disabled ? 'cursor-not-allowed opacity-60' : ''
+                    )}"
+                    autocomplete="off"
+                    .value="${displayText}"
+                    placeholder="${uiComponent.label}"
+                    ?disabled="${disabled}"
+                    @focus="${() => renderer.setAutoCompleteEditorOpen(key, true)}"
+                    @input="${(e: Event) => {
+                        const input = e.target as HTMLInputElement;
 
-                       // Update filter only (do NOT overwrite stored key yet)
-                       renderer.setAutoCompleteEditorFilter(key, input.value);
-                       renderer.setAutoCompleteEditorOpen(key, true);
+                        // Update filter only (do NOT overwrite stored key yet)
+                        renderer.setAutoCompleteEditorFilter(key, input.value);
+                        renderer.setAutoCompleteEditorOpen(key, true);
 
-                       // Clear stored key while typing
-                       const newTerm = mutateTerm(value.value, '');
-                       renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
-                       renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
-                       value.value = newTerm;
-                   }}"
-                   @blur="${() => {
-                       setTimeout(() => {
-                           renderer.setAutoCompleteEditorOpen(key, false);
-                           renderer.setAutoCompleteEditorFilter(key, '');
-                       }, 150);
-                   }}"
-           />
-           ${renderXIcon(uiComponent, classes, () => {
-               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
-               uiComponent.values.splice(index, 1);
-               renderer.rerender();
-           })}
+                        // Clear stored key while typing
+                        const newTerm = mutateTerm(value.value, '');
+                        renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                        renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                        value.value = newTerm;
+                    }}"
+                    @blur="${() => {
+                        setTimeout(() => {
+                            renderer.setAutoCompleteEditorOpen(key, false);
+                            renderer.setAutoCompleteEditorFilter(key, '');
+                        }, 150);
+                    }}"
+            />
+            ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
+                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
+                uiComponent.values.splice(index, 1);
+                renderer.rerender();
+            })}
 
            <!-- Dropdown -->
            ${open && filteredInstances.length > 0 ? html`
@@ -508,7 +513,7 @@ function renderAutoCompleteEditor(renderer: ShaclRenderer, uiComponent: UICompon
    `;
 }
 
-function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.autoCompleteEditorClass)) || '0'}`)}">
            <input
@@ -523,7 +528,7 @@ function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent
                    placeholder="${uiComponent.label}"
                    disabled
            />
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -532,7 +537,7 @@ function renderBlankNodeEditor(renderer: ShaclRenderer, uiComponent: UIComponent
    `;
 }
 
-function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.labelClass, classes.booleanEditorLabelClass)) || '0'}`)}">
            <label class="${twMerge(classes.labelClass, classes.booleanEditorLabelClass)}"
@@ -542,6 +547,7 @@ function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, 
                        id="${value.path.path}-${index}"
                        type="checkbox"
                        ?checked="${value.value.value === "true"}"
+                       ?disabled="${disabled}"
                        @change="${(e: Event) => {
                            const input = e.target as HTMLInputElement;
                            const newTerm = mutateTerm(value.value, input.checked ? "true" : "false");
@@ -552,7 +558,7 @@ function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, 
                />
                ${uiComponent.label}
            </label>
-           ${renderXIcon(uiComponent, {...classes, xIconClass: twMerge(classes.xIconClass, 'mt-0')}, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, {...classes, xIconClass: twMerge(classes.xIconClass, 'mt-0')}, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -561,17 +567,18 @@ function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, 
    `;
 }
 
-function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass)) || '0'}`)}">
            <input
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass, 'mb-0')}"
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
                    id="${value.path.path}"
                    required
                    type="date"
                    min="${uiComponent.minInclusive ?? nothing}"
                    max="${uiComponent.maxInclusive ?? nothing}"
                    .value="${value.value.value ?? ''}"
+                   ?disabled="${disabled}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        const newTerm = mutateTerm(value.value, input.value);
@@ -580,7 +587,7 @@ function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponen
                        value.value = newTerm;
                    }}"
            />
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -589,17 +596,18 @@ function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponen
    `;
 }
 
-function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass)) || '0'}`)}">
            <input
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass, 'mb-0')}"
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
                    id="${value.path.path}"
                    required
                    type="datetime-local"
                    min="${uiComponent.minInclusive ?? nothing}"
                    max="${uiComponent.maxInclusive ?? nothing}"
                    .value="${value.value.value ?? ''}"
+                   ?disabled="${disabled}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        const newTerm = mutateTerm(value.value, input.value);
@@ -608,7 +616,7 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
                        value.value = newTerm;
                    }}"
            />
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -617,11 +625,11 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
    `;
 }
 
-function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    const childComponents = uiComponent.children ? (uiComponent.children[index] ?? []) : [];
    return html`
        <div class="${twMerge(classes.detailsEditorClass)}">
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                uiComponent.children!.splice(index, 1);
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, childComponents);
                uiComponent.values.splice(index, 1);
@@ -749,10 +757,10 @@ function renderDetailsClassSelect(renderer: ShaclRenderer, uiComponent: UICompon
    `;
 }
 
-function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
-   const open = renderer.enumSelectEditorOpen[key] ?? false;
+   const open = !disabled && (renderer.enumSelectEditorOpen[key] ?? false);
 
    const options = uiComponent.options ?? [];
 
@@ -779,7 +787,8 @@ function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponen
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
                            classes.enumSelectEditorClass,
-                           'appearance-none pr-10 mb-0 cursor-pointer flex items-center'
+                           'appearance-none pr-10 mb-0 flex items-center',
+                           disabled ? 'cursor-not-allowed opacity-60 pointer-events-none' : 'cursor-pointer'
                    )}"
                    @click="${() =>
                            renderer.setEnumSelectEditorOpen(key, !open)
@@ -808,7 +817,7 @@ function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponen
                </svg>
            </div>
 
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -854,10 +863,10 @@ function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponen
    `;
 }
 
-function renderInstancesSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderInstancesSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
-   const open = renderer.instancesSelectEditorOpen?.[key] ?? false;
+   const open = !disabled && (renderer.instancesSelectEditorOpen?.[key] ?? false);
 
    const instances = uiComponent.instances ?? [];
 
@@ -884,7 +893,8 @@ function renderInstancesSelectEditor(renderer: ShaclRenderer, uiComponent: UICom
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
                            classes.instancesSelectEditorClass,
-                           'appearance-none pr-10 mb-0 cursor-pointer flex items-center'
+                           'appearance-none pr-10 mb-0 flex items-center',
+                           disabled ? 'cursor-not-allowed opacity-60 pointer-events-none' : 'cursor-pointer'
                    )}"
                    @click="${() =>
                            renderer.setInstancesSelectEditorOpen?.(key, !open)
@@ -913,7 +923,7 @@ function renderInstancesSelectEditor(renderer: ShaclRenderer, uiComponent: UICom
                </svg>
            </div>
 
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -958,17 +968,18 @@ function renderInstancesSelectEditor(renderer: ShaclRenderer, uiComponent: UICom
    `;
 }
 
-function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass)) || '0'}`)}">
            <input
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass, 'mb-0')}"
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
                    id="${value.path.path}"
                    required
                    type="url"
                    pattern="${uiComponent.pattern ?? nothing}"
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
+                   ?disabled="${disabled}"
                    @change="${async (e: Event) => {
                        const input = e.target as HTMLInputElement;
                        if (renderer.expandPrefixes) {
@@ -980,7 +991,7 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
                        value.value = newTerm;
                    }}"
            />
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -989,11 +1000,11 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
    `;
 }
 
-function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass)) || '0'}`)}">
            <input
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass, 'mb-0')}"
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
                    id="${value.path.path}"
                    required
                    type="number"
@@ -1003,6 +1014,7 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
                    max="${uiComponent.maxInclusive ?? nothing}"
                    placeholder="${uiComponent.label}"
                    .value="${value.value.value ?? ''}"
+                   ?disabled="${disabled}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        const newTerm = mutateTerm(value.value, input.value);
@@ -1011,7 +1023,7 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
                        value.value = newTerm;
                    }}"
            />
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -1020,7 +1032,7 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
    `;
 }
 
-function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    const editorId = `rte-${uiComponent.uuid}-${index}`;
 
    // Track HTML mode per editor
@@ -1056,7 +1068,7 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
            )}">
 
                <!-- Toolbar -->
-               <div class="${twMerge(classes.richTextEditorToolbarClass)}">
+               <div class="${twMerge(classes.richTextEditorToolbarClass, disabled ? 'pointer-events-none opacity-40' : '')}">
 
                    <!-- Bold -->
                    <button type="button"
@@ -1210,8 +1222,9 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                ${htmlMode ? html`
                    <textarea
                            id="${editorId}"
-                           class="${twMerge(classes.richTextEditorRawContentClass)}"
+                           class="${twMerge(classes.richTextEditorRawContentClass, disabled ? 'cursor-not-allowed opacity-60' : '')}"
                            .value="${value.value.value ?? ''}"
+                           ?disabled="${disabled}"
                            @input="${(e: Event) => {
                                const el = e.target as HTMLTextAreaElement;
                                const newTerm = mutateTerm(value.value, el.value);
@@ -1223,8 +1236,8 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                ` : html`
                    <div
                            id="${editorId}"
-                           contenteditable="true"
-                           class="${twMerge(classes.richTextEditorContentClass)}"
+                           contenteditable="${disabled ? 'false' : 'true'}"
+                           class="${twMerge(classes.richTextEditorContentClass, disabled ? 'cursor-not-allowed opacity-60' : '')}"
                            .innerHTML="${value.value.value ?? ''}"
                            @input="${(e: Event) => {
                                const el = e.target as HTMLElement;
@@ -1237,7 +1250,7 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                `}
 
            </div>
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -1246,10 +1259,10 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
    `;
 }
 
-function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    const key = `${uiComponent.uuid}-${uiComponent.focusNode?.value}-${value.path.path}-${index}`;
 
-   const open = renderer.subClassEditorOpen[key] ?? false;
+   const open = !disabled && (renderer.subClassEditorOpen[key] ?? false);
    const filterText = renderer.subClassEditorFilter[key] ?? '';
 
    const subclasses = uiComponent.subclasses ?? [];
@@ -1277,11 +1290,13 @@ function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
                            classes.subClassEditorClass,
-                           'mb-0'
+                           'mb-0',
+                           disabled ? 'cursor-not-allowed opacity-60' : ''
                    )}"
                    autocomplete="off"
                    .value="${displayText}"
                    placeholder="${uiComponent.label}"
+                   ?disabled="${disabled}"
                    @focus="${() => renderer.setSubClassEditorOpen(key, true)}"
                    @input="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
@@ -1303,7 +1318,7 @@ function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                        }, 150);
                    }}"
            />
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -1342,15 +1357,16 @@ function renderSubClassEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
    `;
 }
 
-function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass)) || '0'}`)}">
            <textarea
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass, 'mb-0')}"
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
                    id="${value.path.path}"
                    required
                    rows="4"
                    placeholder="${uiComponent.label}"
+                   ?disabled="${disabled}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        const newTerm = mutateTerm(value.value, input.value);
@@ -1359,7 +1375,7 @@ function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                        value.value = newTerm;
                    }}"
            >${value.value.value ?? ''}</textarea>
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -1368,17 +1384,18 @@ function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
    `;
 }
 
-function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass)) || '0'}`)}">
            <input
-                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0')}"
+                   class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
                    id="${value.path.path}"
                    type="text"
                    pattern="${uiComponent.pattern ?? nothing}"
                    required
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
+                   ?disabled="${disabled}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
                        const newTerm = mutateTerm(value.value, input.value);
@@ -1387,7 +1404,7 @@ function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent
                        value.value = newTerm;
                    }}"
            />
-           ${renderXIcon(uiComponent, classes, () => {
+           ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                uiComponent.values.splice(index, 1);
                renderer.rerender();
@@ -1396,7 +1413,7 @@ function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent
    `;
 }
 
-function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    // Just like a TextFieldEditor, but a grouped input with as second field, a small input for language tag
    return html`
        <div class="${twMerge('flex rounded-md shadow-sm', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass)) || '0'}`)}">
@@ -1408,11 +1425,13 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
                    required
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
+                   ?disabled="${disabled}"
                    class="${twMerge(
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
                            classes.textFieldEditorClass,
-                           'rounded-r-none pr-3 mb-0'
+                           'rounded-r-none pr-3 mb-0',
+                           disabled ? 'cursor-not-allowed opacity-60' : ''
                    )}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLInputElement;
@@ -1442,10 +1461,12 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
                        .value="${(value.value as Literal).language ?? ''}"
+                       ?disabled="${disabled}"
                        class="${twMerge(
                                classes.globalFieldClass,
                                classes.globalInputFieldClass,
-                               'w-25 rounded-l-none mb-0'
+                               'w-25 rounded-l-none mb-0',
+                               disabled ? 'cursor-not-allowed opacity-60' : ''
                        )}"
                        aria-label="Language tag"
                        @change="${(e: Event) => {
@@ -1457,7 +1478,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
                        }}"
                />
 
-               ${renderXIcon(uiComponent, classes, () => {
+               ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                    renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                    uiComponent.values.splice(index, 1);
                    renderer.rerender();
@@ -1467,7 +1488,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
    `;
 }
 
-function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    return html`
        <div class="${twMerge(
                'flex rounded-md shadow-sm',
@@ -1486,11 +1507,13 @@ function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UICo
                    required
                    rows="4"
                    placeholder="${uiComponent.label}"
+                   ?disabled="${disabled}"
                    class="${twMerge(
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
                            classes.textAreaEditorClass,
-                           'rounded-r-none pr-3 mb-0 resize-y'
+                           'rounded-r-none pr-3 mb-0 resize-y',
+                           disabled ? 'cursor-not-allowed opacity-60' : ''
                    )}"
                    @change="${(e: Event) => {
                        const input = e.target as HTMLTextAreaElement;
@@ -1520,10 +1543,12 @@ function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UICo
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
                        .value="${(value.value as Literal).language ?? ''}"
+                       ?disabled="${disabled}"
                        class="${twMerge(
                                classes.globalFieldClass,
                                classes.globalInputFieldClass,
-                               'w-25 rounded-l-none mb-0 h-full'
+                               'w-25 rounded-l-none mb-0 h-full',
+                               disabled ? 'cursor-not-allowed opacity-60' : ''
                        )}"
                        @change="${(e: Event) => {
                            const input = e.target as HTMLInputElement;
@@ -1534,7 +1559,7 @@ function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UICo
                        }}"
                />
 
-               ${renderXIcon(uiComponent, classes, () => {
+               ${disabled ? nothing : renderXIcon(uiComponent, classes, () => {
                    renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[index]);
                    uiComponent.values.splice(index, 1);
                    renderer.rerender();
