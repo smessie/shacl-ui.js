@@ -12,6 +12,7 @@ import {DataFactory} from "rdf-data-factory";
 import type {Term} from "@rdfjs/types";
 import tailwindStyles from './styles/tailwind.global.css?inline';
 import './styles/tailwind.global.css';
+import {twMerge} from 'tailwind-merge';
 
 const df: RDF.DataFactory = new DataFactory();
 
@@ -30,6 +31,9 @@ const TwLitElement = TW(LitElement);
  * @widgetScoringGraphUrl The URL to fetch the widget scoring graph from. Not required if widgetScoringGraph is provided.
  * @focusNode The RDF node IRI in the data graph whose value is being edited or viewed.
  * @constraintShape The shape IRI in the shapes graph that constrains the focus node in the current editing or viewing context.
+ *
+ * Styling attributes – each is merged on top of the built-in default via tailwind-merge,
+ * so you only need to supply the classes you want to override or add.
  *
  * @globalFieldClass Tailwind CSS classes applied to all field containers.
  * @labelClass Tailwind CSS classes applied to all field labels.
@@ -54,6 +58,85 @@ const TwLitElement = TW(LitElement);
  */
 @customElement('shacl-renderer')
 export class ShaclRenderer extends TwLitElement {
+
+  /**
+   * Default Tailwind CSS classes for every styling slot.
+   * When a user provides a class attribute it is merged on top of these defaults
+   * via tailwind-merge, so conflicts are resolved in favour of the user's value
+   * while unchanged defaults are preserved.
+   */
+  static readonly DEFAULTS: Required<TailwindClasses> = {
+    componentClass: 'bg-white dark:bg-zinc-800',
+    spinnerClass: 'h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-700 dark:border-zinc-700 dark:border-t-zinc-200',
+    labelClass: 'block text-zinc-700 dark:text-zinc-100 text-sm font-bold mb-1',
+    descriptionClass: '-mt-1 text-xs text-zinc-500 dark:text-zinc-200 mb-2',
+    globalFieldClass: 'text-zinc-700 dark:text-zinc-100 leading-tight mb-2',
+    globalInputFieldClass: 'w-full shadow appearance-none border dark:border-zinc-200 rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-zinc-400 dark:focus:border-zinc-300',
+    autoCompleteEditorClass: 'relative',
+    autoCompleteEditorDropdownClass: 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto',
+    autoCompleteEditorOptionClass: 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700',
+    autoCompleteEditorLabelClass: 'font-medium',
+    autoCompleteEditorDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-200',
+    blankNodeEditorClass: '',
+    textFieldEditorClass: '',
+    textAreaEditorClass: '',
+    numberFieldEditorClass: '',
+    booleanEditorClass: 'mr-2',
+    booleanEditorLabelClass: '',
+    datePickerEditorClass: '',
+    dateTimePickerEditorClass: '',
+    enumSelectEditorClass: '',
+    enumSelectEditorIconClass: 'h-4 w-4 text-zinc-500 dark:text-zinc-400',
+    iriEditorClass: '',
+    detailsEditorClass: 'ml-4 border-l dark:border-zinc-200 pl-4 relative',
+    plusIconClass: 'size-6 float-right text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-500',
+    xIconClass: 'size-5 -mr-1 mt-4 cursor-pointer text-zinc-900 dark:text-zinc-50',
+    groupClass: 'md:flex md:gap-x-4 md:flex-wrap',
+    groupLabelClass: 'font-bold md:basis-full dark:text-zinc-50 text-zinc-800',
+    groupElementClass: 'md:flex-1',
+    alternativePathDescriptionClass: 'text-xs italic text-zinc-500 dark:text-zinc-200 mb-2 -mt-1 hover:text-zinc-700 dark:hover:text-zinc-100 cursor-pointer',
+    alternativePathSelectClass: 'absolute z-50 bg-white dark:bg-zinc-800 border dark:border-zinc-600 rounded shadow-md -mt-t',
+    alternativePathOptionClass: 'px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer',
+    alternativePathOptionSelectedClass: 'font-bold',
+    selectWidgetIconClass: 'size-6 cursor-pointer text-zinc-500 dark:text-zinc-200 hover:text-zinc-700 dark:hover:text-zinc-100',
+    selectWidgetDropdownClass: 'absolute right-0 mt-2 origin-top-right transform translate-x-0 z-50 min-w-64 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg max-h-80 w-md overflow-auto max-w-[85vw]',
+    selectWidgetOptionClass: 'px-4 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700',
+    selectWidgetOptionSelectedClass: 'bg-zinc-100 dark:bg-zinc-700',
+    selectWidgetLabelClass: 'font-medium text-zinc-800 dark:text-zinc-200',
+    selectWidgetDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-400',
+    selectWidgetScoreClass: 'text-xs text-zinc-400 dark:text-zinc-500 ml-3',
+    subClassEditorClass: 'relative',
+    subClassEditorDropdownClass: 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto',
+    subClassEditorOptionClass: 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700',
+    subClassEditorOptionSelectedClass: 'bg-zinc-100 dark:bg-zinc-700',
+    subClassEditorLabelClass: 'font-medium',
+    subClassEditorDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-400',
+    detailsClassSelectClass: 'relative',
+    detailsClassSelectDropdownClass: 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto',
+    detailsClassSelectOptionClass: 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700',
+    detailsClassSelectOptionSelectedClass: 'bg-zinc-100 dark:bg-zinc-700',
+    detailsClassSelectLabelClass: 'font-medium',
+    detailsClassSelectDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-400',
+    instancesSelectEditorClass: 'relative min-h-9',
+    instancesSelectEditorIconClass: 'size-4 text-zinc-500 dark:text-zinc-400',
+    instancesSelectEditorDropdownClass: 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto',
+    instancesSelectEditorOptionClass: 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700',
+    instancesSelectEditorOptionSelectedClass: 'bg-zinc-100 dark:bg-zinc-700',
+    instancesSelectEditorLabelClass: 'font-medium',
+    instancesSelectEditorDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-400',
+    richTextEditorClass: 'border dark:border-zinc-600 rounded-md shadow-sm',
+    richTextEditorToolbarClass: 'flex flex-wrap gap-1 border-b dark:border-zinc-600 rounded-t-md bg-zinc-50 dark:bg-zinc-800 p-2 pr-8',
+    richTextEditorButtonClass: 'px-2 py-1 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded cursor-pointer justify-center flex items-center',
+    richTextEditorSelectClass: 'text-sm border dark:border-zinc-600 rounded px-1 cursor-pointer',
+    richTextEditorContentClass: 'min-h-50 p-3 focus:outline-none prose max-w-none',
+    richTextEditorRawContentClass: 'w-full min-h-50 p-2 focus:outline-none',
+    orSelectorClass: 'relative',
+    orSelectorDropdownClass: 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto',
+    orSelectorOptionClass: 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700',
+    orSelectorOptionSelectedClass: 'bg-zinc-100 dark:bg-zinc-700',
+    orSelectorLabelClass: 'font-medium',
+    orSelectorDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-200',
+  };
 
   static styles = [css`${unsafeCSS(tailwindStyles)}`];
 
@@ -116,213 +199,81 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   constraintShape: string = '';
 
-
-  @property()
-  componentClass: string = 'bg-white dark:bg-zinc-800';
-
-  @property()
-  spinnerClass: string = 'h-8 w-8 animate-spin rounded-full border-4 border-zinc-300 border-t-zinc-700 dark:border-zinc-700 dark:border-t-zinc-200';
-
-  @property()
-  labelClass: string = 'block text-zinc-700 dark:text-zinc-100 text-sm font-bold mb-1';
-
-  @property()
-  descriptionClass: string = '-mt-1 text-xs text-zinc-500 dark:text-zinc-200 mb-2';
-
-  @property()
-  globalFieldClass: string = 'text-zinc-700 dark:text-zinc-100 leading-tight mb-2';
-
-  @property()
-  globalInputFieldClass: string = 'w-full shadow appearance-none border dark:border-zinc-200 rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-zinc-400 dark:focus:border-zinc-300';
-
-  @property()
-  autoCompleteEditorClass: string = 'relative';
-
-  @property()
-  autoCompleteEditorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
-
-  @property()
-  autoCompleteEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
-
-  @property()
-  autoCompleteEditorLabelClass: string = 'font-medium';
-
-  @property()
-  autoCompleteEditorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-200';
-
-  @property()
-  blankNodeEditorClass: string = '';
-
-  @property()
-  textFieldEditorClass: string = '';
-
-  @property()
-  textAreaEditorClass: string = '';
-
-  @property()
-  numberFieldEditorClass: string = '';
-
-  @property()
-  booleanEditorClass: string = 'mr-2';
-
-  @property()
-  booleanEditorLabelClass: string = '';
-
-  @property()
-  datePickerEditorClass: string = '';
-
-  @property()
-  dateTimePickerEditorClass: string = '';
-
-  @property()
-  enumSelectEditorClass: string = '';
-
-  @property()
-  enumSelectEditorIconClass: string = 'h-4 w-4 text-zinc-500 dark:text-zinc-400';
-
-  @property()
-  detailsEditorClass: string = 'ml-4 border-l dark:border-zinc-200 pl-4 relative';
-
-  @property()
-  plusIconClass: string = 'size-6 float-right text-green-600 dark:text-green-400 cursor-pointer hover:text-green-700 dark:hover:text-green-500';
-
-  @property()
-  xIconClass: string = 'size-5 -mr-1 mt-4 cursor-pointer text-zinc-900 dark:text-zinc-50';
-
-  @property()
-  groupClass: string = 'md:flex md:gap-x-4 md:flex-wrap';
-
-  @property()
-  groupLabelClass: string = 'font-bold md:basis-full dark:text-zinc-50 text-zinc-800';
-
-  @property()
-  groupElementClass: string = 'md:flex-1';
-
-  @property()
-  alternativePathDescriptionClass: string = 'text-xs italic text-zinc-500 dark:text-zinc-200 mb-2 -mt-1 hover:text-zinc-700 dark:hover:text-zinc-100 cursor-pointer';
-
-  @property()
-  alternativePathSelectClass: string = 'absolute z-50 bg-white dark:bg-zinc-800 border dark:border-zinc-600 rounded shadow-md -mt-t';
-
-  @property()
-  alternativePathOptionClass: string = 'px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer';
-
-  @property()
-  alternativePathOptionSelectedClass: string = 'font-bold';
-
-  @property()
-  selectWidgetIconClass: string = 'size-6 cursor-pointer text-zinc-500 dark:text-zinc-200 hover:text-zinc-700 dark:hover:text-zinc-100';
-
-  @property()
-  selectWidgetDropdownClass: string = 'absolute right-0 mt-2 origin-top-right transform translate-x-0 z-50 min-w-64 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg max-h-80 w-md overflow-auto max-w-[85vw]';
-
-  @property()
-  selectWidgetOptionClass: string = 'px-4 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
-
-  @property()
-  selectWidgetOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
-
-  @property()
-  selectWidgetLabelClass: string = 'font-medium text-zinc-800 dark:text-zinc-200';
-
-  @property()
-  selectWidgetDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
-
-  @property()
-  selectWidgetScoreClass: string = 'text-xs text-zinc-400 dark:text-zinc-500 ml-3';
-
-  @property()
-  subClassEditorClass: string = 'relative';
-
-  @property()
-  subClassEditorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
-
-  @property()
-  subClassEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
-
-  @property()
-  subClassEditorOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
-
-  @property()
-  subClassEditorLabelClass: string = 'font-medium';
-
-  @property()
-  subClassEditorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
-
-  @property()
-  detailsClassSelectClass: string = 'relative';
-
-  @property()
-  detailsClassSelectDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
-
-  @property()
-  detailsClassSelectOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
-
-  @property()
-  detailsClassSelectOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
-
-  @property()
-  detailsClassSelectLabelClass: string = 'font-medium';
-
-  @property()
-  detailsClassSelectDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
-
-  @property()
-  instancesSelectEditorClass: string = 'relative min-h-9';
-
-  @property()
-  instancesSelectEditorIconClass: string = 'size-4 text-zinc-500 dark:text-zinc-400';
-
-  @property()
-  instancesSelectEditorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
-
-  @property()
-  instancesSelectEditorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
-
-  @property()
-  instancesSelectEditorOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
-
-  @property()
-  instancesSelectEditorLabelClass: string = 'font-medium';
-
-  @property()
-  instancesSelectEditorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-400';
-
-  @property()
-  richTextEditorClass: string = 'border dark:border-zinc-600 rounded-md shadow-sm';
-
-  @property()
-  richTextEditorToolbarClass: string = 'flex flex-wrap gap-1 border-b dark:border-zinc-600 rounded-t-md bg-zinc-50 dark:bg-zinc-800 p-2 pr-8';
-
-  @property()
-  richTextEditorButtonClass: string = 'px-2 py-1 text-sm hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded cursor-pointer justify-center flex items-center';
-
-  @property()
-  richTextEditorSelectClass: string = 'text-sm border dark:border-zinc-600 rounded px-1 cursor-pointer';
-
-  @property()
-  richTextEditorContentClass: string = 'min-h-50 p-3 focus:outline-none prose max-w-none';
-
-  @property()
-  richTextEditorRawContentClass: string = 'w-full min-h-50 p-2 focus:outline-none';
-
-  @property()
-  orSelectorClass: string = 'relative';
-
-  @property()
-  orSelectorDropdownClass: string = 'absolute z-50 w-full bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-600 rounded-md shadow-lg mt-1 max-h-60 overflow-auto';
-
-  @property()
-  orSelectorOptionClass: string = 'px-3 py-2 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-700';
-
-  @property()
-  orSelectorOptionSelectedClass: string = 'bg-zinc-100 dark:bg-zinc-700';
-
-  @property()
-  orSelectorLabelClass: string = 'font-medium';
-
-  @property()
-  orSelectorDescriptionClass: string = 'text-sm text-zinc-500 dark:text-zinc-200';
+  // ── Styling slots ────────────────────────────────────────────────────────────
+  // Every property defaults to '' (empty string). In render() each slot is
+  // resolved as twMerge(ShaclRenderer.DEFAULTS.<slot>, this.<slot>), so the
+  // user's value is layered on top of the built-in default.
+
+  @property() componentClass: string = '';
+  @property() spinnerClass: string = '';
+  @property() labelClass: string = '';
+  @property() descriptionClass: string = '';
+  @property() globalFieldClass: string = '';
+  @property() globalInputFieldClass: string = '';
+  @property() autoCompleteEditorClass: string = '';
+  @property() autoCompleteEditorDropdownClass: string = '';
+  @property() autoCompleteEditorOptionClass: string = '';
+  @property() autoCompleteEditorLabelClass: string = '';
+  @property() autoCompleteEditorDescriptionClass: string = '';
+  @property() blankNodeEditorClass: string = '';
+  @property() textFieldEditorClass: string = '';
+  @property() textAreaEditorClass: string = '';
+  @property() numberFieldEditorClass: string = '';
+  @property() booleanEditorClass: string = '';
+  @property() booleanEditorLabelClass: string = '';
+  @property() datePickerEditorClass: string = '';
+  @property() dateTimePickerEditorClass: string = '';
+  @property() enumSelectEditorClass: string = '';
+  @property() enumSelectEditorIconClass: string = '';
+  @property() iriEditorClass: string = '';
+  @property() detailsEditorClass: string = '';
+  @property() plusIconClass: string = '';
+  @property() xIconClass: string = '';
+  @property() groupClass: string = '';
+  @property() groupLabelClass: string = '';
+  @property() groupElementClass: string = '';
+  @property() alternativePathDescriptionClass: string = '';
+  @property() alternativePathSelectClass: string = '';
+  @property() alternativePathOptionClass: string = '';
+  @property() alternativePathOptionSelectedClass: string = '';
+  @property() selectWidgetIconClass: string = '';
+  @property() selectWidgetDropdownClass: string = '';
+  @property() selectWidgetOptionClass: string = '';
+  @property() selectWidgetOptionSelectedClass: string = '';
+  @property() selectWidgetLabelClass: string = '';
+  @property() selectWidgetDescriptionClass: string = '';
+  @property() selectWidgetScoreClass: string = '';
+  @property() subClassEditorClass: string = '';
+  @property() subClassEditorDropdownClass: string = '';
+  @property() subClassEditorOptionClass: string = '';
+  @property() subClassEditorOptionSelectedClass: string = '';
+  @property() subClassEditorLabelClass: string = '';
+  @property() subClassEditorDescriptionClass: string = '';
+  @property() detailsClassSelectClass: string = '';
+  @property() detailsClassSelectDropdownClass: string = '';
+  @property() detailsClassSelectOptionClass: string = '';
+  @property() detailsClassSelectOptionSelectedClass: string = '';
+  @property() detailsClassSelectLabelClass: string = '';
+  @property() detailsClassSelectDescriptionClass: string = '';
+  @property() instancesSelectEditorClass: string = '';
+  @property() instancesSelectEditorIconClass: string = '';
+  @property() instancesSelectEditorDropdownClass: string = '';
+  @property() instancesSelectEditorOptionClass: string = '';
+  @property() instancesSelectEditorOptionSelectedClass: string = '';
+  @property() instancesSelectEditorLabelClass: string = '';
+  @property() instancesSelectEditorDescriptionClass: string = '';
+  @property() richTextEditorClass: string = '';
+  @property() richTextEditorToolbarClass: string = '';
+  @property() richTextEditorButtonClass: string = '';
+  @property() richTextEditorSelectClass: string = '';
+  @property() richTextEditorContentClass: string = '';
+  @property() richTextEditorRawContentClass: string = '';
+  @property() orSelectorClass: string = '';
+  @property() orSelectorDropdownClass: string = '';
+  @property() orSelectorOptionClass: string = '';
+  @property() orSelectorOptionSelectedClass: string = '';
+  @property() orSelectorLabelClass: string = '';
+  @property() orSelectorDescriptionClass: string = '';
 
   @state()
   ui: UIComponent[] = [];
@@ -367,86 +318,92 @@ export class ShaclRenderer extends TwLitElement {
     return this.useLightDom ? this : super.createRenderRoot();
   }
 
+  /** Resolve a single styling slot by merging the built-in default with the user override. */
+  private m(key: keyof TailwindClasses): string {
+    return twMerge(ShaclRenderer.DEFAULTS[key], (this[key] as string));
+  }
+
   render() {
     const tailwindClasses: TailwindClasses = {
-      componentClass: this.componentClass,
-      spinnerClass: this.spinnerClass,
-      labelClass: this.labelClass,
-      descriptionClass: this.descriptionClass,
-      globalFieldClass: this.globalFieldClass,
-      globalInputFieldClass: this.globalInputFieldClass,
-      autoCompleteEditorClass: this.autoCompleteEditorClass,
-      autoCompleteEditorDropdownClass: this.autoCompleteEditorDropdownClass,
-      autoCompleteEditorOptionClass: this.autoCompleteEditorOptionClass,
-      autoCompleteEditorLabelClass: this.autoCompleteEditorLabelClass,
-      autoCompleteEditorDescriptionClass: this.autoCompleteEditorDescriptionClass,
-      blankNodeEditorClass: this.blankNodeEditorClass,
-      textFieldEditorClass: this.textFieldEditorClass,
-      textAreaEditorClass: this.textAreaEditorClass,
-      numberFieldEditorClass: this.numberFieldEditorClass,
-      booleanEditorClass: this.booleanEditorClass,
-      booleanEditorLabelClass: this.booleanEditorLabelClass,
-      datePickerEditorClass: this.datePickerEditorClass,
-      dateTimePickerEditorClass: this.dateTimePickerEditorClass,
-      enumSelectEditorClass: this.enumSelectEditorClass,
-      enumSelectEditorIconClass: this.enumSelectEditorIconClass,
-      plusIconClass: this.plusIconClass,
-      xIconClass: this.xIconClass,
-      detailsEditorClass: this.detailsEditorClass,
-      groupClass: this.groupClass,
-      groupLabelClass: this.groupLabelClass,
-      groupElementClass: this.groupElementClass,
-      alternativePathDescriptionClass: this.alternativePathDescriptionClass,
-      alternativePathSelectClass: this.alternativePathSelectClass,
-      alternativePathOptionClass: this.alternativePathOptionClass,
-      alternativePathOptionSelectedClass: this.alternativePathOptionSelectedClass,
-      selectWidgetIconClass: this.selectWidgetIconClass,
-      selectWidgetDropdownClass: this.selectWidgetDropdownClass,
-      selectWidgetOptionClass: this.selectWidgetOptionClass,
-      selectWidgetOptionSelectedClass: this.selectWidgetOptionSelectedClass,
-      selectWidgetLabelClass: this.selectWidgetLabelClass,
-      selectWidgetDescriptionClass: this.selectWidgetDescriptionClass,
-      selectWidgetScoreClass: this.selectWidgetScoreClass,
-      subClassEditorClass: this.subClassEditorClass,
-      subClassEditorDropdownClass: this.subClassEditorDropdownClass,
-      subClassEditorOptionClass: this.subClassEditorOptionClass,
-      subClassEditorOptionSelectedClass: this.subClassEditorOptionSelectedClass,
-      subClassEditorLabelClass: this.subClassEditorLabelClass,
-      subClassEditorDescriptionClass: this.subClassEditorDescriptionClass,
-      detailsClassSelectClass: this.detailsClassSelectClass,
-      detailsClassSelectDropdownClass: this.detailsClassSelectDropdownClass,
-      detailsClassSelectOptionClass: this.detailsClassSelectOptionClass,
-      detailsClassSelectOptionSelectedClass: this.detailsClassSelectOptionSelectedClass,
-      detailsClassSelectLabelClass: this.detailsClassSelectLabelClass,
-      detailsClassSelectDescriptionClass: this.detailsClassSelectDescriptionClass,
-      instancesSelectEditorClass: this.instancesSelectEditorClass,
-      instancesSelectEditorIconClass: this.instancesSelectEditorIconClass,
-      instancesSelectEditorDropdownClass: this.instancesSelectEditorDropdownClass,
-      instancesSelectEditorOptionClass: this.instancesSelectEditorOptionClass,
-      instancesSelectEditorOptionSelectedClass: this.instancesSelectEditorOptionSelectedClass,
-      instancesSelectEditorLabelClass: this.instancesSelectEditorLabelClass,
-      instancesSelectEditorDescriptionClass: this.instancesSelectEditorDescriptionClass,
-      richTextEditorClass: this.richTextEditorClass,
-      richTextEditorToolbarClass: this.richTextEditorToolbarClass,
-      richTextEditorButtonClass: this.richTextEditorButtonClass,
-      richTextEditorSelectClass: this.richTextEditorSelectClass,
-      richTextEditorContentClass: this.richTextEditorContentClass,
-      richTextEditorRawContentClass: this.richTextEditorRawContentClass,
-      orSelectorClass: this.orSelectorClass,
-      orSelectorDropdownClass: this.orSelectorDropdownClass,
-      orSelectorOptionClass: this.orSelectorOptionClass,
-      orSelectorOptionSelectedClass: this.orSelectorOptionSelectedClass,
-      orSelectorLabelClass: this.orSelectorLabelClass,
-      orSelectorDescriptionClass: this.orSelectorDescriptionClass,
+      componentClass: this.m('componentClass'),
+      spinnerClass: this.m('spinnerClass'),
+      labelClass: this.m('labelClass'),
+      descriptionClass: this.m('descriptionClass'),
+      globalFieldClass: this.m('globalFieldClass'),
+      globalInputFieldClass: this.m('globalInputFieldClass'),
+      autoCompleteEditorClass: this.m('autoCompleteEditorClass'),
+      autoCompleteEditorDropdownClass: this.m('autoCompleteEditorDropdownClass'),
+      autoCompleteEditorOptionClass: this.m('autoCompleteEditorOptionClass'),
+      autoCompleteEditorLabelClass: this.m('autoCompleteEditorLabelClass'),
+      autoCompleteEditorDescriptionClass: this.m('autoCompleteEditorDescriptionClass'),
+      blankNodeEditorClass: this.m('blankNodeEditorClass'),
+      textFieldEditorClass: this.m('textFieldEditorClass'),
+      textAreaEditorClass: this.m('textAreaEditorClass'),
+      numberFieldEditorClass: this.m('numberFieldEditorClass'),
+      booleanEditorClass: this.m('booleanEditorClass'),
+      booleanEditorLabelClass: this.m('booleanEditorLabelClass'),
+      datePickerEditorClass: this.m('datePickerEditorClass'),
+      dateTimePickerEditorClass: this.m('dateTimePickerEditorClass'),
+      enumSelectEditorClass: this.m('enumSelectEditorClass'),
+      enumSelectEditorIconClass: this.m('enumSelectEditorIconClass'),
+      iriEditorClass: this.m('iriEditorClass'),
+      plusIconClass: this.m('plusIconClass'),
+      xIconClass: this.m('xIconClass'),
+      detailsEditorClass: this.m('detailsEditorClass'),
+      groupClass: this.m('groupClass'),
+      groupLabelClass: this.m('groupLabelClass'),
+      groupElementClass: this.m('groupElementClass'),
+      alternativePathDescriptionClass: this.m('alternativePathDescriptionClass'),
+      alternativePathSelectClass: this.m('alternativePathSelectClass'),
+      alternativePathOptionClass: this.m('alternativePathOptionClass'),
+      alternativePathOptionSelectedClass: this.m('alternativePathOptionSelectedClass'),
+      selectWidgetIconClass: this.m('selectWidgetIconClass'),
+      selectWidgetDropdownClass: this.m('selectWidgetDropdownClass'),
+      selectWidgetOptionClass: this.m('selectWidgetOptionClass'),
+      selectWidgetOptionSelectedClass: this.m('selectWidgetOptionSelectedClass'),
+      selectWidgetLabelClass: this.m('selectWidgetLabelClass'),
+      selectWidgetDescriptionClass: this.m('selectWidgetDescriptionClass'),
+      selectWidgetScoreClass: this.m('selectWidgetScoreClass'),
+      subClassEditorClass: this.m('subClassEditorClass'),
+      subClassEditorDropdownClass: this.m('subClassEditorDropdownClass'),
+      subClassEditorOptionClass: this.m('subClassEditorOptionClass'),
+      subClassEditorOptionSelectedClass: this.m('subClassEditorOptionSelectedClass'),
+      subClassEditorLabelClass: this.m('subClassEditorLabelClass'),
+      subClassEditorDescriptionClass: this.m('subClassEditorDescriptionClass'),
+      detailsClassSelectClass: this.m('detailsClassSelectClass'),
+      detailsClassSelectDropdownClass: this.m('detailsClassSelectDropdownClass'),
+      detailsClassSelectOptionClass: this.m('detailsClassSelectOptionClass'),
+      detailsClassSelectOptionSelectedClass: this.m('detailsClassSelectOptionSelectedClass'),
+      detailsClassSelectLabelClass: this.m('detailsClassSelectLabelClass'),
+      detailsClassSelectDescriptionClass: this.m('detailsClassSelectDescriptionClass'),
+      instancesSelectEditorClass: this.m('instancesSelectEditorClass'),
+      instancesSelectEditorIconClass: this.m('instancesSelectEditorIconClass'),
+      instancesSelectEditorDropdownClass: this.m('instancesSelectEditorDropdownClass'),
+      instancesSelectEditorOptionClass: this.m('instancesSelectEditorOptionClass'),
+      instancesSelectEditorOptionSelectedClass: this.m('instancesSelectEditorOptionSelectedClass'),
+      instancesSelectEditorLabelClass: this.m('instancesSelectEditorLabelClass'),
+      instancesSelectEditorDescriptionClass: this.m('instancesSelectEditorDescriptionClass'),
+      richTextEditorClass: this.m('richTextEditorClass'),
+      richTextEditorToolbarClass: this.m('richTextEditorToolbarClass'),
+      richTextEditorButtonClass: this.m('richTextEditorButtonClass'),
+      richTextEditorSelectClass: this.m('richTextEditorSelectClass'),
+      richTextEditorContentClass: this.m('richTextEditorContentClass'),
+      richTextEditorRawContentClass: this.m('richTextEditorRawContentClass'),
+      orSelectorClass: this.m('orSelectorClass'),
+      orSelectorDropdownClass: this.m('orSelectorDropdownClass'),
+      orSelectorOptionClass: this.m('orSelectorOptionClass'),
+      orSelectorOptionSelectedClass: this.m('orSelectorOptionSelectedClass'),
+      orSelectorLabelClass: this.m('orSelectorLabelClass'),
+      orSelectorDescriptionClass: this.m('orSelectorDescriptionClass'),
     }
     const renderer = this;
     return html`
-      <div class="${this.componentClass}">
+      <div class="${this.m('componentClass')}">
         ${this.loading
            ? html`
              <div class="flex items-center justify-center py-10">
                <div
-                  class="${this.spinnerClass}">
+                  class="${this.m('spinnerClass')}">
                </div>
              </div>
            `
