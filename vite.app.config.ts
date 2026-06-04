@@ -26,6 +26,7 @@ export default defineConfig({
       ],
     }),
   ],
+  base: '/shacl-ui.js/',
   build: {
     outDir: "dist/app",
     emptyOutDir: true,
