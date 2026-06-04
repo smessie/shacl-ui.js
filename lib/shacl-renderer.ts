@@ -4,8 +4,8 @@ import {TW} from "./shared/tailwindMixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./utils/rdf.ts";
 import {constructUiComponents, uiComponentsToQuads} from "./utils/ui.ts";
-import {renderUIComponents} from "./utils/widgets.ts";
-import type {Path, TailwindClasses, UIComponent} from "./utils/types.ts";
+import {renderRootSlots} from "./utils/widgets.ts";
+import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent} from "./utils/types.ts";
 import * as RDF from "rdf-js";
 import {type Quad, type Quad_Object, type Quad_Subject} from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
@@ -278,6 +278,21 @@ export class ShaclRenderer extends TwLitElement {
   @state()
   ui: UIComponent[] = [];
 
+  /**
+   * Unified sorted rendering list.  Each slot is either an ungrouped base
+   * UIComponent, a cluster of grouped UIComponents, or a root-level sh:or section.
+   * This replaces the old separate baseComponents + rootOrSections state.
+   */
+  @state()
+  renderSlots: RootRenderSlot[] = [];
+
+  /** Group metadata for selectRootOrOption state management. */
+  @state()
+  rootOrGroups: RootOrGroup[] = [];
+
+  @state()
+  rootOrSelectOpen: Record<string, boolean> = {};
+
   @state()
   autoCompleteEditorOpen: Record<string, boolean> = {};
 
@@ -408,14 +423,48 @@ export class ShaclRenderer extends TwLitElement {
              </div>
            `
            : html`
-             ${renderUIComponents(renderer, this.ui, tailwindClasses)}
+             ${renderRootSlots(renderer, this.renderSlots, tailwindClasses)}
            `}
       </div>
     `;
   }
 
   rerender() {
+    // Shallow-copy each tracked array so Lit detects the change and re-renders.
+    // All UIComponent instances are shared by reference so in-place mutations
+    // (e.g. value edits) propagate automatically.
     this.ui = [...this.ui];
+    this.renderSlots = [...this.renderSlots];
+  }
+
+  /**
+   * Called by the root-level sh:or selector when the user picks a different option.
+   * Rebuilds the UI with the selected option's sh:property list merged with the base shape.
+   */
+  async selectRootOrOption(groupIndex: number, optionIndex: number) {
+    const updatedGroups: RootOrGroup[] = this.rootOrGroups.map((g, i) =>
+      i === groupIndex ? {...g, selectedIndex: optionIndex} : g,
+    );
+    // Close dropdown immediately.
+    const key = this.rootOrGroups[groupIndex]?.orListNode.value;
+    if (key) this.setRootOrSelectOpen(key, false);
+
+    if (this.shapesStore && this.dataStore && this.widgetScoringStore && this.constraintShape) {
+      this.loading = true;
+      const result = await constructUiComponents(
+        this,
+        this.shapesStore,
+        df.namedNode(this.constraintShape),
+        this.dataStore,
+        this.focusNode ? df.namedNode(this.focusNode) : undefined,
+        this.widgetScoringStore,
+        updatedGroups,
+      );
+      this.ui = result.components;
+      this.renderSlots = result.renderSlots;
+      this.rootOrGroups = result.rootOrGroups;
+      this.loading = false;
+    }
   }
 
   /**
@@ -510,6 +559,13 @@ export class ShaclRenderer extends TwLitElement {
     };
   }
 
+  setRootOrSelectOpen(key: string, value: boolean) {
+    this.rootOrSelectOpen = {
+      ...this.rootOrSelectOpen,
+      [key]: value,
+    };
+  }
+
   addToDataStore(focusNode?: Term, path?: Path, value?: Term) {
     if (this.dataStore && focusNode && path && value) {
       const pathTerm = df.namedNode(path.path);
@@ -587,7 +643,10 @@ export class ShaclRenderer extends TwLitElement {
       reconstructUi = true;
     }
     if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
-      this.ui = await Promise.all(await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore));
+      const result = await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore);
+      this.ui = result.components;
+      this.renderSlots = result.renderSlots;
+      this.rootOrGroups = result.rootOrGroups;
       this.loading = false;
     }
   }

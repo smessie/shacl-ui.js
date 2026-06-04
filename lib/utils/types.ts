@@ -94,6 +94,58 @@ export type OrClass = {
    instances: LabeledValue[];
 }
 
+/** One option in a root-level (NodeShape) sh:or list. */
+export type RootOrOption = {
+   /** The node shape term for this option (IRI or BlankNode). */
+   node: Term;
+   /** Human-readable label from sh:name on the option node shape. */
+   label?: string;
+   /** Human-readable description from sh:description on the option node shape. */
+   description?: string;
+};
+
+/**
+ * Represents one sh:or constraint found directly on the root NodeShape.
+ * The user picks one option; the selected option's sh:property entries are
+ * merged with the base shape's sh:property entries.
+ */
+export type RootOrGroup = {
+   /** The blank-node term that heads the sh:or RDF list (used as a stable key). */
+   orListNode: Term;
+   options: RootOrOption[];
+   /** Index of the currently selected option (default 0). */
+   selectedIndex: number;
+   /**
+    * Optional sort order for this sh:or section, read from sh:order on the
+    * list-head blank node.  Used to interleave with base sh:property components.
+    */
+   order?: number;
+};
+
+/**
+ * Pairs the sh:or group metadata with the UIComponents built from the currently
+ * selected option's sh:property list.  Used exclusively for rendering the
+ * root-level or-section card (selector + selected option's fields).
+ */
+export type RootOrSection = {
+   /** Metadata for the or-group selector (options, selectedIndex, list-head term). */
+   group: RootOrGroup;
+   /** UIComponents for the currently selected option's sh:property entries. */
+   components: UIComponent[];
+};
+
+/**
+ * One rendering slot in the interleaved top-level render list.
+ *
+ * - `'component'`  – a single ungrouped base UIComponent (from sh:property).
+ * - `'group'`      – all UIComponents that share a sh:group, rendered together.
+ * - `'orSection'`  – one root-level sh:or section (selector + selected option's fields).
+ */
+export type RootRenderSlot =
+   | { kind: 'component'; component: UIComponent }
+   | { kind: 'group'; components: UIComponent[] }
+   | { kind: 'orSection'; section: RootOrSection; groupIndex: number };
+
 export type TailwindClasses = {
    componentClass?: string;
    spinnerClass?: string;

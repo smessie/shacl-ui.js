@@ -10,6 +10,10 @@ import type {
    OrDatatype,
    OrNode,
    Path,
+   RootOrGroup,
+   RootOrOption,
+   RootOrSection,
+   RootRenderSlot,
    UIComponent,
    UIComponentValue,
    UIGroup
@@ -22,376 +26,547 @@ import {ShaclRenderer} from "../shacl-renderer.ts";
 
 const df: RDF.DataFactory = new DataFactory();
 
-export async function constructUiComponents(renderer: ShaclRenderer, shapesGraph: RdfStore, constraintShape: Term, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore): Promise<UIComponent[]> {
-   if (!constraintShape) {
-      return [];
-   }
-   const rootNode: Term = constraintShape;
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Stable sort of UIComponents – first by group order, then by element order.
+ *  Elements without an order value come last within their group. */
+function sortComponents(elements: UIComponent[]): UIComponent[] {
+   return elements.sort((a, b) => {
+      if (a.group?.order !== undefined && b.group?.order !== undefined) {
+         if (a.group.order !== b.group.order) return a.group.order - b.group.order;
+         // Same group → sort by element order.
+         if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+         return a.order !== undefined ? -1 : 1;
+      }
+      if (a.group?.order !== undefined) return -1;
+      if (b.group?.order !== undefined) return 1;
+      // Neither has a group order.
+      if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+      return a.order !== undefined ? -1 : 1;
+   });
+}
+
+// ---------------------------------------------------------------------------
+// Internal builder – processes sh:property on one shape node.
+// Used by constructUiComponents (root level) and all recursive/nested calls.
+// ---------------------------------------------------------------------------
+
+async function buildUiComponents(
+   renderer: ShaclRenderer,
+   shapesGraph: RdfStore,
+   constraintShape: Term,
+   dataGraph: RdfStore,
+   focusNode: Term | null | undefined,
+   widgetScoringGraph: RdfStore,
+): Promise<UIComponent[]> {
+   if (!constraintShape) return [];
+
    const elements: UIComponent[] = [];
-   for (const uiProperty of shapesGraph.getQuads(rootNode, SH("property"), null)) {
-      const pathQuads = shapesGraph.getQuads(uiProperty.object, SH("path"), null);
-      if (pathQuads.length !== 1) {
-         console.warn(`Expected exactly one sh:path for constraint ${uiProperty.object.value}, found ${pathQuads.length}, skipping path extraction for this constraint`);
-         continue;
-      }
-      const paths = extractPaths(uiProperty.object, shapesGraph, pathQuads[0].object);
+   for (const uiProperty of shapesGraph.getQuads(constraintShape, SH("property"), null)) {
+      const element = await extractProperty(
+         uiProperty.object, renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph,
+      );
+      if (element) elements.push(element);
+   }
 
-      if (!paths || paths.length === 0) {
-         console.warn(`UI property ${uiProperty.object.value} does not have a valid path, skipping`);
-         continue;
-      }
+   return sortComponents(elements);
+}
 
-      const label = shapesGraph.getQuads(uiProperty.object, SH("name"), null)[0]?.object;
-      const description = shapesGraph.getQuads(uiProperty.object, SH("description"), null)[0]?.object;
-      const datatype = shapesGraph.getQuads(uiProperty.object, SH("datatype"), null)[0]?.object;
-      const minCount = shapesGraph.getQuads(uiProperty.object, SH("minCount"), null)[0]?.object;
-      const maxCount = shapesGraph.getQuads(uiProperty.object, SH("maxCount"), null)[0]?.object;
-      const clazz = shapesGraph.getQuads(uiProperty.object, SH("class"), null)[0]?.object;
-      const rootClass = shapesGraph.getQuads(uiProperty.object, SH("rootClass"), null)[0]?.object;
-      const node = shapesGraph.getQuads(uiProperty.object, SH("node"), null)[0]?.object;
-      const propertiesLength = shapesGraph.getQuads(uiProperty.object, SH("property"), null).length;
-      const defaultChild: UIComponent[] | undefined = node ? await constructUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph) :
-         (propertiesLength > 0 ? await constructUiComponents(renderer, shapesGraph, uiProperty.object, dataGraph, null, widgetScoringGraph) : undefined);
-      const pattern = shapesGraph.getQuads(uiProperty.object, SH("pattern"), null)[0]?.object.value;
-      const minInclusive = shapesGraph.getQuads(uiProperty.object, SH("minInclusive"), null)[0]?.object.value;
-      const maxInclusive = shapesGraph.getQuads(uiProperty.object, SH("maxInclusive"), null)[0]?.object.value;
-      const order = shapesGraph.getQuads(uiProperty.object, SH("order"), null)[0]?.object.value;
-      const nodeKind = shapesGraph.getQuads(uiProperty.object, SH("nodeKind"), null)[0]?.object;
-      const or = shapesGraph.getQuads(uiProperty.object, SH("or"), null)[0]?.object;
-      const hasValue = shapesGraph.getQuads(uiProperty.object, SH("hasValue"), null)[0]?.object;
+// ---------------------------------------------------------------------------
+// Public API – handles root-level sh:property AND root-level sh:or.
+// ---------------------------------------------------------------------------
 
-      let classes: Term[] | undefined = undefined;
-      if (clazz) {
-         if (clazz.termType === "NamedNode") {
-            classes = [clazz];
-            await extractSubclasses(clazz, dataGraph, shapesGraph, classes);
-         } else if (clazz.termType === "BlankNode") {
-            classes = extractShaclList(clazz, shapesGraph);
-         } else {
-            console.warn(`Unsupported sh:class value type ${clazz.termType} for constraint ${uiProperty.object.value}, skipping class extraction for this constraint`);
+/**
+ * Constructs UI components for a constraint shape (NodeShape).
+ *
+ * Returns:
+ * - `renderSlots`  – a unified, sorted list of rendering items that mixes
+ *                    base `sh:property` components (individual or grouped by
+ *                    `sh:group`) together with root-level `sh:or` sections,
+ *                    ordered by `sh:order`.  This is the primary input for
+ *                    `renderRootSlots` in widgets.ts.
+ * - `components`   – flat list of all UIComponents (base + selected or-option),
+ *                    used only by `uiComponentsToQuads` for data extraction.
+ * - `rootOrGroups` – stable group metadata for `selectRootOrOption` state.
+ *
+ * Pass the previously returned `rootOrGroups` (with an updated `selectedIndex`)
+ * on subsequent calls (e.g. from `selectRootOrOption`) to preserve selections.
+ */
+export async function constructUiComponents(
+   renderer: ShaclRenderer,
+   shapesGraph: RdfStore,
+   constraintShape: Term,
+   dataGraph: RdfStore,
+   focusNode: Term | null | undefined,
+   widgetScoringGraph: RdfStore,
+   existingRootOrGroups?: RootOrGroup[],
+): Promise<{ components: UIComponent[]; renderSlots: RootRenderSlot[]; rootOrGroups: RootOrGroup[] }> {
+   if (!constraintShape) return {components: [], renderSlots: [], rootOrGroups: []};
+
+   // ── 1. Base properties from sh:property on the root NodeShape ──────────────
+   const baseComponents = await buildUiComponents(
+      renderer, shapesGraph, constraintShape, dataGraph, focusNode, widgetScoringGraph,
+   );
+
+   // ── 2. Root-level sh:or ────────────────────────────────────────────────────
+   const rootOrGroups: RootOrGroup[] = [];
+   const rootOrSections: RootOrSection[] = [];
+
+   for (const orQuad of shapesGraph.getQuads(constraintShape, SH("or"), null)) {
+      const orListHead = orQuad.object;
+      const orList = extractShaclList(orListHead, shapesGraph);
+
+      const options: RootOrOption[] = orList.map(item => ({
+         node: item,
+         label: shapesGraph.getQuads(item, SH("name"), null)[0]?.object.value,
+         description: shapesGraph.getQuads(item, SH("description"), null)[0]?.object.value,
+      }));
+
+      if (options.length === 0) continue;
+
+      const existing = existingRootOrGroups?.find(g => g.orListNode.value === orListHead.value);
+      const selectedIndex = Math.min(existing?.selectedIndex ?? 0, options.length - 1);
+
+      // Determine the effective sh:order for this or-group by reading sh:order
+      // directly from each option node shape (same level as sh:name / sh:description).
+      let order: number | undefined = undefined;
+      for (const item of orList) {
+         const orderRaw = shapesGraph.getQuads(item, SH("order"), null)[0]?.object.value;
+         if (orderRaw !== undefined) {
+            const v = parseFloat(orderRaw);
+            if (!isNaN(v) && (order === undefined || v < order)) order = v;
          }
       }
-      let instances: LabeledValue[] | undefined = undefined;
-      if (classes) {
-         instances = await Promise.all(classes.map(clazz => [...dataGraph.getQuads(null, RDF_("type"), clazz), ...shapesGraph.getQuads(null, RDF_("type"), clazz)].map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution))).flat());
+
+      const group: RootOrGroup = {orListNode: orListHead, options, selectedIndex, order};
+      rootOrGroups.push(group);
+
+      const selectedNode = options[selectedIndex]?.node;
+      let sectionComponents: UIComponent[] = [];
+      if (selectedNode) {
+         sectionComponents = await buildUiComponents(
+            renderer, shapesGraph, selectedNode, dataGraph, focusNode, widgetScoringGraph,
+         );
       }
-      let classValues: ClassValue[] | undefined = undefined;
-      if (classes) {
-         classValues = await Promise.all(classes.map(async (clazz) => {
+      rootOrSections.push({group, components: sectionComponents});
+   }
+
+   // ── 3. Build unified sorted renderSlots ────────────────────────────────────
+   //
+   // Strategy:
+   //   • Ungrouped base components → individual 'component' slots (sort key = component.order).
+   //   • Grouped base components  → one 'group' slot per sh:group IRI
+   //                                 (sort key = group.order, docIdx = first occurrence).
+   //   • Or-sections              → 'orSection' slots (sort key = group.order).
+   //
+   // A monotonically increasing docIdx is assigned to each slot as it is first
+   // encountered, so that stable sort preserves the original document order among
+   // slots with equal sh:order values.
+
+   interface SlotMeta {
+      effectiveOrder: number;
+      docIdx: number;
+      build: () => RootRenderSlot;
+   }
+
+   const slotMetas: SlotMeta[] = [];
+   let docIdx = 0;
+
+   // Group buckets for clustered sh:group rendering.
+   const groupBuckets = new Map<string, { components: UIComponent[]; docIdx: number; effectiveOrder: number }>();
+
+   // baseComponents is already sorted (by sortComponents), so we iterate in order.
+   for (const comp of baseComponents) {
+      if (comp.group) {
+         const key = comp.group.iri.value;
+         if (!groupBuckets.has(key)) {
+            groupBuckets.set(key, {
+               components: [],
+               docIdx: docIdx++,
+               effectiveOrder: comp.group.order ?? Infinity,
+            });
+         }
+         groupBuckets.get(key)!.components.push(comp);
+      } else {
+         const d = docIdx++;
+         slotMetas.push({
+            effectiveOrder: comp.order ?? Infinity,
+            docIdx: d,
+            build: () => ({kind: 'component', component: comp}),
+         });
+      }
+   }
+   for (const bucket of groupBuckets.values()) {
+      const comps = bucket.components;
+      slotMetas.push({
+         effectiveOrder: bucket.effectiveOrder,
+         docIdx: bucket.docIdx,
+         build: () => ({kind: 'group', components: comps}),
+      });
+   }
+
+   rootOrSections.forEach((section, groupIndex) => {
+      slotMetas.push({
+         effectiveOrder: section.group.order ?? Infinity,
+         docIdx: docIdx++,
+         build: () => ({kind: 'orSection', section, groupIndex}),
+      });
+   });
+
+   slotMetas.sort((a, b) =>
+      a.effectiveOrder !== b.effectiveOrder
+         ? a.effectiveOrder - b.effectiveOrder
+         : a.docIdx - b.docIdx,
+   );
+
+   const renderSlots: RootRenderSlot[] = slotMetas.map(m => m.build());
+
+   // ── 4. Flat component list for data extraction ─────────────────────────────
+   const allComponents = sortComponents([
+      ...baseComponents,
+      ...rootOrSections.flatMap(s => s.components),
+   ]);
+
+   return {components: allComponents, renderSlots, rootOrGroups};
+}
+
+async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGraph: RdfStore, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore): Promise<UIComponent | undefined> {
+   const pathQuads = shapesGraph.getQuads(property, SH("path"), null);
+   if (pathQuads.length !== 1) {
+      console.warn(`Expected exactly one sh:path for constraint ${property.value}, found ${pathQuads.length}, skipping path extraction for this constraint`);
+      return;
+   }
+   const paths = extractPaths(property, shapesGraph, pathQuads[0].object);
+
+   if (!paths || paths.length === 0) {
+      console.warn(`UI property ${property.value} does not have a valid path, skipping`);
+      return;
+   }
+
+   const label = shapesGraph.getQuads(property, SH("name"), null)[0]?.object;
+   const description = shapesGraph.getQuads(property, SH("description"), null)[0]?.object;
+   const datatype = shapesGraph.getQuads(property, SH("datatype"), null)[0]?.object;
+   const minCount = shapesGraph.getQuads(property, SH("minCount"), null)[0]?.object;
+   const maxCount = shapesGraph.getQuads(property, SH("maxCount"), null)[0]?.object;
+   const clazz = shapesGraph.getQuads(property, SH("class"), null)[0]?.object;
+   const rootClass = shapesGraph.getQuads(property, SH("rootClass"), null)[0]?.object;
+   const node = shapesGraph.getQuads(property, SH("node"), null)[0]?.object;
+   const propertiesLength = shapesGraph.getQuads(property, SH("property"), null).length;
+   const defaultChild: UIComponent[] | undefined = node
+      ? await buildUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph)
+      : (propertiesLength > 0
+         ? await buildUiComponents(renderer, shapesGraph, property, dataGraph, null, widgetScoringGraph)
+         : undefined);
+   const pattern = shapesGraph.getQuads(property, SH("pattern"), null)[0]?.object.value;
+   const minInclusive = shapesGraph.getQuads(property, SH("minInclusive"), null)[0]?.object.value;
+   const maxInclusive = shapesGraph.getQuads(property, SH("maxInclusive"), null)[0]?.object.value;
+   const order = shapesGraph.getQuads(property, SH("order"), null)[0]?.object.value;
+   const nodeKind = shapesGraph.getQuads(property, SH("nodeKind"), null)[0]?.object;
+   const or = shapesGraph.getQuads(property, SH("or"), null)[0]?.object;
+   const hasValue = shapesGraph.getQuads(property, SH("hasValue"), null)[0]?.object;
+
+   let classes: Term[] | undefined = undefined;
+   if (clazz) {
+      if (clazz.termType === "NamedNode") {
+         classes = [clazz];
+         await extractSubclasses(clazz, dataGraph, shapesGraph, classes);
+      } else if (clazz.termType === "BlankNode") {
+         classes = extractShaclList(clazz, shapesGraph);
+      } else {
+         console.warn(`Unsupported sh:class value type ${clazz.termType} for constraint ${property.value}, skipping class extraction for this constraint`);
+      }
+   }
+   let instances: LabeledValue[] | undefined = undefined;
+   if (classes) {
+      instances = await Promise.all(classes.map(clazz => [...dataGraph.getQuads(null, RDF_("type"), clazz), ...shapesGraph.getQuads(null, RDF_("type"), clazz)].map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution))).flat());
+   }
+   let classValues: ClassValue[] | undefined = undefined;
+   if (classes) {
+      classValues = await Promise.all(classes.map(async (clazz) => {
+         const classValue: ClassValue = {
+            iri: clazz,
+            value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
+         };
+         // Find NodeShape with sh:targetClass equal to the class, and if found, construct UI components for that NodeShape and add them as children of the class value.
+         const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
+         if (nodeShapeQuad) {
+            classValue.children = await buildUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
+         }
+         return classValue;
+      }));
+   }
+
+   let labeledSubclasses: LabeledValue[] | undefined = undefined;
+   let subclasses: Term[] | undefined = undefined;
+   if (rootClass) {
+      subclasses = [rootClass];
+      await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
+      labeledSubclasses = await Promise.all(subclasses.map(async (subclass) => await toLabeledValue(subclass, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)));
+   }
+
+   let values: UIComponentValue[] = [];
+   let children: UIComponent[][] | undefined = undefined;
+   for (const path of paths) {
+      if (path.type !== "predicate" && path.type !== "inverse") {
+         console.warn(`Unsupported path type ${path.type} for constraint ${property.value}, skipping value extraction for this path`);
+         continue;
+      }
+
+      const pathValues = path.type === "predicate"
+         ? (focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.path), null).map(quad => quad.object) : [])
+         : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
+
+      if (node) {
+         // If sh:node is present, we need to recursively construct UI components for the nested shape
+         const nestedComponents = await Promise.all(pathValues.map(async (value) => buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
+         children = [...(children ?? []), ...nestedComponents];
+      } else if (classes) {
+         const nestedComponents = await Promise.all(pathValues.map(async (value) => {
+            const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
+            return await buildUiComponents(renderer, shapesGraph, usedClass, dataGraph, value, widgetScoringGraph);
+         }));
+         children = [...(children ?? []), ...nestedComponents];
+      }
+      // Also consider child properties defined directly on the PropertyShape.
+      if (propertiesLength > 0) {
+         const directChildren = await Promise.all(pathValues.map(async (value) => buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph)));
+         children = [...(children ?? []), ...directChildren];
+      }
+
+      pathValues.forEach(value => {
+         values.push({
+            value: value,
+            path: path,
+         });
+      });
+   }
+
+   // Ensure sh:hasValue term is always present as the first value.
+   if (hasValue) {
+      const idx = values.findIndex(v => v.value.equals(hasValue));
+      if (idx < 0) {
+         // Not in data graph yet – prepend it and add it to the store.
+         const path = paths[0];
+         if (focusNode) {
+            renderer.addToDataStore(focusNode, path, hasValue);
+         }
+         values.unshift({ value: hasValue, path });
+      } else if (idx > 0) {
+         // Already present but not first – move it to the front.
+         const [entry] = values.splice(idx, 1);
+         values.unshift(entry);
+      }
+   }
+
+   const element: UIComponent = {
+      uuid: self.crypto.randomUUID(),
+      iri: property,
+      focusNode: focusNode ?? undefined,
+      paths: paths,
+      node: node,
+      label: label?.value,
+      description: description?.value,
+      datatype: datatype?.value,
+      values: values,
+      children: children,
+      defaultChild: defaultChild,
+      minCount: minCount ? parseInt(minCount.value) : undefined,
+      maxCount: maxCount ? parseInt(maxCount.value) : undefined,
+      classes: classValues,
+      instances: instances,
+      rootClass: rootClass,
+      subclasses: labeledSubclasses,
+      pattern: pattern,
+      minInclusive: minInclusive,
+      maxInclusive: maxInclusive,
+      order: order ? parseFloat(order) : undefined,
+      nodeKind: nodeKind,
+      hasValue: hasValue,
+   }
+
+   // Handle sh:or if present; only union of the same constraint is supported.
+   if (or) {
+      const orList = extractShaclList(or, shapesGraph);
+      if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("node"), null).length === 1)) {
+         // Handle sh:or of sh:node constraints.
+         element.orNode = await Promise.all(orList.map(async orListItem => {
+            const node = shapesGraph.getQuads(orListItem, SH("node"), null)[0]?.object;
+            const defaultChild = await buildUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph);
+
+            let values: UIComponentValue[] = [];
+            let children: UIComponent[][] | undefined = undefined;
+            for (const path of paths) {
+               if (path.type !== "predicate" && path.type !== "inverse") {
+                  console.warn(`Unsupported path type ${path.type} for constraint ${property.value}, skipping value extraction for this path`);
+                  continue;
+               }
+
+               const pathValues = path.type === "predicate"
+                  ? (focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.path), null).map(quad => quad.object) : [])
+                  : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
+
+               // sh:node is present, so we need to recursively construct UI components for the nested shape
+               const nestedComponents = await Promise.all(pathValues.map(async (value) => buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
+               children = [...(children ?? []), ...nestedComponents];
+
+               pathValues.forEach(value => {
+                  values.push({
+                     value: value,
+                     path: path,
+                  });
+               });
+            }
+
+            return {
+               node: node,
+               values: values,
+               children: children,
+               defaultChild: defaultChild,
+            } as OrNode;
+         }));
+      } else if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("datatype"), null).length === 1)) {
+         // Handle sh:or of sh:datatype constraints.
+         element.orDatatype = orList.map(orListItem => {
+            const datatype = shapesGraph.getQuads(orListItem, SH("datatype"), null)[0]?.object;
+            return {
+               datatype: datatype?.value,
+            } as OrDatatype;
+         });
+      } else if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("class"), null).length === 1)) {
+         // Handle sh:or of sh:class constraints.
+         element.orClass = await Promise.all(orList.map(async orListItem => {
+            const clazz = shapesGraph.getQuads(orListItem, SH("class"), null)[0]?.object;
+            const classTerms: Term[] = [clazz];
+            await extractSubclasses(clazz, dataGraph, shapesGraph, classTerms);
+            const instances = await Promise.all(
+               classTerms.flatMap(c => [
+                  ...dataGraph.getQuads(null, RDF_("type"), c),
+                  ...shapesGraph.getQuads(null, RDF_("type"), c)
+               ].map(async quad => toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)))
+            );
             const classValue: ClassValue = {
                iri: clazz,
                value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
             };
-            // Find NodeShape with sh:targetClass equal to the class, and if found, construct UI components for that NodeShape and add them as children of the class value.
             const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
             if (nodeShapeQuad) {
-               classValue.children = await constructUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
+               classValue.children = await buildUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
             }
-            return classValue;
+            return { class: clazz, classValue, instances } as OrClass;
          }));
+      } else {
+         console.warn(`sh:or is only supported for unions of the same constraint. Allowed constraints are sh:node, sh:datatype, or sh:class.`)
       }
 
-      let labeledSubclasses: LabeledValue[] | undefined = undefined;
-      let subclasses: Term[] | undefined = undefined;
-      if (rootClass) {
-         subclasses = [rootClass];
-         await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
-         labeledSubclasses = await Promise.all(subclasses.map(async (subclass) => await toLabeledValue(subclass, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)));
-      }
-
-      let values: UIComponentValue[] = [];
-      let children: UIComponent[][] | undefined = undefined;
-      for (const path of paths) {
-         if (path.type !== "predicate" && path.type !== "inverse") {
-            console.warn(`Unsupported path type ${path.type} for constraint ${uiProperty.object.value}, skipping value extraction for this path`);
-            continue;
+      // Auto-detect which or-option matches existing data, then apply it so the
+      // rest of the rendering code sees the correct node / children / datatype / classes.
+      let selectedOrIndex = 0;
+      if (element.orDatatype && element.values.length > 0) {
+         const valueDatatype = element.values[0].value.termType === 'Literal'
+            ? (element.values[0].value as any).datatype?.value
+            : undefined;
+         if (valueDatatype) {
+            const matchIndex = element.orDatatype.findIndex(opt => opt.datatype === valueDatatype);
+            if (matchIndex >= 0) selectedOrIndex = matchIndex;
          }
-
-         const pathValues = path.type === "predicate"
-            ? (focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.path), null).map(quad => quad.object) : [])
-            : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
-
-         if (node) {
-            // If sh:node is present, we need to recursively construct UI components for the nested shape
-            const nestedComponents = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
-            children = [...(children ?? []), ...nestedComponents];
-         } else if (classes) {
-            const nestedComponents = await Promise.all(pathValues.map(async (value) => {
-               const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
-               return await constructUiComponents(renderer, shapesGraph, usedClass, dataGraph, value, widgetScoringGraph);
-            }));
-            children = [...(children ?? []), ...nestedComponents];
-         }
-         // Also consider child properties defined directly on the PropertyShape.
-         if (propertiesLength > 0) {
-            const directChildren = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, uiProperty.object, dataGraph, value, widgetScoringGraph)));
-            children = [...(children ?? []), ...directChildren];
-         }
-
-         pathValues.forEach(value => {
-            values.push({
-               value: value,
-               path: path,
-            });
-         });
-      }
-
-      // Ensure sh:hasValue term is always present as the first value.
-      if (hasValue) {
-         const idx = values.findIndex(v => v.value.equals(hasValue));
-         if (idx < 0) {
-            // Not in data graph yet – prepend it and add it to the store.
-            const path = paths[0];
-            if (focusNode) {
-               renderer.addToDataStore(focusNode, path, hasValue);
-            }
-            values.unshift({ value: hasValue, path });
-         } else if (idx > 0) {
-            // Already present but not first – move it to the front.
-            const [entry] = values.splice(idx, 1);
-            values.unshift(entry);
+      } else if (element.orClass && element.values.length > 0) {
+         const valueType = dataGraph.getQuads(element.values[0].value, RDF_("type"), null)[0]?.object.value;
+         if (valueType) {
+            const matchIndex = element.orClass.findIndex(opt => opt.class.value === valueType);
+            if (matchIndex >= 0) selectedOrIndex = matchIndex;
          }
       }
+      applyOrOption(element, selectedOrIndex);
 
-      const element: UIComponent = {
-         uuid: self.crypto.randomUUID(),
-         iri: uiProperty.object,
-         focusNode: focusNode ?? undefined,
-         paths: paths,
-         node: node,
-         label: label?.value,
-         description: description?.value,
-         datatype: datatype?.value,
-         values: values,
-         children: children,
-         defaultChild: defaultChild,
-         minCount: minCount ? parseInt(minCount.value) : undefined,
-         maxCount: maxCount ? parseInt(maxCount.value) : undefined,
-         classes: classValues,
-         instances: instances,
-         rootClass: rootClass,
-         subclasses: labeledSubclasses,
-         pattern: pattern,
-         minInclusive: minInclusive,
-         maxInclusive: maxInclusive,
-         order: order ? parseFloat(order) : undefined,
-         nodeKind: nodeKind,
-         hasValue: hasValue,
-      }
-
-      // Handle sh:or if present; only union of the same constraint is supported.
-      if (or) {
-         const orList = extractShaclList(or, shapesGraph);
-         if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("node"), null).length === 1)) {
-            // Handle sh:or of sh:node constraints.
-            element.orNode = await Promise.all(orList.map(async orListItem => {
-               const node = shapesGraph.getQuads(orListItem, SH("node"), null)[0]?.object;
-               const defaultChild = await constructUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph);
-
-               let values: UIComponentValue[] = [];
-               let children: UIComponent[][] | undefined = undefined;
-               for (const path of paths) {
-                  if (path.type !== "predicate" && path.type !== "inverse") {
-                     console.warn(`Unsupported path type ${path.type} for constraint ${uiProperty.object.value}, skipping value extraction for this path`);
-                     continue;
-                  }
-
-                  const pathValues = path.type === "predicate"
-                     ? (focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.path), null).map(quad => quad.object) : [])
-                     : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
-
-                  // sh:node is present, so we need to recursively construct UI components for the nested shape
-                  const nestedComponents = await Promise.all(pathValues.map(async (value) => constructUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
-                  children = [...(children ?? []), ...nestedComponents];
-
-                  pathValues.forEach(value => {
-                     values.push({
-                        value: value,
-                        path: path,
-                     });
-                  });
-               }
-
-               return {
-                  node: node,
-                  values: values,
-                  children: children,
-                  defaultChild: defaultChild,
-               } as OrNode;
-            }));
-         } else if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("datatype"), null).length === 1)) {
-            // Handle sh:or of sh:datatype constraints.
-            element.orDatatype = orList.map(orListItem => {
-               const datatype = shapesGraph.getQuads(orListItem, SH("datatype"), null)[0]?.object;
-               return {
-                  datatype: datatype?.value,
-               } as OrDatatype;
-            });
-         } else if (orList.every(orListItem => shapesGraph.getQuads(orListItem, SH("class"), null).length === 1)) {
-            // Handle sh:or of sh:class constraints.
-            element.orClass = await Promise.all(orList.map(async orListItem => {
-               const clazz = shapesGraph.getQuads(orListItem, SH("class"), null)[0]?.object;
-               const classTerms: Term[] = [clazz];
-               await extractSubclasses(clazz, dataGraph, shapesGraph, classTerms);
-               const instances = await Promise.all(
-                  classTerms.flatMap(c => [
-                     ...dataGraph.getQuads(null, RDF_("type"), c),
-                     ...shapesGraph.getQuads(null, RDF_("type"), c)
-                  ].map(async quad => toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)))
-               );
-               const classValue: ClassValue = {
-                  iri: clazz,
-                  value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
-               };
-               const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
-               if (nodeShapeQuad) {
-                  classValue.children = await constructUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
-               }
-               return { class: clazz, classValue, instances } as OrClass;
-            }));
+      // Set per-value selectedOrIndex, detecting each value's or-option individually.
+      for (const v of element.values) {
+         if (element.orDatatype) {
+            const dt = v.value.termType === 'Literal' ? (v.value as any).datatype?.value : undefined;
+            const idx = dt ? element.orDatatype.findIndex(opt => opt.datatype === dt) : -1;
+            v.selectedOrIndex = idx >= 0 ? idx : selectedOrIndex;
+         } else if (element.orClass) {
+            const vType = dataGraph.getQuads(v.value, RDF_("type"), null)[0]?.object.value;
+            const idx = vType ? element.orClass.findIndex(opt => opt.class.value === vType) : -1;
+            v.selectedOrIndex = idx >= 0 ? idx : selectedOrIndex;
          } else {
-            console.warn(`sh:or is only supported for unions of the same constraint. Allowed constraints are sh:node, sh:datatype, or sh:class.`)
-         }
-
-         // Auto-detect which or-option matches existing data, then apply it so the
-         // rest of the rendering code sees the correct node / children / datatype / classes.
-         let selectedOrIndex = 0;
-         if (element.orDatatype && element.values.length > 0) {
-            const valueDatatype = element.values[0].value.termType === 'Literal'
-               ? (element.values[0].value as any).datatype?.value
-               : undefined;
-            if (valueDatatype) {
-               const matchIndex = element.orDatatype.findIndex(opt => opt.datatype === valueDatatype);
-               if (matchIndex >= 0) selectedOrIndex = matchIndex;
-            }
-         } else if (element.orClass && element.values.length > 0) {
-            const valueType = dataGraph.getQuads(element.values[0].value, RDF_("type"), null)[0]?.object.value;
-            if (valueType) {
-               const matchIndex = element.orClass.findIndex(opt => opt.class.value === valueType);
-               if (matchIndex >= 0) selectedOrIndex = matchIndex;
-            }
-         }
-         applyOrOption(element, selectedOrIndex);
-
-         // Set per-value selectedOrIndex, detecting each value's or-option individually.
-         for (const v of element.values) {
-            if (element.orDatatype) {
-               const dt = v.value.termType === 'Literal' ? (v.value as any).datatype?.value : undefined;
-               const idx = dt ? element.orDatatype.findIndex(opt => opt.datatype === dt) : -1;
-               v.selectedOrIndex = idx >= 0 ? idx : selectedOrIndex;
-            } else if (element.orClass) {
-               const vType = dataGraph.getQuads(v.value, RDF_("type"), null)[0]?.object.value;
-               const idx = vType ? element.orClass.findIndex(opt => opt.class.value === vType) : -1;
-               v.selectedOrIndex = idx >= 0 ? idx : selectedOrIndex;
-            } else {
-               v.selectedOrIndex = selectedOrIndex;
-            }
+            v.selectedOrIndex = selectedOrIndex;
          }
       }
-
-      // Check if sh:in is present for enumerations, and if so, get all options
-      const inQuad = shapesGraph.getQuads(uiProperty.object, SH("in"), null)[0];
-      if (inQuad) {
-         element.options = await Promise.all(extractShaclList(inQuad.object, shapesGraph).map(async (option) => {
-            if (option.termType === "NamedNode" || option.termType === "BlankNode") {
-               return await toLabeledValue(option, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution);
-            } else {
-               return {
-                  value: df.fromTerm(option as any),
-                  label: option.value,
-               };
-            }
-         }));
-      }
-
-      // Check if sh:group is present for grouping, and if so, extract group information
-      const groupQuad = shapesGraph.getQuads(uiProperty.object, SH("group"), null)[0];
-      if (groupQuad) {
-         element.group = extractGroup(groupQuad, shapesGraph);
-      }
-
-      // Check if sh:singleLine is present
-      const singleLineQuad = shapesGraph.getQuads(uiProperty.object, SH("singleLine"), null)[0];
-      if (singleLineQuad) {
-         element.singleLine = singleLineQuad.object.value === "true" || singleLineQuad.object.value === "1";
-      }
-
-      // Configure default widget based on the shape only.
-      const defaultWidgetScores = await score(null, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
-      element.defaultWidget = defaultWidgetScores[0]?.widget.value.value;
-      element.defaultWidgets = defaultWidgetScores;
-
-      if (focusNode) {
-         const dataGraphWithDefault = RdfStore.createDefault();
-         dataGraphWithDefault.import(dataGraph.match());
-         const defaultTerm = getDefaultTermForWidget(renderer, element.defaultWidget, element, false);
-         for (const path of paths) {
-            if (path.type === "predicate") {
-               dataGraphWithDefault.addQuad(df.quad(focusNode as Quad_Subject, df.namedNode(path.path), defaultTerm as Quad_Object));
-            } else if (path.type === "inverse") {
-               dataGraphWithDefault.addQuad(df.quad(defaultTerm as Quad_Subject, df.namedNode(path.path), focusNode as Quad_Object));
-            }
-         }
-         element.defaultWidgets = await score(focusNode, dataGraphWithDefault, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
-         element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
-      }
-
-      // Make sure we have at least minCount values, by adding empty values if needed.
-      for (let i = values.length; i < (element.minCount ?? 0); i++) {
-         const value = getDefaultTermForWidget(renderer, element.defaultWidget, element, true, !!focusNode);
-         const path = paths[0];
-         renderer.addToDataStore(focusNode ?? undefined, path, value);
-         element.values.push({
-            value: value,
-            path: path,
-            class: element.classes?.[0]?.iri,
-            selectedWidget: element.defaultWidget,
-            widgets: defaultWidgetScores,
-            selectedOrIndex: element.selectedOrIndex,
-         });
-      }
-
-      // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
-      element.values = await Promise.all(element.values.map(async (value) => {
-         const widgetScores = await score(value.value, dataGraph, uiProperty.object, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
-         value.selectedWidget = widgetScores[0]?.widget.value.value;
-         value.widgets = widgetScores;
-         return value;
-      }));
-
-      elements.push(element);
    }
 
-   // Sort elements first by their group order (if they have a group), then by their own order value, with elements without an order value coming last.
-   return elements.sort((a, b) => {
-      if (a.group?.order !== undefined && b.group?.order !== undefined) {
-         if (a.group.order !== b.group.order) {
-            return a.group.order - b.group.order;
+   // Check if sh:in is present for enumerations, and if so, get all options
+   const inQuad = shapesGraph.getQuads(property, SH("in"), null)[0];
+   if (inQuad) {
+      element.options = await Promise.all(extractShaclList(inQuad.object, shapesGraph).map(async (option) => {
+         if (option.termType === "NamedNode" || option.termType === "BlankNode") {
+            return await toLabeledValue(option, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution);
          } else {
-            // If group order is the same, sort by element order
-            if (a.order !== undefined && b.order !== undefined) {
-               return a.order - b.order;
-            } else if (a.order !== undefined) {
-               return -1;
-            } else {
-               return 1;
-            }
+            return {
+               value: df.fromTerm(option as any),
+               label: option.value,
+            };
          }
-      } else if (a.group?.order !== undefined) {
-         return -1;
-      } else if (b.group?.order !== undefined) {
-         return 1;
-      } else {
-         // If neither has a group order, sort by element order
-         if (a.order !== undefined && b.order !== undefined) {
-            return a.order - b.order;
-         } else if (a.order !== undefined) {
-            return -1;
-         } else {
-            return 1;
+      }));
+   }
+
+   // Check if sh:group is present for grouping, and if so, extract group information
+   const groupQuad = shapesGraph.getQuads(property, SH("group"), null)[0];
+   if (groupQuad) {
+      element.group = extractGroup(groupQuad, shapesGraph);
+   }
+
+   // Check if sh:singleLine is present
+   const singleLineQuad = shapesGraph.getQuads(property, SH("singleLine"), null)[0];
+   if (singleLineQuad) {
+      element.singleLine = singleLineQuad.object.value === "true" || singleLineQuad.object.value === "1";
+   }
+
+   // Configure default widget based on the shape only.
+   const defaultWidgetScores = await score(null, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+   element.defaultWidget = defaultWidgetScores[0]?.widget.value.value;
+   element.defaultWidgets = defaultWidgetScores;
+
+   if (focusNode) {
+      const dataGraphWithDefault = RdfStore.createDefault();
+      dataGraphWithDefault.import(dataGraph.match());
+      const defaultTerm = getDefaultTermForWidget(renderer, element.defaultWidget, element, false);
+      for (const path of paths) {
+         if (path.type === "predicate") {
+            dataGraphWithDefault.addQuad(df.quad(focusNode as Quad_Subject, df.namedNode(path.path), defaultTerm as Quad_Object));
+         } else if (path.type === "inverse") {
+            dataGraphWithDefault.addQuad(df.quad(defaultTerm as Quad_Subject, df.namedNode(path.path), focusNode as Quad_Object));
          }
       }
-   });
+      element.defaultWidgets = await score(focusNode, dataGraphWithDefault, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+      element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
+   }
+
+   // Make sure we have at least minCount values, by adding empty values if needed.
+   for (let i = values.length; i < (element.minCount ?? 0); i++) {
+      const value = getDefaultTermForWidget(renderer, element.defaultWidget, element, true, !!focusNode);
+      const path = paths[0];
+      renderer.addToDataStore(focusNode ?? undefined, path, value);
+      element.values.push({
+         value: value,
+         path: path,
+         class: element.classes?.[0]?.iri,
+         selectedWidget: element.defaultWidget,
+         widgets: defaultWidgetScores,
+         selectedOrIndex: element.selectedOrIndex,
+      });
+   }
+
+   // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
+   element.values = await Promise.all(element.values.map(async (value) => {
+      const widgetScores = await score(value.value, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+      value.selectedWidget = widgetScores[0]?.widget.value.value;
+      value.widgets = widgetScores;
+      return value;
+   }));
+
+   return element;
 }
 
 function extractShaclList(listNode: Term, shapesGraph: RdfStore<any, Quad>): Term[] {

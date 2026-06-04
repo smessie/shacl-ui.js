@@ -1,4 +1,4 @@
-import type {LabeledValue, Path, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
+import type {LabeledValue, Path, RootRenderSlot, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from 'tailwind-merge';
 import {rdf, RDF as RDF_, SH, shui, XSD, xsd} from "./namespaces.ts";
@@ -14,6 +14,116 @@ import type {RdfStore} from "rdf-stores";
 import {until} from 'lit/directives/until.js';
 
 const df: RDF.DataFactory = new DataFactory();
+
+// ---------------------------------------------------------------------------
+// Unified root-level rendering: base components + sh:or sections, in order
+// ---------------------------------------------------------------------------
+
+/**
+ * Renders the interleaved list of base `sh:property` components and root-level
+ * `sh:or` section cards in the correct `sh:order`-based sequence.
+ *
+ * Slot kinds:
+ *  - `'component'`  – a single ungrouped UIComponent rendered normally.
+ *  - `'group'`      – a set of UIComponents sharing a sh:group, rendered as a flex row.
+ *  - `'orSection'`  – a root-level sh:or section with an inline variant selector
+ *                     followed by the currently selected option's sh:property fields.
+ */
+export function renderRootSlots(
+   renderer: ShaclRenderer,
+   renderSlots: RootRenderSlot[],
+   classes: TailwindClasses,
+): TemplateResult {
+   return html`
+       ${renderSlots.map(slot => {
+           if (slot.kind === 'component') {
+               return renderUIComponent(renderer, slot.component, classes);
+           }
+
+           if (slot.kind === 'group') {
+               const group = slot.components[0].group!;
+               return html`
+                   <div class="${twMerge(classes.groupClass)}">
+                       <h2 class="${twMerge(classes.groupLabelClass)}">${group.label}</h2>
+                       ${slot.components.map(c => html`
+                           <div class="${twMerge(classes.groupElementClass)}">
+                               ${renderUIComponent(renderer, c, classes)}
+                           </div>
+                       `)}
+                   </div>
+               `;
+           }
+
+           // ── orSection ────────────────────────────────────────────────────
+           const {section, groupIndex} = slot;
+           const {group} = section;
+
+           // Single option – no selector needed; just render the fields.
+           if (group.options.length < 2) {
+               return section.components.length > 0
+                  ? renderUIComponents(renderer, section.components, classes)
+                  : nothing;
+           }
+
+           const key = group.orListNode.value;
+           const open = renderer.rootOrSelectOpen[key] ?? false;
+           const selected = group.options[group.selectedIndex];
+
+           return html`
+               <div class="flex gap-3 mb-4">
+                   <!-- Thin left accent bar that visually connects selector + fields -->
+                   <div class="w-0.5 bg-zinc-200 dark:bg-zinc-700 rounded-full self-stretch shrink-0"></div>
+
+                   <div class="flex-1 min-w-0">
+                       <!-- Inline variant selector – intentionally small and unobtrusive -->
+                       <div class="relative mb-3">
+                           <button class="inline-flex items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer transition-colors"
+                                   @click="${() => renderer.setRootOrSelectOpen(key, !open)}">
+                               <span class="font-medium">
+                                   ${selected?.label ?? `Option ${group.selectedIndex + 1}`}
+                               </span>
+                               <svg class="w-3.5 h-3.5 opacity-60"
+                                    xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                                    stroke="currentColor" stroke-width="2.5">
+                                   <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
+                               </svg>
+                           </button>
+
+                           <!-- Dropdown (description shown here only, not below the trigger) -->
+                           ${open ? html`
+                               <ul class="${twMerge(classes.orSelectorDropdownClass, 'absolute z-50 min-w-48 mt-1')}">
+                                   ${group.options.map((option, optionIndex) => html`
+                                       <li class="${twMerge(
+                                               classes.orSelectorOptionClass,
+                                               optionIndex === group.selectedIndex
+                                                       ? classes.orSelectorOptionSelectedClass
+                                                       : ''
+                                       )}"
+                                           @mousedown="${() => renderer.selectRootOrOption(groupIndex, optionIndex)}">
+                                           <div class="${twMerge(classes.orSelectorLabelClass)}">
+                                               ${option.label ?? `Option ${optionIndex + 1}`}
+                                           </div>
+                                           ${option.description ? html`
+                                               <div class="${twMerge(classes.orSelectorDescriptionClass)}">
+                                                   ${option.description}
+                                               </div>
+                                           ` : nothing}
+                                       </li>
+                                   `)}
+                               </ul>
+                           ` : nothing}
+                       </div>
+
+                       <!-- Fields of the currently selected option -->
+                       ${section.components.length > 0
+                          ? renderUIComponents(renderer, section.components, classes)
+                          : nothing}
+                   </div>
+               </div>
+           `;
+       })}
+   `;
+}
 
 export function renderUIComponents(renderer: ShaclRenderer, uiComponents: UIComponent[], classes: TailwindClasses): TemplateResult {
    const grouped = new Map<string | undefined, UIComponent[]>();
@@ -233,16 +343,13 @@ function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: UICompon
 
    return html`
        <div class="relative mb-2">
-           <div class="${twMerge(
-                   classes.globalFieldClass,
-                   classes.globalInputFieldClass,
-                   'appearance-none pr-10 mb-0 cursor-pointer flex items-center text-sm'
-           )}"
+           <!-- Small chip-style trigger – shows the selected type without occupying a full input row -->
+           <div class="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-700/60 rounded px-2 py-0.5 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-600 transition-colors mb-2"
                 @click="${() => renderer.setOrSelectOpen(key, !open)}">
-               <span class="flex-1">${until(getOrOptionLabel(uiComponent, selectedIndex, renderer.dataStore!, renderer.shapesStore!).then(res => res.label))}</span>
-               <svg class="${twMerge(classes.enumSelectEditorIconClass)}"
+               <span>${until(getOrOptionLabel(uiComponent, selectedIndex, renderer.dataStore!, renderer.shapesStore!).then(res => res.label))}</span>
+               <svg class="w-3 h-3 opacity-60"
                     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor" stroke-width="2">
+                    stroke="currentColor" stroke-width="2.5">
                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                </svg>
            </div>
