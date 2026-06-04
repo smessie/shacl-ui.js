@@ -1,0 +1,123 @@
+@prefix dash:   <http://datashapes.org/dash#> .
+@prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix schema: <http://schema.org/> .
+@prefix sh:     <http://www.w3.org/ns/shacl#> .
+@prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
+@prefix foaf:   <http://xmlns.com/foaf/0.1/> .
+@prefix bibframe: <http://id.loc.gov/ontologies/bibframe/> .
+@prefix vivo:     <http://vivoweb.org/ontology/core#> .
+@prefix ex: <http://example.org/>.
+@prefix shui: <http://www.w3.org/ns/shacl-ui#>.
+
+##########
+# Shapes #
+##########
+ex:ScholarlyArticleShape
+    a              sh:NodeShape ;
+    sh:targetClass schema:ScholarlyArticle ;
+    sh:property    [ sh:path     schema:abstract ;
+                     sh:datatype xsd:string ;
+                     sh:name     "Abstract" ;
+                     sh:description "Provide a short summary of the publication, describing its main topic, contribution, or findings." ;
+                     sh:singleLine false ;
+                     sh:dataType xsd:string ;
+                     sh:minCount 1 ; ] ;
+    sh:property    [ sh:path     schema:author ;
+                     sh:node     <#AuthorShape> ;
+                     sh:nodeKind sh:IRI ;
+                     # shui:editor shui:DetailsEditor ;
+                     sh:name     "Authors" ;
+                     sh:description "Add the authors of the publication by linking their WebIDs." ;
+                     sh:minCount 1 ; ] ;
+    sh:property    [ sh:path     bibframe:contribution ;
+                     sh:node     <#ContributionShape> ;
+                     shui:editor shui:DetailsEditor ;
+                     sh:name     "Author contributions" ;
+                     sh:description "Describe each authorship contribution by linking an author to their position in the author list." ;
+                     sh:minCount 1 ; ] ;
+    sh:property    [ sh:path     schema:datePublished ;
+                     sh:datatype xsd:date ;
+                     sh:name     "Publication date" ;
+                     sh:description "Enter the date on which the publication was published." ;
+                     sh:maxCount 1 ;
+                     sh:minCount 1 ; ] ;
+    sh:property    <#NameProperty> ;
+    sh:property    [ sh:path     schema:isPartOf ;
+                     sh:node     <#PartOfShape> ;
+                     sh:minCount 0 ;
+                     sh:name     "Published in" ;
+                     sh:description "If applicable, link the publication to the journal, book, or proceedings it is part of." ; ] ;
+    sh:property    [ sh:path     schema:about ;
+                     sh:or       ( [ sh:node <#AboutShape> ] [ sh:node <#SourceCodeShape> ] ) ;
+                     shui:editor shui:DetailsEditor ;
+                     sh:name     "Related topics or resources" ;
+                     sh:description "Add the topics the publication is about, or link related tools, benchmarks, or other software resources it mentions or introduces." ;
+                     sh:minCount 1 ; ] ;
+    sh:property    [ sh:path     [ sh:inversePath schema:targetProduct ] ;
+                     sh:node     <#SourceCodeShape> ;
+                     shui:editor shui:DetailsEditor ;
+                     sh:name     "Source code" ;
+                     sh:description "Link the software source code resource associated with this publication." ;
+                     sh:minCount 1 ; ] .
+
+<#PartOfShape>
+    a           sh:NodeShape ;
+    sh:property <#NameProperty> .
+
+<#AboutShape>
+    a           sh:NodeShape ;
+    sh:name    "Topic" ;
+    sh:property <#NameProperty> .
+
+<#AuthorShape>
+    a           sh:NodeShape ;
+    sh:property [ sh:path     foaf:name ;
+                  sh:datatype xsd:string ;
+                  sh:name     "Author name" ;
+                  sh:description "Enter the full name of the author." ;
+                  sh:minCount 1 ] .
+
+<#SourceCodeShape>
+    a           sh:NodeShape ;
+    sh:name    "Software resource" ;
+    sh:description "Resource with its name and repository URL." ;
+    sh:property <#NameProperty>;
+    sh:property [ sh:path     rdf:type ;
+                  sh:hasValue schema:SoftwareSourceCode ;
+                  sh:nodeKind sh:IRI ;
+                  sh:name     "Resource type" ;
+                  sh:description "This resource must be identified as software source code." ;
+                  sh:minCount 1 ] ;
+    sh:property [ sh:path     schema:codeRepository ;
+                  sh:nodeKind sh:IRI ;
+                  sh:name     "Repository URL" ;
+                  sh:description "Provide the web address of the source code repository, for example a GitHub or GitLab URL." ;
+                  sh:minCount 1 ] .
+
+<#ContributionShape>
+    a           sh:NodeShape ;
+    sh:property [ sh:path     vivo:rank ;
+                  sh:datatype xsd:integer ;
+                  sh:name     "Author order" ;
+                  sh:description "Enter the position of this contributor in the author list, using 1 for the first author, 2 for the second, and so on." ;
+                  sh:maxCount 1 ;
+                  sh:minCount 1 ] ;
+    sh:property [ sh:path     bibframe:agent ;
+                  sh:node     <#AuthorShape> ;
+                  sh:name     "Contributor" ;
+                  sh:nodeKind sh:IRI ;
+                  sh:description "Link the contributor to an author by their WebID." ;
+                  sh:maxCount 1 ;
+                  sh:minCount 1 ] .
+
+##############
+# Properties #
+##############
+<#NameProperty>
+    sh:path     schema:name ;
+    sh:datatype xsd:string ;
+    sh:name     "Name" ;
+    sh:description "Enter the name or title for this item." ;
+    sh:minCount 1 .
+

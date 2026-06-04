@@ -1,0 +1,4 @@
+@prefix ex: <http://example.org/>.
+@prefix schema: <http://schema.org/> .
+
+ex:myPublication a schema:ScholarlyArticle .

@@ -1,0 +1,367 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
+@prefix rdfc: <https://w3id.org/rdf-connect#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix shui: <http://www.w3.org/ns/shacl-ui#>.
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix schema: <https://schema.org/> .
+@prefix cv: <http://rdfs.org/resume-rdf/cv.rdfs#> .
+@prefix cvb: <http://rdfs.org/resume-rdf/base.rdfs#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix ex: <http://example.org/> .
+
+#################################################################
+# Main Person Shape
+#################################################################
+
+ex:PersonShape
+    a sh:NodeShape ;
+    sh:name "Person CV Shape" ;
+    sh:description "Validates the main FOAF person profile including identity, contact information, education, skills and work history." ;
+
+    #################################################################
+    # Image
+    #################################################################
+
+    sh:property [
+        sh:name "Profile image" ;
+        sh:path [ sh:alternativePath ( foaf:img schema:image ) ] ;
+        sh:maxCount 1 ;
+        sh:nodeKind sh:IRI ;
+        sh:order 1 ;
+    ] ;
+
+    #################################################################
+    # Name logic
+    #################################################################
+
+    sh:or (
+        [
+            sh:name "Full name provided" ;
+            sh:description "A complete name is provided using foaf:name." ;
+            sh:order 2 ;
+            sh:property [
+                sh:name "Full name" ;
+                sh:description "The full name of the person." ;
+                sh:datatype xsd:string ;
+                sh:path [ sh:alternativePath ( foaf:name schema:name ) ] ;
+                sh:minCount 1 ;
+            ]
+        ]
+        [
+            sh:name "First and last name provided separately" ;
+            sh:description "A first name and surname are both provided instead of a single full name." ;
+            sh:order 4 ;
+            sh:property [
+                sh:name "First name" ;
+                sh:description "The given name of the person." ;
+                sh:datatype xsd:string ;
+                sh:path [ sh:alternativePath ( schema:givenName foaf:firstName foaf:givenName ) ] ;
+                sh:minCount 1 ;
+                sh:order 1 ;
+            ] ;
+            sh:property [
+                sh:name "Surname" ;
+                sh:description "The family name of the person." ;
+                sh:datatype xsd:string ;
+                sh:path [ sh:alternativePath ( schema:familyName foaf:surname foaf:family_name ) ] ;
+                sh:minCount 1 ;
+                sh:order 2 ;
+            ]
+        ]
+    ) ;
+
+    #################################################################
+    # Contact items
+    #################################################################
+
+    sh:property [
+        sh:name "Phone number" ;
+        sh:description "Optional phone number using foaf:phone." ;
+        sh:order 3 ;
+        sh:path [ sh:alternativePath ( foaf:phone schema:telephone ) ] ;
+        sh:nodeKind sh:Literal ;
+    ] ;
+
+    sh:property [
+        sh:name "Email address" ;
+        sh:description "Optional email address using foaf:mbox." ;
+        sh:path [ sh:alternativePath ( foaf:mbox schema:email ) ] ;
+        sh:nodeKind sh:Literal ;
+    ] ;
+
+    sh:property [
+        sh:name "Homepage" ;
+        sh:description "Optional homepage IRI using foaf:homepage." ;
+        sh:path [ sh:alternativePath ( foaf:homepage schema:url ) ] ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+
+    sh:property [
+        sh:name "Call sign" ;
+        sh:description "Optional call sign identifier using schema:callSign." ;
+        sh:path schema:callSign ;
+        sh:nodeKind sh:Literal ;
+    ] ;
+
+    #################################################################
+    # Accounts
+    #################################################################
+
+    sh:property [
+        sh:name "Online account" ;
+        sh:description "Optional external account reference using foaf:holdsAccount." ;
+        sh:path foaf:holdsAccount ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+
+    #################################################################
+    # Education
+    #################################################################
+
+    sh:property [
+        sh:name "Education entries" ;
+        sh:description "Zero or more education records linked via cv:hasEducation." ;
+        sh:path cv:hasEducation ;
+        sh:node ex:EducationShape ;
+        shui:editor shui:DetailsEditor;
+    ] ;
+
+    #################################################################
+    # Skills
+    #################################################################
+
+    sh:property [
+        sh:name "Skills" ;
+        sh:description "Zero or more skill entries linked via cv:hasSkill." ;
+        sh:path cv:hasSkill ;
+        sh:node ex:SkillShape ;
+        shui:editor shui:DetailsEditor;
+    ] ;
+
+    #################################################################
+    # Work History
+    #################################################################
+
+    sh:property [
+        sh:name "Work history" ;
+        sh:description "Zero or more work history entries linked via cv:hasWorkHistory." ;
+        sh:path cv:hasWorkHistory ;
+        sh:node ex:WorkHistoryShape ;
+        shui:editor shui:DetailsEditor;
+    ] .
+
+#################################################################
+# Education Shape
+#################################################################
+
+ex:EducationShape
+    a sh:NodeShape ;
+    sh:name "Education entry shape" ;
+    sh:description "Validates an education record including degree type, description, dates and institution." ;
+    sh:class cv:Education ;
+
+    sh:property [
+        sh:name "Degree type" ;
+        sh:description "The degree classification restricted to predefined cvb:EduDegree values." ;
+        sh:path cv:degreeType ;
+        sh:minCount 1 ;
+        sh:in ( <https://data.verborgh.org/ruben> sh:PropertyShape rdfc:Processor cvb:EduHighSchool cvb:EduBachelor cvb:EduMaster cvb:EduDoctorate ) ;
+        sh:group ex:EducationDegreeGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "Degree description" ;
+        sh:description "Human-readable description of the degree." ;
+        sh:path cv:eduDescription ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:group ex:EducationDegreeGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "Start date" ;
+        sh:description "The year or date when the education started." ;
+        sh:path cv:eduStartDate ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:group ex:EducationDateGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "End date" ;
+        sh:description "Optional year or date when the education ended." ;
+        sh:path cv:eduEndDate ;
+        sh:maxCount 1 ;
+        sh:datatype xsd:string ;
+        sh:group ex:EducationDateGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "Educational institution" ;
+        sh:description "The organization where the education was completed." ;
+        sh:path cv:studiedIn ;
+        sh:minCount 1 ;
+        sh:node ex:EducationalOrgShape ;
+        shui:editor shui:DetailsEditor;
+    ] .
+
+ex:EducationDegreeGroup
+    a sh:PropertyGroup ;
+    sh:order 1 ;
+.
+
+ex:EducationDateGroup
+    a sh:PropertyGroup ;
+    sh:order 2 ;
+.
+
+cvb:EduHighSchool a cvb:EduDegree ;
+    rdfs:label "High School or equivalent" .
+
+cvb:EduBachelor a cvb:EduDegree ;
+    rdfs:label "Bachelor's degree" .
+
+cvb:EduMaster a cvb:EduDegree ;
+    rdfs:label "Master's degree" .
+
+cvb:EduDoctorate a cvb:EduDegree ;
+    rdfs:label "Doctorate" .
+
+#################################################################
+# Educational Organization Shape
+#################################################################
+
+ex:EducationalOrgShape
+    a sh:NodeShape ;
+    sh:name "Educational organization shape" ;
+    sh:description "Validates an educational institution requiring at least a name." ;
+
+    sh:or (
+        [ sh:class cv:EducationalOrg ]
+        [ sh:class cv:Company ]
+    ) ;
+
+    sh:property [
+        sh:name "Organization name" ;
+        sh:description "The name of the educational organization." ;
+        sh:path [ sh:alternativePath ( foaf:name schema:name ) ] ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] .
+
+#################################################################
+# Skill Shape
+#################################################################
+
+ex:SkillShape
+    a sh:NodeShape ;
+    sh:name "Skill entry shape" ;
+    sh:description "Validates a skill or language skill including name and proficiency level." ;
+
+    sh:or (
+        [ sh:class cv:Skill ]
+        [ sh:class cv:LanguageSkill ]
+    ) ;
+
+    sh:property [
+        sh:name "Skill name" ;
+        sh:description "The name of the skill or language." ;
+        sh:path cv:skillName ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:group ex:SkillGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "Skill level" ;
+        sh:description "The proficiency level of the skill." ;
+        sh:path cv:skillLevel ;
+        sh:minCount 1 ;
+        sh:datatype xsd:string ;
+        sh:in ( "Experienced" "Proficient" "Familiar" "Native Language" "Fluent" "Good" ) ;
+        sh:group ex:SkillGroup ;
+    ] .
+
+ex:SkillGroup
+    a sh:PropertyGroup ;
+    sh:order 1 ;
+.
+
+#################################################################
+# Work History Shape
+#################################################################
+
+ex:WorkHistoryShape
+    a sh:NodeShape ;
+    sh:name "Work history entry shape" ;
+    sh:description "Validates a work history record including job title, employer, dates and description." ;
+    sh:class cv:WorkHistory ;
+
+    sh:property [
+        sh:name "Job title" ;
+        sh:description "The role or function performed." ;
+        sh:path cv:jobTitle ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:group ex:WorkHistoryGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "Start date" ;
+        sh:description "The date when the employment started." ;
+        sh:path cv:startDate ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+        sh:group ex:WorkHistoryGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "End date" ;
+        sh:description "Optional date when the employment ended." ;
+        sh:path cv:endDate ;
+        sh:datatype xsd:string ;
+        sh:maxCount 1 ;
+        sh:group ex:WorkHistoryGroup ;
+    ] ;
+
+    sh:property [
+        sh:name "Job description" ;
+        sh:description "Description of responsibilities and activities." ;
+        sh:path cv:jobDescription ;
+        sh:datatype xsd:string ;
+        sh:singleLine false ;
+        sh:minCount 1 ;
+    ] ;
+
+    sh:property [
+        sh:name "Employer" ;
+        sh:description "The employing organization." ;
+        sh:path cv:employedIn ;
+        sh:minCount 1 ;
+        sh:node ex:EmployerShape ;
+        shui:editor shui:DetailsEditor;
+    ] .
+
+ex:WorkHistoryGroup
+    a sh:PropertyGroup ;
+    sh:order 1 ;
+.
+
+#################################################################
+# Employer Shape
+#################################################################
+
+ex:EmployerShape
+    a sh:NodeShape ;
+    sh:name "Employer shape" ;
+    sh:description "Validates a company acting as employer and requiring a name." ;
+    sh:class cv:Company ;
+
+    sh:property [
+        sh:name "Company name" ;
+        sh:description "The official name of the company." ;
+        sh:path foaf:name ;
+        sh:datatype xsd:string ;
+        sh:minCount 1 ;
+    ] .
