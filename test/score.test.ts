@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
-import {parseRdf} from "../lib/utils/rdf.ts";
-import {score} from "../lib/utils/score.ts";
-import {SH} from "../lib/utils/namespaces.ts";
+import {parseRdf} from "../lib/core/rdf.ts";
+import {score} from "../lib/core/score.ts";
+import {SH} from "../lib/core/namespaces.ts";
 import {DataFactory} from "rdf-data-factory";
 
 const df = new DataFactory();

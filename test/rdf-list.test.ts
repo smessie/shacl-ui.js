@@ -1,8 +1,8 @@
 import {describe, expect, it} from "vitest";
 import {RdfStore} from "rdf-stores";
 import {DataFactory} from "rdf-data-factory";
-import {extractShaclList, extractSubclasses} from "../lib/utils/ui.ts";
-import {RDF, RDFS} from "../lib/utils/namespaces.ts";
+import {extractShaclList, extractSubclasses} from "../lib/core/ui-model.ts";
+import {RDF, RDFS} from "../lib/core/namespaces.ts";
 
 const df = new DataFactory();
 

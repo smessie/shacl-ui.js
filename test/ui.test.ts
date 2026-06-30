@@ -1,6 +1,6 @@
 import {describe, expect, it} from "vitest";
-import {parseRdf} from "../lib/utils/rdf.ts";
-import {constructUiComponents, uiComponentsToQuads} from "../lib/utils/ui.ts";
+import {parseRdf} from "../lib/core/rdf.ts";
+import {constructUiComponents, uiComponentsToQuads} from "../lib/core/ui-model.ts";
 import {ShaclRenderer} from "../lib/shacl-renderer.ts";
 import {DataFactory} from "rdf-data-factory";
 

@@ -2,10 +2,10 @@ import {css, html, LitElement, type PropertyValues, unsafeCSS} from 'lit'
 import {customElement, property, state} from 'lit/decorators.js'
 import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
-import {dereferenceRdf, parseRdf, serializeRdf} from "./utils/rdf.ts";
-import {constructUiComponents, uiComponentsToQuads} from "./utils/ui.ts";
-import {renderRootSlots} from "./utils/widgets.ts";
-import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent} from "./utils/types.ts";
+import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
+import {constructUiComponents, uiComponentsToQuads} from "./core/ui-model.ts";
+import {renderRootSlots} from "./presentation/widgets.ts";
+import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent} from "./types.ts";
 import {STYLING_SLOTS, STYLING_SLOT_NAMES} from "./styling-slots.ts";
 import * as RDF from "rdf-js";
 import {type Quad, type Quad_Object, type Quad_Subject} from "rdf-js";

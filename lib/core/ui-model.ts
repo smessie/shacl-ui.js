@@ -17,10 +17,10 @@ import type {
    UIComponent,
    UIComponentValue,
    UIGroup
-} from "./types.ts";
+} from "../types.ts";
 import {DCTERMS, rdf, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
 import {score} from "./score.ts";
-import {getDefaultTermForWidget} from "./widgets.ts";
+import {getDefaultTermForWidget} from "../presentation/widgets.ts";
 import {rdfDereferencer} from "rdf-dereference";
 import {ShaclRenderer} from "../shacl-renderer.ts";
 

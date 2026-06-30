@@ -1,5 +1,5 @@
 import {describe, expect, it} from "vitest";
-import {prefix, SH, sh, SHUI, shui} from "../lib/utils/namespaces.ts";
+import {prefix, SH, sh, SHUI, shui} from "../lib/core/namespaces.ts";
 
 describe("namespaces", () => {
    it("builds full IRIs for string helpers", () => {

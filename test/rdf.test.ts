@@ -1,7 +1,7 @@
 import {afterEach, describe, expect, it, vi} from "vitest";
 import {DataFactory} from "rdf-data-factory";
-import {expandPrefixedIRI, mutateTerm, parseRdf, serializeRdf} from "../lib/utils/rdf.ts";
-import {XSD} from "../lib/utils/namespaces.ts";
+import {expandPrefixedIRI, mutateTerm, parseRdf, serializeRdf} from "../lib/core/rdf.ts";
+import {XSD} from "../lib/core/namespaces.ts";
 
 const df = new DataFactory();
 

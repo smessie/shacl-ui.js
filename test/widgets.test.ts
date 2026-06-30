@@ -1,7 +1,7 @@
 import {describe, expect, it} from "vitest";
 import {DataFactory} from "rdf-data-factory";
-import {cloneUiComponent} from "../lib/utils/widgets.ts";
-import type {UIComponent} from "../lib/utils/types.ts";
+import {cloneUiComponent} from "../lib/presentation/widgets.ts";
+import type {UIComponent} from "../lib/types.ts";
 
 const df = new DataFactory();
 
