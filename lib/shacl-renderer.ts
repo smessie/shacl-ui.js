@@ -362,8 +362,15 @@ export class ShaclRenderer extends TwLitElement {
     return twMerge(ShaclRenderer.DEFAULTS[key], (this[key] as string));
   }
 
-  render() {
-    const tailwindClasses: TailwindClasses = {
+  /**
+   * Cached merged styling classes. Computing all ~70 twMerge slots is pure with respect to
+   * the styling properties, so it is memoized here and only recomputed when one of those
+   * properties changes (see willUpdate), instead of on every render.
+   */
+  private mergedClasses: TailwindClasses | null = null;
+
+  private computeMergedClasses(): TailwindClasses {
+    return {
       componentClass: this.m('componentClass'),
       spinnerClass: this.m('spinnerClass'),
       labelClass: this.m('labelClass'),
@@ -434,10 +441,14 @@ export class ShaclRenderer extends TwLitElement {
       orSelectorOptionSelectedClass: this.m('orSelectorOptionSelectedClass'),
       orSelectorLabelClass: this.m('orSelectorLabelClass'),
       orSelectorDescriptionClass: this.m('orSelectorDescriptionClass'),
-    }
+    };
+  }
+
+  render() {
+    const tailwindClasses = this.mergedClasses ??= this.computeMergedClasses();
     const renderer = this;
     return html`
-      <div class="${this.m('componentClass')}">
+      <div class="${tailwindClasses.componentClass}">
         ${this.error
            ? html`
              <div class="text-red-600 dark:text-red-400 p-4" role="alert">
@@ -448,7 +459,7 @@ export class ShaclRenderer extends TwLitElement {
            ? html`
              <div class="flex items-center justify-center py-10">
                <div
-                  class="${this.m('spinnerClass')}">
+                  class="${tailwindClasses.spinnerClass}">
                </div>
              </div>
            `
@@ -640,6 +651,11 @@ export class ShaclRenderer extends TwLitElement {
   }
 
   protected async willUpdate(changedProperties: PropertyValues) {
+    // Invalidate the memoized styling classes when any styling slot changed.
+    if (this.mergedClasses && (Object.keys(ShaclRenderer.DEFAULTS) as (keyof TailwindClasses)[]).some(key => changedProperties.has(key))) {
+      this.mergedClasses = null;
+    }
+
     let reconstructUi = false;
     try {
       if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {

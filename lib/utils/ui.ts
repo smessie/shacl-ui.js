@@ -558,20 +558,28 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    element.defaultWidgets = defaultWidgetScores;
 
    if (focusNode) {
-      const dataGraphWithDefault = RdfStore.createDefault();
-      await new Promise((resolve, reject) => {
-         dataGraphWithDefault.import(dataGraph.match()).on("end", resolve).on("error", reject);
-      });
+      // Score the default widget as if the focus node already held a default value. Rather than
+      // cloning the whole data graph per property (O(properties × N)), temporarily add the default
+      // quad(s) to the shared store, score, then remove exactly the quads we introduced (addQuad
+      // returns false for quads that already existed, so pre-existing data is never removed).
       const defaultTerm = getDefaultTermForWidget(renderer, element.defaultWidget, element, false);
+      const addedQuads: Quad[] = [];
       for (const path of paths) {
-         if (path.type === "predicate") {
-            dataGraphWithDefault.addQuad(df.quad(focusNode as Quad_Subject, df.namedNode(path.path), defaultTerm as Quad_Object));
-         } else if (path.type === "inverse") {
-            dataGraphWithDefault.addQuad(df.quad(defaultTerm as Quad_Subject, df.namedNode(path.path), focusNode as Quad_Object));
+         const quad = path.type === "predicate"
+            ? df.quad(focusNode as Quad_Subject, df.namedNode(path.path), defaultTerm as Quad_Object)
+            : path.type === "inverse"
+               ? df.quad(defaultTerm as Quad_Subject, df.namedNode(path.path), focusNode as Quad_Object)
+               : undefined;
+         if (quad && dataGraph.addQuad(quad)) {
+            addedQuads.push(quad);
          }
       }
-      element.defaultWidgets = await score(focusNode, dataGraphWithDefault, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
-      element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
+      try {
+         element.defaultWidgets = await score(focusNode, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+         element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
+      } finally {
+         for (const quad of addedQuads) dataGraph.removeQuad(quad);
+      }
    }
 
    // Make sure we have at least minCount values, by adding empty values if needed.

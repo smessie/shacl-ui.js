@@ -10,6 +10,20 @@ import {toLabeledValue} from "./ui.ts";
 
 const df: RDFJS.DataFactory = new DataFactory();
 
+// Building a shacl-engine Validator walks the entire shapes dataset, so it is by far the
+// most expensive part of scoring. The validator depends only on the shapes graph, which is
+// stable across an entire UI-construction run, so cache one per shapes-graph store.
+const validatorCache = new WeakMap<RdfStore, any>();
+
+function getValidator(shapesGraph: RdfStore): any {
+   let validator = validatorCache.get(shapesGraph);
+   if (!validator) {
+      validator = new Validator(shapesGraph.asDataset(), {factory: df});
+      validatorCache.set(shapesGraph, validator);
+   }
+   return validator;
+}
+
 export async function score(focusNode: Term | null, dataGraph: RdfStore, constraintShape: Term, shapesGraph: RdfStore, widgetScoringGraph: RdfStore, dereferenceForLabelResolution: boolean): Promise<WidgetScore[]> {
    let results: WidgetScore[] = [];
 
@@ -109,17 +123,12 @@ async function scoreValidation(focusNode: Term, targetGraph: RdfStore, shapes: T
       return false;
    }
    try {
-      for (const shape of shapes) {
-         const validator = new Validator(shapesGraph.asDataset(), {factory: df});
-         const validationResult = await validator.validate({
-            dataset: targetGraph.asDataset(),
-            terms: [focusNode]
-         }, [{terms: [shape]}]);
-         if (!validationResult.conforms) {
-            return false;
-         }
-      }
-      return true;
+      const validator = getValidator(shapesGraph);
+      const dataset = targetGraph.asDataset();
+      const results = await Promise.all(shapes.map(shape =>
+         validator.validate({dataset, terms: [focusNode]}, [{terms: [shape]}]),
+      ));
+      return results.every(r => r.conforms);
    } catch (error) {
       return false;
    }
