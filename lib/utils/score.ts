@@ -66,12 +66,14 @@ export async function score(focusNode: Term | null, dataGraph: RdfStore, constra
       });
    }
 
-   // Find any -1 scores, and remove all other scores with the same widget IRI
-   const negativeScores = results.filter(r => r.score === -1).map(r => r.widget);
-   if (negativeScores.length > 0) {
-      for (const widget of negativeScores) {
-         results = results.filter(r => r.widget !== widget);
-      }
+   // A score of -1 blacklists a widget: drop every result (including the -1 rows
+   // themselves) whose widget IRI was blacklisted. Compare by IRI, not object
+   // identity — each result carries its own freshly built LabeledValue.
+   const blacklistedWidgetIris = new Set(
+      results.filter(r => r.score === -1).map(r => r.widget.value.value),
+   );
+   if (blacklistedWidgetIris.size > 0) {
+      results = results.filter(r => !blacklistedWidgetIris.has(r.widget.value.value));
    }
 
    // Sort results in descending order by score value.

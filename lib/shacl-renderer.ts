@@ -140,7 +140,12 @@ export class ShaclRenderer extends TwLitElement {
 
   static styles = [css`${unsafeCSS(tailwindStyles)}`];
 
+  @state()
   loading: boolean = true;
+
+  /** Human-readable message shown instead of the form when graph parsing/UI construction fails. */
+  @state()
+  error: string | null = null;
 
   @property({type: Boolean})
   useLightDom: boolean = false;
@@ -190,7 +195,7 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   widgetScoringGraphUrl: string = '';
 
-  @property()
+  @state()
   widgetScoringStore: RdfStore | null = null;
 
   @property()
@@ -333,6 +338,25 @@ export class ShaclRenderer extends TwLitElement {
     return this.useLightDom ? this : super.createRenderRoot();
   }
 
+  /** Media query used to follow the OS colour-scheme while no explicit `theme` is set. */
+  private readonly colorSchemeQuery: MediaQueryList = window.matchMedia("(prefers-color-scheme: dark)");
+  private readonly onColorSchemeChange = (e: MediaQueryListEvent) => {
+    // Only follow the OS when the consumer hasn't pinned a theme via the attribute.
+    if (!this.hasAttribute('theme')) {
+      this.theme = e.matches ? 'dark' : 'light';
+    }
+  };
+
+  override connectedCallback() {
+    super.connectedCallback();
+    this.colorSchemeQuery.addEventListener('change', this.onColorSchemeChange);
+  }
+
+  override disconnectedCallback() {
+    this.colorSchemeQuery.removeEventListener('change', this.onColorSchemeChange);
+    super.disconnectedCallback();
+  }
+
   /** Resolve a single styling slot by merging the built-in default with the user override. */
   private m(key: keyof TailwindClasses): string {
     return twMerge(ShaclRenderer.DEFAULTS[key], (this[key] as string));
@@ -414,7 +438,13 @@ export class ShaclRenderer extends TwLitElement {
     const renderer = this;
     return html`
       <div class="${this.m('componentClass')}">
-        ${this.loading
+        ${this.error
+           ? html`
+             <div class="text-red-600 dark:text-red-400 p-4" role="alert">
+               ${this.error}
+             </div>
+           `
+           : this.loading
            ? html`
              <div class="flex items-center justify-center py-10">
                <div
@@ -451,19 +481,26 @@ export class ShaclRenderer extends TwLitElement {
 
     if (this.shapesStore && this.dataStore && this.widgetScoringStore && this.constraintShape) {
       this.loading = true;
-      const result = await constructUiComponents(
-        this,
-        this.shapesStore,
-        df.namedNode(this.constraintShape),
-        this.dataStore,
-        this.focusNode ? df.namedNode(this.focusNode) : undefined,
-        this.widgetScoringStore,
-        updatedGroups,
-      );
-      this.ui = result.components;
-      this.renderSlots = result.renderSlots;
-      this.rootOrGroups = result.rootOrGroups;
-      this.loading = false;
+      try {
+        const result = await constructUiComponents(
+          this,
+          this.shapesStore,
+          df.namedNode(this.constraintShape),
+          this.dataStore,
+          this.focusNode ? df.namedNode(this.focusNode) : undefined,
+          this.widgetScoringStore,
+          updatedGroups,
+        );
+        this.ui = result.components;
+        this.renderSlots = result.renderSlots;
+        this.rootOrGroups = result.rootOrGroups;
+        this.error = null;
+      } catch (err) {
+        console.error('shacl-renderer: failed to rebuild UI for sh:or selection', err);
+        this.error = err instanceof Error ? err.message : String(err);
+      } finally {
+        this.loading = false;
+      }
     }
   }
 
@@ -477,9 +514,8 @@ export class ShaclRenderer extends TwLitElement {
     const outputQuads = uiComponentsToQuads(this.ui);
     if (contentType) {
       return await serializeRdf(outputQuads, contentType);
-    } else {
-      return outputQuads;
     }
+    return outputQuads;
   }
 
   setAlternativePathSelectOpen(key: string, value: boolean) {
@@ -605,48 +641,48 @@ export class ShaclRenderer extends TwLitElement {
 
   protected async willUpdate(changedProperties: PropertyValues) {
     let reconstructUi = false;
-    if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {
-      this.loading = true;
-      console.log('dataGraph changed to', this.dataGraph)
-      this.dataStore = await parseRdf(this.dataGraph, this.dataGraphContentType);
-      reconstructUi = true;
-    }
-    if (changedProperties.has('dataGraphUrl') && this.dataGraphUrl && this.dataGraphUrl.trim().length !== 0) {
-      this.loading = true;
-      console.log('dataGraphUrl changed to', this.dataGraphUrl)
-      this.dataStore = await dereferenceRdf(new URL(this.dataGraphUrl, window.location.href).href);
-      reconstructUi = true;
-    }
-    if (changedProperties.has('shapesGraph') || changedProperties.has('shapesGraphContentType')) {
-      this.loading = true;
-      console.log('shapesGraph changed to', this.shapesGraph)
-      this.shapesStore = await parseRdf(this.shapesGraph, this.shapesGraphContentType);
-      console.log('Constructed UI:', this.ui);
-      reconstructUi = true;
-    }
-    if (changedProperties.has('shapesGraphUrl') && this.shapesGraphUrl && this.shapesGraphUrl.trim().length !== 0) {
-      this.loading = true;
-      console.log('shapesGraphUrl changed to', this.shapesGraphUrl)
-      this.shapesStore = await dereferenceRdf(new URL(this.shapesGraphUrl, window.location.href).href);
-      reconstructUi = true;
-    }
-    if (changedProperties.has('widgetScoringGraph') || changedProperties.has('widgetScoringGraphContentType')) {
-      this.loading = true;
-      console.log('widgetScoringGraph changed to', this.widgetScoringGraph)
-      this.widgetScoringStore = await parseRdf(this.widgetScoringGraph, this.widgetScoringGraphContentType);
-      reconstructUi = true;
-    }
-    if (changedProperties.has('widgetScoringGraphUrl') && this.widgetScoringGraphUrl && this.widgetScoringGraphUrl.trim().length !== 0) {
-      this.loading = true;
-      console.log('widgetScoringGraphUrl changed to', this.widgetScoringGraphUrl)
-      this.widgetScoringStore = await dereferenceRdf(new URL(this.widgetScoringGraphUrl, window.location.href).href);
-      reconstructUi = true;
-    }
-    if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
-      const result = await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore);
-      this.ui = result.components;
-      this.renderSlots = result.renderSlots;
-      this.rootOrGroups = result.rootOrGroups;
+    try {
+      if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {
+        this.loading = true;
+        this.dataStore = await parseRdf(this.dataGraph, this.dataGraphContentType);
+        reconstructUi = true;
+      }
+      if (changedProperties.has('dataGraphUrl') && this.dataGraphUrl && this.dataGraphUrl.trim().length !== 0) {
+        this.loading = true;
+        this.dataStore = await dereferenceRdf(new URL(this.dataGraphUrl, window.location.href).href);
+        reconstructUi = true;
+      }
+      if (changedProperties.has('shapesGraph') || changedProperties.has('shapesGraphContentType')) {
+        this.loading = true;
+        this.shapesStore = await parseRdf(this.shapesGraph, this.shapesGraphContentType);
+        reconstructUi = true;
+      }
+      if (changedProperties.has('shapesGraphUrl') && this.shapesGraphUrl && this.shapesGraphUrl.trim().length !== 0) {
+        this.loading = true;
+        this.shapesStore = await dereferenceRdf(new URL(this.shapesGraphUrl, window.location.href).href);
+        reconstructUi = true;
+      }
+      if (changedProperties.has('widgetScoringGraph') || changedProperties.has('widgetScoringGraphContentType')) {
+        this.loading = true;
+        this.widgetScoringStore = await parseRdf(this.widgetScoringGraph, this.widgetScoringGraphContentType);
+        reconstructUi = true;
+      }
+      if (changedProperties.has('widgetScoringGraphUrl') && this.widgetScoringGraphUrl && this.widgetScoringGraphUrl.trim().length !== 0) {
+        this.loading = true;
+        this.widgetScoringStore = await dereferenceRdf(new URL(this.widgetScoringGraphUrl, window.location.href).href);
+        reconstructUi = true;
+      }
+      if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
+        const result = await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore);
+        this.ui = result.components;
+        this.renderSlots = result.renderSlots;
+        this.rootOrGroups = result.rootOrGroups;
+        this.error = null;
+        this.loading = false;
+      }
+    } catch (err) {
+      console.error('shacl-renderer: failed to parse graphs or construct the UI', err);
+      this.error = err instanceof Error ? err.message : String(err);
       this.loading = false;
     }
   }

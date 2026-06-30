@@ -46,6 +46,40 @@ describe("constructUiComponents", () => {
    });
 });
 
+describe("constructUiComponents with sh:node + inline sh:property", () => {
+   const NESTED_SHAPES = `@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix ex: <http://example.org/> .
+ex:PersonShape a sh:NodeShape ;
+   sh:property ex:addressProp .
+ex:addressProp sh:path ex:address ; sh:name "Address" ;
+   sh:node ex:AddressShape ;
+   sh:property [ sh:path ex:extra ; sh:name "Extra" ] .
+ex:AddressShape a sh:NodeShape ;
+   sh:property [ sh:path ex:street ; sh:name "Street" ] .`;
+
+   const NESTED_DATA = `@prefix ex: <http://example.org/> .
+ex:alice ex:address ex:addr1 .
+ex:addr1 ex:street "Main St" ; ex:extra "x" .`;
+
+   it("merges node-shape and inline children into one aligned entry per value", async () => {
+      const shapes = await parseRdf(NESTED_SHAPES, "text/turtle");
+      const data = await parseRdf(NESTED_DATA, "text/turtle");
+      const widgetScoring = await parseRdf("", "text/turtle");
+      const renderer = document.createElement("shacl-renderer") as ShaclRenderer;
+      renderer.dataStore = data;
+      const result = await constructUiComponents(
+         renderer, shapes, df.namedNode("http://example.org/PersonShape"), data,
+         df.namedNode("http://example.org/alice"), widgetScoring,
+      );
+      const address = result.components.find(c => c.label === "Address")!;
+      expect(address.values).toHaveLength(1);
+      // children must stay aligned 1:1 with values (one merged entry, not two).
+      expect(address.children).toHaveLength(1);
+      const labels = address.children![0].map(c => c.label).sort();
+      expect(labels).toEqual(["Extra", "Street"]);
+   });
+});
+
 describe("uiComponentsToQuads", () => {
    it("round-trips the focus node's values back into quads", async () => {
       const {result} = await build();

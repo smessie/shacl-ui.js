@@ -12,8 +12,56 @@ import {ShaclRenderer} from "../shacl-renderer.ts";
 import {toLabeledValue} from "./ui.ts";
 import type {RdfStore} from "rdf-stores";
 import {until} from 'lit/directives/until.js';
+import DOMPurify from 'dompurify';
 
 const df: RDF.DataFactory = new DataFactory();
+
+/** Sanitize an HTML string before it is bound into the DOM or stored as an rdf:HTML literal. */
+function sanitizeHtml(value: string): string {
+   return DOMPurify.sanitize(value);
+}
+
+/** Allow only http(s)/mailto links, blocking javascript:/data: schemes from sh:or rich-text links. */
+function isSafeLinkUrl(url: string): boolean {
+   try {
+      return ['http:', 'https:', 'mailto:'].includes(new URL(url, window.location.href).protocol);
+   } catch {
+      return false;
+   }
+}
+
+function isTerm(value: unknown): value is Term {
+   return !!value
+      && typeof value === "object"
+      && typeof (value as Term).termType === "string"
+      && typeof (value as Term).value === "string"
+      && typeof (value as { equals?: unknown }).equals === "function";
+}
+
+/**
+ * Deep-clones a UIComponent (or any of its nested structures) in a term-aware way.
+ *
+ * Unlike `structuredClone`, this re-creates every RDF term via `df.fromTerm` so the
+ * clones keep their prototype methods (`.equals`, etc.) that the data store and value
+ * comparisons rely on, and it assigns a fresh `uuid` to every component in the tree so
+ * per-field state keys (`${uuid}-...`) do not collide between repeated rows.
+ */
+export function cloneUiComponent<T>(value: T): T {
+   if (Array.isArray(value)) {
+      return value.map(item => cloneUiComponent(item)) as unknown as T;
+   }
+   if (isTerm(value)) {
+      return df.fromTerm(value as any) as unknown as T;
+   }
+   if (value && typeof value === "object") {
+      const out: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(value)) {
+         out[key] = key === "uuid" ? self.crypto.randomUUID() : cloneUiComponent(val);
+      }
+      return out as T;
+   }
+   return value;
+}
 
 // ---------------------------------------------------------------------------
 // Unified root-level rendering: base components + sh:or sections, in order
@@ -318,7 +366,7 @@ async function getOrOptionLabel(uiComponent: UIComponent, index: number, dataGra
    } else if (orDatatype) {
       const dt = orDatatype[index]?.datatype ?? '';
       return {
-         value: df.namedNode(orDatatype[index]?.datatype),
+         value: dt ? df.namedNode(dt) : df.blankNode(),
          label: dt.split('#').pop()?.split('/').pop() || dt || `Option ${index + 1}`
       };
    }
@@ -376,7 +424,7 @@ function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: UICompon
                                       const newChildren = existingChildren !== undefined
                                               ? existingChildren
                                               : (orOption.defaultChild ?? []).map(child => {
-                                                  const cloned = structuredClone(child);
+                                                  const cloned = cloneUiComponent(child);
                                                   cloned.focusNode = value.value;
                                                   return cloned;
                                               });
@@ -404,8 +452,10 @@ function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: UICompon
 }
 
 function renderLabel(uiComponent: UIComponent, classes: TailwindClasses) {
+   // Associate the label with the first value's input (ids are `${uuid}-${index}`),
+   // giving click-to-focus and screen-reader association for single-value fields.
    return html`
-       <label class="${twMerge(classes.labelClass)}">
+       <label class="${twMerge(classes.labelClass)}" for="${uiComponent.uuid}-0">
            ${uiComponent.label}
        </label>
    `;
@@ -648,10 +698,10 @@ function renderBooleanEditor(renderer: ShaclRenderer, uiComponent: UIComponent, 
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.labelClass, classes.booleanEditorLabelClass)) || '0'}`)}">
            <label class="${twMerge(classes.labelClass, classes.booleanEditorLabelClass)}"
-                  for="${value.path.path}-${index}">
+                  for="${uiComponent.uuid}-${index}">
                <input
                        class="${twMerge(classes.globalFieldClass, classes.booleanEditorClass, 'mb-0')}"
-                       id="${value.path.path}-${index}"
+                       id="${uiComponent.uuid}-${index}"
                        type="checkbox"
                        ?checked="${value.value.value === "true"}"
                        ?disabled="${disabled}"
@@ -679,8 +729,8 @@ function renderDatePickerEditor(renderer: ShaclRenderer, uiComponent: UIComponen
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.datePickerEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
-                   id="${value.path.path}"
-                   required
+                   id="${uiComponent.uuid}-${index}"
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    type="date"
                    min="${uiComponent.minInclusive ?? nothing}"
                    max="${uiComponent.maxInclusive ?? nothing}"
@@ -708,8 +758,8 @@ function renderDateTimePickerEditor(renderer: ShaclRenderer, uiComponent: UIComp
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.dateTimePickerEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
-                   id="${value.path.path}"
-                   required
+                   id="${uiComponent.uuid}-${index}"
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    type="datetime-local"
                    min="${uiComponent.minInclusive ?? nothing}"
                    max="${uiComponent.maxInclusive ?? nothing}"
@@ -826,7 +876,7 @@ function renderDetailsClassSelect(renderer: ShaclRenderer, uiComponent: UICompon
                                    // Update the children of the details editor to match the selected class.
                                    const classValue = uiComponent.classes?.find(cv => cv.value.value.value === c.value.value.value);
                                    if (classValue) {
-                                       const newChildren = structuredClone(classValue.children ?? []);
+                                       const newChildren = cloneUiComponent(classValue.children ?? []);
                                        for (const child of newChildren) {
                                            child.focusNode = uiComponent.values[index].value;
                                        }
@@ -889,7 +939,7 @@ function renderEnumSelectEditor(renderer: ShaclRenderer, uiComponent: UIComponen
 
            <!-- Trigger button -->
            <div
-                   id="${value.path.path}-${index}"
+                   id="${uiComponent.uuid}-${index}"
                    class="${twMerge(
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
@@ -995,7 +1045,7 @@ function renderInstancesSelectEditor(renderer: ShaclRenderer, uiComponent: UICom
 
            <!-- Trigger -->
            <div
-                   id="${value.path.path}-${index}"
+                   id="${uiComponent.uuid}-${index}"
                    class="${twMerge(
                            classes.globalFieldClass,
                            classes.globalInputFieldClass,
@@ -1080,8 +1130,8 @@ function renderIRIEditor(renderer: ShaclRenderer, uiComponent: UIComponent, valu
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.iriEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
-                   id="${value.path.path}"
-                   required
+                   id="${uiComponent.uuid}-${index}"
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    type="url"
                    pattern="${uiComponent.pattern ?? nothing}"
                    .value="${value.value.value ?? ''}"
@@ -1112,8 +1162,8 @@ function renderNumberFieldEditor(renderer: ShaclRenderer, uiComponent: UICompone
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.numberFieldEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
-                   id="${value.path.path}"
-                   required
+                   id="${uiComponent.uuid}-${index}"
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    type="number"
                    step="${getDataType(uiComponent, value) === xsd('integer') ? '1' : 'any'}"
                    inputmode="${getDataType(uiComponent, value) === xsd('integer') ? 'numeric' : 'decimal'}"
@@ -1154,7 +1204,7 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
 
       editor.focus();
       document.execCommand(command, false, arg);
-      value.value.value = editor.innerHTML;
+      value.value.value = sanitizeHtml(editor.innerHTML);
       renderer.rerender();
    };
 
@@ -1287,7 +1337,7 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                            class="${twMerge(classes.richTextEditorButtonClass)}"
                            @click="${() => {
                                const url = prompt('Enter URL');
-                               if (url) exec('createLink', url);
+                               if (url && isSafeLinkUrl(url)) exec('createLink', url);
                            }}">
                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
                             stroke="currentColor" class="size-5">
@@ -1345,10 +1395,10 @@ function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
                            id="${editorId}"
                            contenteditable="${disabled ? 'false' : 'true'}"
                            class="${twMerge(classes.richTextEditorContentClass, disabled ? 'cursor-not-allowed opacity-60' : '')}"
-                           .innerHTML="${value.value.value ?? ''}"
+                           .innerHTML="${sanitizeHtml(value.value.value ?? '')}"
                            @input="${(e: Event) => {
                                const el = e.target as HTMLElement;
-                               const newTerm = mutateTerm(value.value, el.innerHTML);
+                               const newTerm = mutateTerm(value.value, sanitizeHtml(el.innerHTML));
                                renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
                                renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
                                value.value = newTerm;
@@ -1469,8 +1519,8 @@ function renderTextAreaEditor(renderer: ShaclRenderer, uiComponent: UIComponent,
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass)) || '0'}`)}">
            <textarea
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textAreaEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
-                   id="${value.path.path}"
-                   required
+                   id="${uiComponent.uuid}-${index}"
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    rows="4"
                    placeholder="${uiComponent.label}"
                    ?disabled="${disabled}"
@@ -1496,10 +1546,10 @@ function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UIComponent
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass)) || '0'}`)}">
            <input
                    class="${twMerge(classes.globalFieldClass, classes.globalInputFieldClass, classes.textFieldEditorClass, 'mb-0', disabled ? 'cursor-not-allowed opacity-60' : '')}"
-                   id="${value.path.path}"
+                   id="${uiComponent.uuid}-${index}"
                    type="text"
                    pattern="${uiComponent.pattern ?? nothing}"
-                   required
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    ?disabled="${disabled}"
@@ -1526,10 +1576,10 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
        <div class="${twMerge('flex rounded-md shadow-sm', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.globalInputFieldClass)) || '0'}`)}">
            <!-- Literal value -->
            <input
-                   id="${value.path.path}"
+                   id="${uiComponent.uuid}-${index}"
                    type="text"
                    pattern="${uiComponent.pattern ?? nothing}"
-                   required
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    .value="${value.value.value ?? ''}"
                    placeholder="${uiComponent.label}"
                    ?disabled="${disabled}"
@@ -1563,7 +1613,7 @@ function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIC
            <div class="relative">
                <input
                        type="text"
-                       required
+                       ?required="${(uiComponent.minCount ?? 0) > 0}"
                        inputmode="latin"
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
@@ -1610,8 +1660,8 @@ function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UICo
 
            <!-- Literal value (textarea) -->
            <textarea
-                   id="${value.path.path}"
-                   required
+                   id="${uiComponent.uuid}-${index}"
+                   ?required="${(uiComponent.minCount ?? 0) > 0}"
                    rows="4"
                    placeholder="${uiComponent.label}"
                    ?disabled="${disabled}"
@@ -1645,7 +1695,7 @@ function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponent: UICo
            <div class="relative">
                <input
                        type="text"
-                       required
+                       ?required="${(uiComponent.minCount ?? 0) > 0}"
                        inputmode="latin"
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
@@ -1700,7 +1750,7 @@ export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string 
             let newChildComponents: UIComponent[] = []
             if (uiComponent.defaultChild) {
                newChildComponents = uiComponent.defaultChild.map(child => {
-                  const clonedChild = structuredClone(child);
+                  const clonedChild = cloneUiComponent(child);
                   clonedChild.focusNode = newFocusNode;
                   return clonedChild;
                });
@@ -1708,7 +1758,7 @@ export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string 
                const classValue = uiComponent.classes[0];
                if (classValue) {
                   newChildComponents = classValue.children ? classValue.children.map(child => {
-                     const clonedChild = structuredClone(child);
+                     const clonedChild = cloneUiComponent(child);
                      clonedChild.focusNode = newFocusNode;
                      return clonedChild;
                   }) : [];

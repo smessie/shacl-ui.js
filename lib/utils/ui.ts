@@ -30,6 +30,24 @@ const df: RDF.DataFactory = new DataFactory();
 // Helpers
 // ---------------------------------------------------------------------------
 
+/** Parse an xsd:integer-style count, returning undefined for missing or non-numeric input. */
+function parseCount(value: string | undefined): number | undefined {
+   if (value === undefined) return undefined;
+   const n = parseInt(value, 10);
+   return Number.isNaN(n) ? undefined : n;
+}
+
+/** Remove duplicate RDF terms, comparing by term type and value. */
+function dedupeTerms(terms: Term[]): Term[] {
+   const seen = new Set<string>();
+   return terms.filter(term => {
+      const key = `${term.termType}:${term.value}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+   });
+}
+
 /** Stable sort of UIComponents – first by group order, then by element order.
  *  Elements without an order value come last within their group. */
 function sortComponents(elements: UIComponent[]): UIComponent[] {
@@ -280,7 +298,13 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    }
    let instances: LabeledValue[] | undefined = undefined;
    if (classes) {
-      instances = await Promise.all(classes.map(clazz => [...dataGraph.getQuads(null, RDF_("type"), clazz), ...shapesGraph.getQuads(null, RDF_("type"), clazz)].map(async (quad) => await toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution))).flat());
+      // A subject can be typed by several classes/subclasses in either graph; dedupe so each
+      // instance appears once in the dropdown.
+      const instanceSubjects = dedupeTerms(classes.flatMap(clazz => [
+         ...dataGraph.getQuads(null, RDF_("type"), clazz),
+         ...shapesGraph.getQuads(null, RDF_("type"), clazz),
+      ].map(quad => quad.subject)));
+      instances = await Promise.all(instanceSubjects.map(subject => toLabeledValue(subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)));
    }
    let classValues: ClassValue[] | undefined = undefined;
    if (classes) {
@@ -318,21 +342,26 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          ? (focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.path), null).map(quad => quad.object) : [])
          : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
 
-      if (node) {
-         // If sh:node is present, we need to recursively construct UI components for the nested shape
-         const nestedComponents = await Promise.all(pathValues.map(async (value) => buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
-         children = [...(children ?? []), ...nestedComponents];
-      } else if (classes) {
-         const nestedComponents = await Promise.all(pathValues.map(async (value) => {
-            const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
-            return await buildUiComponents(renderer, shapesGraph, usedClass, dataGraph, value, widgetScoringGraph);
+      // Build the nested children for each value. A PropertyShape may combine sh:node
+      // (or sh:class) with inline sh:property; in that case both sets of components apply
+      // to the SAME value, so they are merged into one child entry per value to keep the
+      // children array aligned 1:1 with values (previously they were appended as separate
+      // entries, doubling the children and misaligning child[index] lookups).
+      if (node || classes || propertiesLength > 0) {
+         const nestedPerValue = await Promise.all(pathValues.map(async (value) => {
+            const parts: UIComponent[] = [];
+            if (node) {
+               parts.push(...await buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph));
+            } else if (classes) {
+               const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
+               parts.push(...await buildUiComponents(renderer, shapesGraph, usedClass, dataGraph, value, widgetScoringGraph));
+            }
+            if (propertiesLength > 0) {
+               parts.push(...await buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph));
+            }
+            return parts;
          }));
-         children = [...(children ?? []), ...nestedComponents];
-      }
-      // Also consider child properties defined directly on the PropertyShape.
-      if (propertiesLength > 0) {
-         const directChildren = await Promise.all(pathValues.map(async (value) => buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph)));
-         children = [...(children ?? []), ...directChildren];
+         children = [...(children ?? []), ...nestedPerValue];
       }
 
       pathValues.forEach(value => {
@@ -372,8 +401,8 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       values: values,
       children: children,
       defaultChild: defaultChild,
-      minCount: minCount ? parseInt(minCount.value) : undefined,
-      maxCount: maxCount ? parseInt(maxCount.value) : undefined,
+      minCount: parseCount(minCount?.value),
+      maxCount: parseCount(maxCount?.value),
       classes: classValues,
       instances: instances,
       rootClass: rootClass,
@@ -530,7 +559,9 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
 
    if (focusNode) {
       const dataGraphWithDefault = RdfStore.createDefault();
-      dataGraphWithDefault.import(dataGraph.match());
+      await new Promise((resolve, reject) => {
+         dataGraphWithDefault.import(dataGraph.match()).on("end", resolve).on("error", reject);
+      });
       const defaultTerm = getDefaultTermForWidget(renderer, element.defaultWidget, element, false);
       for (const path of paths) {
          if (path.type === "predicate") {
@@ -569,10 +600,13 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    return element;
 }
 
-function extractShaclList(listNode: Term, shapesGraph: RdfStore<any, Quad>): Term[] {
+export function extractShaclList(listNode: Term, shapesGraph: RdfStore<any, Quad>): Term[] {
    const options: Term[] = [];
+   const visited = new Set<string>();
    let currentNode = listNode;
    while (currentNode.value !== rdf("nil")) {
+      if (visited.has(currentNode.value)) break; // guard against malformed/cyclic lists
+      visited.add(currentNode.value);
       const firstQuad = shapesGraph.getQuads(currentNode, RDF_("first"), null)[0];
       if (firstQuad) {
          options.push(firstQuad.object);
@@ -610,8 +644,11 @@ export function extractPaths(constraintNode: Term, shapesGraph: RdfStore<any, Qu
 
 function extractAlternativePaths(alternativePathNode: Term, shapesGraph: RdfStore<any, Quad>): Quad_Object[] {
    const paths: Quad_Object[] = [];
+   const visited = new Set<string>();
    let currentNode = alternativePathNode;
    while (currentNode.value !== rdf("nil")) {
+      if (visited.has(currentNode.value)) break; // guard against malformed/cyclic lists
+      visited.add(currentNode.value);
       const firstQuad = shapesGraph.getQuads(currentNode, RDF_("first"), null)[0];
       if (firstQuad && firstQuad.object.termType === "NamedNode") {
          paths.push(firstQuad.object);
@@ -641,11 +678,13 @@ function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGrou
    }
 }
 
-async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: Term[]): Promise<void> {
+export async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: Term[], visited: Set<string> = new Set<string>([rootClass.value])): Promise<void> {
    const subclassObjects = [... dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject), ...shapesGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject)];
    for (const subclass of subclassObjects) {
+      if (visited.has(subclass.value)) continue; // guard against cyclic/diamond subclass hierarchies
+      visited.add(subclass.value);
       subclasses.push(subclass);
-      await extractSubclasses(subclass, dataGraph, shapesGraph, subclasses);
+      await extractSubclasses(subclass, dataGraph, shapesGraph, subclasses, visited);
    }
 }
 
