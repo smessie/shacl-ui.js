@@ -9,7 +9,6 @@ import type {
    OrClass,
    OrDatatype,
    OrNode,
-   Path,
    RootOrGroup,
    RootOrOption,
    RootOrSection,
@@ -18,10 +17,12 @@ import type {
    UIComponentValue,
    UIGroup
 } from "../types.ts";
-import {DCTERMS, rdf, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
+import {DCTERMS, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
 import {score} from "./score.ts";
+import {extractShaclList, extractSubclasses} from "./rdf-list.ts";
+import {extractPaths} from "./paths.ts";
+import {toLabeledValue} from "./labels.ts";
 import {getDefaultTermForWidget} from "../presentation/widgets.ts";
-import {rdfDereferencer} from "rdf-dereference";
 import {ShaclRenderer} from "../shacl-renderer.ts";
 
 const df: RDF.DataFactory = new DataFactory();
@@ -608,68 +609,8 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    return element;
 }
 
-export function extractShaclList(listNode: Term, shapesGraph: RdfStore<any, Quad>): Term[] {
-   const options: Term[] = [];
-   const visited = new Set<string>();
-   let currentNode = listNode;
-   while (currentNode.value !== rdf("nil")) {
-      if (visited.has(currentNode.value)) break; // guard against malformed/cyclic lists
-      visited.add(currentNode.value);
-      const firstQuad = shapesGraph.getQuads(currentNode, RDF_("first"), null)[0];
-      if (firstQuad) {
-         options.push(firstQuad.object);
-      }
-      const restQuad = shapesGraph.getQuads(currentNode, RDF_("rest"), null)[0];
-      if (restQuad) {
-         currentNode = restQuad.object;
-      } else {
-         break;
-      }
-   }
-   return options;
-}
 
-export function extractPaths(constraintNode: Term, shapesGraph: RdfStore<any, Quad>, pathObject: Quad_Object): Path[] {
-   if (pathObject.termType === "NamedNode") {
-      return [{path: pathObject.value, type: "predicate"}];
-   }
-   if (pathObject.termType === "BlankNode") {
-      const inversePathQuad = shapesGraph.getQuads(pathObject, SH("inversePath"), null)[0];
-      if (inversePathQuad && inversePathQuad.object.termType === "NamedNode") {
-         return [{path: inversePathQuad.object.value, type: "inverse"}];
-      }
-      const alternativePathQuad = shapesGraph.getQuads(pathObject, SH("alternativePath"), null)[0];
-      if (alternativePathQuad) {
-         const alternativePaths = extractAlternativePaths(alternativePathQuad.object, shapesGraph);
-         return alternativePaths.map(alternativePathQuadObject => extractPaths(constraintNode, shapesGraph, alternativePathQuadObject)).flat();
-      }
-      console.warn(`Unsupported blank node path for constraint ${constraintNode.value}, skipping path extraction for this constraint`);
-      return [];
-   }
-   console.warn(`Unsupported path type ${pathObject.termType} for constraint ${constraintNode.value}, skipping path extraction for this constraint`);
-   return [];
-}
 
-function extractAlternativePaths(alternativePathNode: Term, shapesGraph: RdfStore<any, Quad>): Quad_Object[] {
-   const paths: Quad_Object[] = [];
-   const visited = new Set<string>();
-   let currentNode = alternativePathNode;
-   while (currentNode.value !== rdf("nil")) {
-      if (visited.has(currentNode.value)) break; // guard against malformed/cyclic lists
-      visited.add(currentNode.value);
-      const firstQuad = shapesGraph.getQuads(currentNode, RDF_("first"), null)[0];
-      if (firstQuad && firstQuad.object.termType === "NamedNode") {
-         paths.push(firstQuad.object);
-      }
-      const restQuad = shapesGraph.getQuads(currentNode, RDF_("rest"), null)[0];
-      if (restQuad) {
-         currentNode = restQuad.object;
-      } else {
-         break;
-      }
-   }
-   return paths;
-}
 
 function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGroup {
    const groupNode = groupQuad.object;
@@ -686,15 +627,6 @@ function extractGroup(groupQuad: Quad, shapesGraph: RdfStore<any, Quad>): UIGrou
    }
 }
 
-export async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: Term[], visited: Set<string> = new Set<string>([rootClass.value])): Promise<void> {
-   const subclassObjects = [... dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject), ...shapesGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject)];
-   for (const subclass of subclassObjects) {
-      if (visited.has(subclass.value)) continue; // guard against cyclic/diamond subclass hierarchies
-      visited.add(subclass.value);
-      subclasses.push(subclass);
-      await extractSubclasses(subclass, dataGraph, shapesGraph, subclasses, visited);
-   }
-}
 
 
 export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
@@ -721,58 +653,6 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
    return quads;
 }
 
-export async function toLabeledValue(term: Term, dataGraph: RdfStore, shapesGraph: RdfStore, dereferenceForLabelResolution: boolean): Promise<LabeledValue> {
-   let labelQuad = dataGraph.getQuads(term, RDFS("label"), null)[0]
-      || dataGraph.getQuads(term, DCTERMS("title"), null)[0]
-      || dataGraph.getQuads(term, SKOS("prefLabel"), null)[0]
-      || dataGraph.getQuads(term, SCHEMA("name"), null)[0]
-      // Or try to retrieve label from shapes graph if not found in data graph.
-      || shapesGraph.getQuads(term, RDFS("label"), null)[0]
-      || shapesGraph.getQuads(term, DCTERMS("title"), null)[0]
-      || shapesGraph.getQuads(term, SKOS("prefLabel"), null)[0]
-      || shapesGraph.getQuads(term, SCHEMA("name"), null)[0]
-      || shapesGraph.getQuads(term, SH("name"), null)[0];
-
-   let descriptionQuad = dataGraph.getQuads(term, RDFS("comment"), null)[0]
-      || dataGraph.getQuads(term, DCTERMS("description"), null)[0]
-      // Or try to retrieve description from shapes graph if not found in data graph.
-      || shapesGraph.getQuads(term, RDFS("comment"), null)[0]
-      || shapesGraph.getQuads(term, DCTERMS("description"), null)[0]
-      || shapesGraph.getQuads(term, SH("description"), null)[0];
-
-   if (dereferenceForLabelResolution) {
-      // If still no label found, we will try to dereference the term and try to get the label from the dereferenced graph.
-      for (const iriToDereference of [term.value, `https://ajuvercr.github.io/lov-mirror/by-iri/${encodeURIComponent(encodeURIComponent(term.value))}.ttl`]) {
-         if ((!labelQuad || !descriptionQuad) && term.termType === "NamedNode") {
-            try {
-               const dereferencedGraph = RdfStore.createDefault();
-               const dereferencedOutput = await rdfDereferencer.dereference(iriToDereference, {headers: {"Accept": "application/n-quads,text/turtle;q=0.95,application/ld+json;q=0.9,application/n-triples;q=0.8,*/*;q=0.1"}});
-               await new Promise((resolve, reject) => {
-                  dereferencedGraph.import(dereferencedOutput.data).on("end", resolve).on("error", reject);
-               });
-               if (!labelQuad) {
-                  labelQuad = dereferencedGraph.getQuads(term, RDFS("label"), null)[0]
-                     || dereferencedGraph.getQuads(term, DCTERMS("title"), null)[0]
-                     || dereferencedGraph.getQuads(term, SKOS("prefLabel"), null)[0]
-                     || dereferencedGraph.getQuads(term, SCHEMA("name"), null)[0];
-               }
-               if (!descriptionQuad) {
-                  descriptionQuad = dereferencedGraph.getQuads(term, RDFS("comment"), null)[0]
-                     || dereferencedGraph.getQuads(term, DCTERMS("description"), null)[0];
-               }
-            } catch (error) {
-               // Ignore dereferencing errors.
-            }
-         }
-      }
-   }
-
-   return {
-      value: term,
-      label: labelQuad ? labelQuad.object.value : term.value,
-      description: descriptionQuad ? descriptionQuad.object.value : undefined,
-   }
-}
 
 /**
  * Applies an or-option (from orNode / orDatatype / orClass) to the UIComponent,

@@ -6,7 +6,7 @@ import {RDF, SHUI} from "./namespaces.ts";
 import {Validator} from "shacl-engine";
 import {DataFactory} from "rdf-data-factory";
 import * as RDFJS from 'rdf-js';
-import {toLabeledValue} from "./ui-model.ts";
+import {toLabeledValue} from "./labels.ts";
 
 const df: RDFJS.DataFactory = new DataFactory();
 
