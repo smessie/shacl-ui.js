@@ -20,11 +20,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && vite build --config vite.app.config.ts",
-    "preview": "vite preview --config vite.app.config.ts"
+    "preview": "vite preview --config vite.app.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@jeswr/pretty-turtle": "^1.8.2",
     "@tailwindcss/typography": "^0.5.19",
+    "dompurify": "^3.4.11",
     "lit": "^3.3.2",
     "rdf-dereference": "^5.0.0",
     "rdf-parse": "^5.0.0",
@@ -38,6 +41,7 @@
     "@tailwindcss/vite": "^4.2.4",
     "@types/node": "^25.6.0",
     "autoprefixer": "^10.5.0",
+    "happy-dom": "^20.10.6",
     "postcss": "^8.5.14",
     "rdf-data-factory": "^2.0.2",
     "rdf-js": "^4.0.2",
@@ -49,6 +53,7 @@
     "vite-plugin-node-polyfills": "^0.26.0",
     "vite-plugin-static-copy": "^4.1.0",
     "vite-plugin-tailwind-shadowdom": "^1.1.1",
-    "vite-tsconfig-paths": "^6.1.1"
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^4.1.9"
   }
 }
