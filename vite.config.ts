@@ -26,17 +26,6 @@ export default defineConfig({
          name: "ShaclRenderer",
          fileName: "shacl-renderer",
       },
-      rollupOptions: {
-         external: ["react", "react-dom", "react/jsx-runtime"],
-         output: {
-            globals: {
-               // preserveModules: true,
-               react: "React",
-               "react-dom": "ReactDOM",
-               "react/jsx-runtime": "react/jsx-runtime",
-            },
-         },
-      },
    },
    resolve: {
       alias: {

@@ -1,6 +1,6 @@
 import {css, html, LitElement, type PropertyValues, unsafeCSS} from 'lit'
 import {customElement, property, state} from 'lit/decorators.js'
-import {TW} from "./shared/tailwindMixin";
+import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./utils/rdf.ts";
 import {constructUiComponents, uiComponentsToQuads} from "./utils/ui.ts";
