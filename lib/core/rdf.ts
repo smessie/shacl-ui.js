@@ -3,8 +3,8 @@ import str from "string-to-stream";
 import {RdfStore} from "rdf-stores";
 import {rdfDereferencer} from "rdf-dereference";
 import type {Stream, Term} from "@rdfjs/types";
-import * as RDF from "rdf-js";
-import {type Quad} from "rdf-js";
+import * as RDF from "@rdfjs/types";
+import {type Quad} from "@rdfjs/types";
 import {DataFactory} from "rdf-data-factory";
 import {write} from '@jeswr/pretty-turtle';
 

@@ -1,6 +1,6 @@
-import * as RDF from "rdf-js";
-import {DataFactory} from "rdf-data-factory";
 import type {Term} from "@rdfjs/types";
+import * as RDF from "@rdfjs/types";
+import {DataFactory} from "rdf-data-factory";
 
 const df: RDF.DataFactory = new DataFactory();
 

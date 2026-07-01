@@ -1,8 +1,7 @@
 import {RdfStore} from "rdf-stores";
 import {DataFactory} from "rdf-data-factory";
-import type {Quad, Quad_Object, Quad_Subject} from "rdf-js";
-import * as RDF from 'rdf-js';
-import type {Term} from "@rdfjs/types";
+import type {Quad, Quad_Object, Quad_Subject, Term} from "@rdfjs/types";
+import * as RDF from '@rdfjs/types';
 import type {
    ClassValue,
    LabeledValue,

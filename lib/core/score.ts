@@ -1,11 +1,11 @@
 import type {Term} from "@rdfjs/types";
+import * as RDFJS from '@rdfjs/types';
 import type {RdfStore} from "rdf-stores";
 import type {WidgetScore} from "../types.ts";
 import {RDF, SHUI} from "./namespaces.ts";
 // @ts-ignore
 import {Validator} from "shacl-engine";
 import {DataFactory} from "rdf-data-factory";
-import * as RDFJS from 'rdf-js';
 import {toLabeledValue} from "./labels.ts";
 
 const df: RDFJS.DataFactory = new DataFactory();

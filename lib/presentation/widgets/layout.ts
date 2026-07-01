@@ -1,16 +1,45 @@
 // Root dispatch for the widget layer: render slots -> components -> the per-widget switch.
 import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from "tailwind-merge";
-import {type Quad_Object, type Quad_Subject} from "rdf-js";
+import {type Quad_Object, type Quad_Subject} from "@rdfjs/types";
 import {type RootRenderSlot, type TailwindClasses, type UIComponent, type UIComponentValue} from "../../types.ts";
 import {shui} from "../../core/namespaces.ts";
 import {ShaclRenderer} from "../../shacl-renderer.ts";
-import {df, renderDescription, renderOrSelectorForValue, renderLabel, renderPlusIcon, renderXIcon, renderSelectWidgetIcon} from "./shared.ts";
-import {renderBlankNodeEditor, renderBooleanEditor, renderDatePickerEditor, renderDateTimePickerEditor, renderIRIEditor, renderNumberFieldEditor, renderTextAreaEditor, renderTextFieldEditor, renderTextFieldWithLangEditor, renderTextAreaWithLangEditor} from "./editors-fields.ts";
-import {renderAutoCompleteEditor, renderEnumSelectEditor, renderInstancesSelectEditor, renderSubClassEditor} from "./editors-select.ts";
+import {
+   df,
+   renderDescription,
+   renderLabel,
+   renderOrSelectorForValue,
+   renderPlusIcon,
+   renderSelectWidgetIcon,
+   renderXIcon
+} from "./shared.ts";
+import {
+   renderBlankNodeEditor,
+   renderBooleanEditor,
+   renderDatePickerEditor,
+   renderDateTimePickerEditor,
+   renderIRIEditor,
+   renderNumberFieldEditor,
+   renderTextAreaEditor,
+   renderTextAreaWithLangEditor,
+   renderTextFieldEditor,
+   renderTextFieldWithLangEditor
+} from "./editors-fields.ts";
+import {
+   renderAutoCompleteEditor,
+   renderEnumSelectEditor,
+   renderInstancesSelectEditor,
+   renderSubClassEditor
+} from "./editors-select.ts";
 import {renderDetailsEditor, renderRichTextEditor} from "./editors-rich-nested.ts";
-import {renderHTMLViewer, renderHyperlinkViewer, renderLangStringViewer, renderLiteralViewer} from "./viewers-literal.ts";
-import {renderBlankNodeViewer, renderIRIViewer, renderImageViewer, renderLabelViewer} from "./viewers-node.ts";
+import {
+   renderHTMLViewer,
+   renderHyperlinkViewer,
+   renderLangStringViewer,
+   renderLiteralViewer
+} from "./viewers-literal.ts";
+import {renderBlankNodeViewer, renderImageViewer, renderIRIViewer, renderLabelViewer} from "./viewers-node.ts";
 import {renderDetailsViewer, renderValueTableViewer} from "./viewers-nested.ts";
 
 /**

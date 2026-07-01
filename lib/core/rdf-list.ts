@@ -1,6 +1,5 @@
 import type {RdfStore} from "rdf-stores";
-import type {Quad, Quad_Object} from "rdf-js";
-import type {Term} from "@rdfjs/types";
+import type {Quad, Quad_Object, Term} from "@rdfjs/types";
 import {rdf, RDF as RDF_, RDFS} from "./namespaces.ts";
 
 /**

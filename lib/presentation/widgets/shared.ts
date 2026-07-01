@@ -1,12 +1,12 @@
 // Shared widget-rendering helpers: field label/description, +/x icons, the widget-type
 // selector, sh:or value selector, default-value construction, and the shared data factory.
-import * as RDF from "rdf-js";
+import * as RDF from "@rdfjs/types";
+import {type Literal, type Term} from "@rdfjs/types";
 import {DataFactory} from "rdf-data-factory";
 import DOMPurify from 'dompurify';
 import {html, nothing} from "lit";
 import {until} from "lit/directives/until.js";
 import {twMerge} from "tailwind-merge";
-import {type Literal, type Term} from "@rdfjs/types";
 import {type RdfStore} from "rdf-stores";
 import {type LabeledValue, type TailwindClasses, type UIComponent, type UIComponentValue} from "../../types.ts";
 import {rdf, RDF as RDF_, SH, shui, XSD, xsd} from "../../core/namespaces.ts";
