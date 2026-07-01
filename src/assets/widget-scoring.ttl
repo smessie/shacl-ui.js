@@ -1,5 +1,5 @@
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:autoCompleteEditorScore40
@@ -25,7 +25,7 @@ shui:prefersAutoCompleteEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:blankNodeEditorScore40
@@ -51,7 +51,7 @@ shui:prefersBlankNodeEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:booleanEditorScore40
@@ -84,7 +84,7 @@ shui:prefersBooleanEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:datePickerEditorScore40
@@ -117,7 +117,7 @@ shui:prefersDatePickerEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:dateTimePickerEditorScore40
@@ -150,7 +150,7 @@ shui:prefersDateTimePickerEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:detailsEditorScore40
@@ -176,7 +176,7 @@ shui:prefersDetailsEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:enumSelectEditorScore40
@@ -201,7 +201,7 @@ shui:prefersEnumSelectEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:instancesSelectEditorScore40
@@ -227,7 +227,7 @@ shui:prefersInstancesSelectEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:iriEditorScore40
@@ -268,7 +268,7 @@ shui:prefersIRIEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:numberFieldEditorScore40
@@ -301,7 +301,7 @@ shui:prefersNumberFieldEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:richTextEditorScore40
@@ -334,7 +334,7 @@ shui:prefersRichTextEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:subClassEditorScore40
@@ -353,7 +353,7 @@ shui:prefersSubClassEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:textAreaEditorScoreMinus1
@@ -407,7 +407,7 @@ shui:prefersTextAreaEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:textAreaWithLangEditorScoreMinus1
@@ -461,7 +461,7 @@ shui:prefersTextAreaWithLangEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:textFieldEditorScoreMinus1
@@ -514,7 +514,7 @@ shui:prefersTextFieldEditor
     ] ;
 .
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 shui:textFieldWithLangEditorScoreMinus1
@@ -561,7 +561,7 @@ shui:prefersTextFieldWithLangEditor
 .
 @prefix dash: <http://datashapes.org/dash#>.
 PREFIX sh: <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.
 

@@ -11,7 +11,7 @@ ex:PersonShape a sh:NodeShape ;
 const DATA = `@prefix ex: <http://example.org/> .
 ex:alice ex:name "Alice" ; ex:bio "Hello" .`;
 
-const SCORING = `@prefix shui: <http://www.w3.org/ns/shacl-ui#> .
+const SCORING = `@prefix shui: <http://www.w3.org/ns/shacl-ui/> .
 @prefix ex: <http://example.org/> .
 ex:tf a shui:WidgetScore ; shui:widget shui:TextFieldEditor ; shui:score 5 .`;
 

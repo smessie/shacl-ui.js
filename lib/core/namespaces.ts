@@ -13,7 +13,7 @@ export function SH(property: string): NamedNode {
 }
 
 export function shui(property: string): string {
-   return `http://www.w3.org/ns/shacl-ui#${property}`;
+   return `http://www.w3.org/ns/shacl-ui/${property}`;
 }
 
 export function SHUI(property: string): NamedNode {
@@ -71,7 +71,7 @@ export function SCHEMA(property: string): NamedNode {
 export function prefix(full?: string): string | undefined {
    if (!full) return full;
    full = full.replace('http://www.w3.org/ns/shacl#', 'sh:');
-   full = full.replace('http://www.w3.org/ns/shacl-ui#', 'shui:');
+   full = full.replace('http://www.w3.org/ns/shacl-ui/', 'shui:');
    full = full.replace('http://www.w3.org/2001/XMLSchema#', 'xsd:');
    full = full.replace('http://www.w3.org/1999/02/22-rdf-syntax-ns#', 'rdf:');
    full = full.replace('http://www.w3.org/2000/01/rdf-schema#', 'rdfs:');

@@ -8,7 +8,7 @@
 @prefix bibframe: <http://id.loc.gov/ontologies/bibframe/> .
 @prefix vivo:     <http://vivoweb.org/ontology/core#> .
 @prefix ex: <http://example.org/>.
-@prefix shui: <http://www.w3.org/ns/shacl-ui#>.
+@prefix shui: <http://www.w3.org/ns/shacl-ui/>.
 
 ##########
 # Shapes #

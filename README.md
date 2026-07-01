@@ -238,7 +238,7 @@ Example scoring entry (Turtle):
 
 ```turtle
 PREFIX sh:   <http://www.w3.org/ns/shacl#>
-PREFIX shui: <http://www.w3.org/ns/shacl-ui#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 
 shui:booleanEditorScore10

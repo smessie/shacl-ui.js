@@ -38,7 +38,7 @@ export async function serializeRdf(quads: Quad[], contentType: string): Promise<
       format: contentType,
       prefixes: {
          sh: "http://www.w3.org/ns/shacl#",
-         shui: "http://www.w3.org/ns/shacl-ui#",
+         shui: "http://www.w3.org/ns/shacl-ui/",
          xsd: "http://www.w3.org/2001/XMLSchema#",
          rdf: "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
          rdfc: "https://w3id.org/rdf-connect#",

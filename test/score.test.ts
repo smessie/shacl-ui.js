@@ -9,19 +9,19 @@ const df = new DataFactory();
 const EMPTY = () => parseRdf("", "text/turtle");
 
 /** A widget-scoring graph with two unconditional scores for the same widget. */
-const SUPPRESSED = `@prefix shui: <http://www.w3.org/ns/shacl-ui#> .
+const SUPPRESSED = `@prefix shui: <http://www.w3.org/ns/shacl-ui/> .
 @prefix ex: <http://example.org/> .
 ex:ws1 a shui:WidgetScore ; shui:widget shui:TextField ; shui:score 5 .
 ex:ws2 a shui:WidgetScore ; shui:widget shui:TextField ; shui:score -1 .`;
 
 /** Two distinct widgets, both unconditional, with different positive scores. */
-const TWO_WIDGETS = `@prefix shui: <http://www.w3.org/ns/shacl-ui#> .
+const TWO_WIDGETS = `@prefix shui: <http://www.w3.org/ns/shacl-ui/> .
 @prefix ex: <http://example.org/> .
 ex:ws1 a shui:WidgetScore ; shui:widget shui:TextField ; shui:score 2 .
 ex:ws2 a shui:WidgetScore ; shui:widget shui:TextArea ; shui:score 9 .`;
 
 /** Same widget scored twice (both positive) — should be de-duplicated to the highest. */
-const DUPLICATE = `@prefix shui: <http://www.w3.org/ns/shacl-ui#> .
+const DUPLICATE = `@prefix shui: <http://www.w3.org/ns/shacl-ui/> .
 @prefix ex: <http://example.org/> .
 ex:ws1 a shui:WidgetScore ; shui:widget shui:TextField ; shui:score 3 .
 ex:ws2 a shui:WidgetScore ; shui:widget shui:TextField ; shui:score 7 .`;
@@ -36,8 +36,8 @@ describe("score()", () => {
       const widgetScoring = await parseRdf(TWO_WIDGETS, "text/turtle");
       const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), widgetScoring, false);
       expect(results.map(r => r.widget.value.value)).toEqual([
-         "http://www.w3.org/ns/shacl-ui#TextArea",
-         "http://www.w3.org/ns/shacl-ui#TextField",
+         "http://www.w3.org/ns/shacl-ui/TextArea",
+         "http://www.w3.org/ns/shacl-ui/TextField",
       ]);
    });
 
@@ -59,7 +59,7 @@ describe("score()", () => {
 
    it("ignores widget scores that depend on data-graph shapes when there is no focus node", async () => {
       const widgetScoring = await parseRdf(
-         `@prefix shui: <http://www.w3.org/ns/shacl-ui#> .
+         `@prefix shui: <http://www.w3.org/ns/shacl-ui/> .
           @prefix ex: <http://example.org/> .
           ex:ws a shui:WidgetScore ; shui:widget shui:TextField ; shui:score 5 ;
                 shui:dataGraphShape ex:someShape .`,
