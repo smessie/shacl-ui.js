@@ -5,16 +5,18 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from '@tailwindcss/vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import tailwindShadowDOM from "vite-plugin-tailwind-shadowdom";
+import { injectGlobalProcess, processPolyfillOverrides } from "./vite.process-polyfill.ts";
 
 export default defineConfig({
    plugins: [
       tsconfigPaths(),
       dts({ rollupTypes: true }),
       tailwindcss(),
+      // Provide the global `process` ourselves and map the `process` module to CJS `process/browser`
+      // (see vite.process-polyfill.ts) to avoid "TypeError: process.nextTick is not a function".
+      injectGlobalProcess,
       nodePolyfills({
-         globals: {
-            process: true,
-         },
+         ...processPolyfillOverrides,
          protocolImports: true,
       }),
       tailwindShadowDOM()
