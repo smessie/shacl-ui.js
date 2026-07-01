@@ -15,9 +15,10 @@ import type {
    RootRenderSlot,
    UIComponent,
    UIComponentValue,
-   UIGroup
+   UIGroup,
+   WidgetScore
 } from "../types.ts";
-import {DCTERMS, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
+import {DCTERMS, isViewerIri, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
 import {score} from "./score.ts";
 import {extractShaclList, extractSubclasses} from "./rdf-list.ts";
 import {extractPaths} from "./paths.ts";
@@ -553,17 +554,27 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       element.singleLine = singleLineQuad.object.value === "true" || singleLineQuad.object.value === "1";
    }
 
-   // Configure default widget based on the shape only.
-   const defaultWidgetScores = await score(null, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
-   element.defaultWidget = defaultWidgetScores[0]?.widget.value.value;
-   element.defaultWidgets = defaultWidgetScores;
+   // A single scoring graph mixes editors and viewers (viewer IRIs end in "Viewer"). Keep only
+   // the kind that matches the current mode on the shared defaultWidget/selectedWidget fields, so
+   // edit mode dispatches to editors and view mode to viewers through the same properties.
+   const viewMode = renderer.mode === 'view';
+   const forMode = (scores: WidgetScore[]) => scores.filter(s => isViewerIri(s.widget.value.value) === viewMode);
+   // The top editor is always tracked separately for construction-time default-value creation
+   // (getDefaultTermForWidget), which is inherently an editing concern.
+   const topEditor = (scores: WidgetScore[]) => scores.find(s => !isViewerIri(s.widget.value.value))?.widget.value.value;
+
+   // Configure the default widget based on the shape only.
+   const defaultScores = await score(null, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+   let editorDefaultWidget = topEditor(defaultScores);
+   element.defaultWidgets = forMode(defaultScores);
+   element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
 
    if (focusNode) {
       // Score the default widget as if the focus node already held a default value. Rather than
       // cloning the whole data graph per property (O(properties × N)), temporarily add the default
       // quad(s) to the shared store, score, then remove exactly the quads we introduced (addQuad
       // returns false for quads that already existed, so pre-existing data is never removed).
-      const defaultTerm = getDefaultTermForWidget(renderer, element.defaultWidget, element, false);
+      const defaultTerm = getDefaultTermForWidget(renderer, editorDefaultWidget, element, false);
       const addedQuads: Quad[] = [];
       for (const path of paths) {
          const quad = path.type === "predicate"
@@ -576,16 +587,19 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          }
       }
       try {
-         element.defaultWidgets = await score(focusNode, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+         const scores = await score(focusNode, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+         editorDefaultWidget = topEditor(scores);
+         element.defaultWidgets = forMode(scores);
          element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
       } finally {
          for (const quad of addedQuads) dataGraph.removeQuad(quad);
       }
    }
 
-   // Make sure we have at least minCount values, by adding empty values if needed.
+   // Make sure we have at least minCount values, by adding empty values if needed. New values are
+   // always seeded with the editor's default term, even in view mode.
    for (let i = values.length; i < (element.minCount ?? 0); i++) {
-      const value = getDefaultTermForWidget(renderer, element.defaultWidget, element, true, !!focusNode);
+      const value = getDefaultTermForWidget(renderer, editorDefaultWidget, element, true, !!focusNode);
       const path = paths[0];
       renderer.addToDataStore(focusNode ?? undefined, path, value);
       element.values.push({
@@ -593,16 +607,16 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          path: path,
          class: element.classes?.[0]?.iri,
          selectedWidget: element.defaultWidget,
-         widgets: defaultWidgetScores,
+         widgets: element.defaultWidgets,
          selectedOrIndex: element.selectedOrIndex,
       });
    }
 
-   // Score all values of the component and attach a selectedWidget based on the highest scoring widget for each value.
+   // Score all values and attach the highest-scoring widget of the current mode's kind.
    element.values = await Promise.all(element.values.map(async (value) => {
-      const widgetScores = await score(value.value, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
-      value.selectedWidget = widgetScores[0]?.widget.value.value;
-      value.widgets = widgetScores;
+      const scores = await score(value.value, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+      value.widgets = forMode(scores);
+      value.selectedWidget = value.widgets[0]?.widget.value.value;
       return value;
    }));
 
@@ -640,7 +654,8 @@ export function uiComponentsToQuads(uiComponents: UIComponent[]): Quad[] {
          } else {
             console.warn(`Unsupported path type ${value.path.type} for component ${component.iri.value}, skipping quad generation for this component`);
          }
-         if (value.class && value.selectedWidget === shui('DetailsEditor')) {
+         // The selected widget is the DetailsEditor in edit mode and the DetailsViewer in view mode.
+         if (value.class && (value.selectedWidget === shui('DetailsEditor') || value.selectedWidget === shui('DetailsViewer'))) {
             quads.push(df.quad(value.value as Quad_Subject, RDF_('type'), value.class as Quad_Object));
          }
       }

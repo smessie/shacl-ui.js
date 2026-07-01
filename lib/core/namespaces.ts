@@ -20,6 +20,15 @@ export function SHUI(property: string): NamedNode {
    return df.namedNode(shui(property));
 }
 
+/**
+ * Widgets split into editors (edit mode) and viewers (view mode) purely by IRI convention:
+ * every editor IRI ends in `Editor`, every viewer IRI ends in `Viewer`. A single widget-scoring
+ * graph mixes both kinds, so scoring results are partitioned with this predicate.
+ */
+export function isViewerIri(iri: string | undefined): boolean {
+   return !!iri && iri.endsWith("Viewer");
+}
+
 export function xsd(property: string): string {
    return `http://www.w3.org/2001/XMLSchema#${property}`;
 }

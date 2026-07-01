@@ -9,6 +9,9 @@ import {df, renderDescription, renderOrSelectorForValue, renderLabel, renderPlus
 import {renderBlankNodeEditor, renderBooleanEditor, renderDatePickerEditor, renderDateTimePickerEditor, renderIRIEditor, renderNumberFieldEditor, renderTextAreaEditor, renderTextFieldEditor, renderTextFieldWithLangEditor, renderTextAreaWithLangEditor} from "./editors-fields.ts";
 import {renderAutoCompleteEditor, renderEnumSelectEditor, renderInstancesSelectEditor, renderSubClassEditor} from "./editors-select.ts";
 import {renderDetailsEditor, renderRichTextEditor} from "./editors-rich-nested.ts";
+import {renderHTMLViewer, renderHyperlinkViewer, renderLangStringViewer, renderLiteralViewer} from "./viewers-literal.ts";
+import {renderBlankNodeViewer, renderIRIViewer, renderImageViewer, renderLabelViewer} from "./viewers-node.ts";
+import {renderDetailsViewer, renderValueTableViewer} from "./viewers-nested.ts";
 
 /**
  * Renders the interleaved list of base `sh:property` components and root-level
@@ -49,8 +52,9 @@ export function renderRootSlots(
            const {section, groupIndex} = slot;
            const {group} = section;
 
-           // Single option – no selector needed; just render the fields.
-           if (group.options.length < 2) {
+           // View mode is read-only: skip the variant selector and just show the
+           // selected option's fields.
+           if (renderer.mode === 'view' || group.options.length < 2) {
                return section.components.length > 0
                   ? renderUIComponents(renderer, section.components, classes)
                   : nothing;
@@ -139,9 +143,11 @@ export function renderUIComponents(renderer: ShaclRenderer, uiComponents: UIComp
 
            return html`
                <div class="${twMerge(classes.groupClass)}">
-                   <h2 class="${twMerge(classes.groupLabelClass)}">
-                       ${group.label}
-                   </h2>
+                   ${group.label ? html`
+                       <h2 class="${twMerge(classes.groupLabelClass)}">
+                           ${group.label}
+                       </h2>
+                   ` : nothing}
 
                    ${components.map(c => html`
                        <div class="${twMerge(classes.groupElementClass)}">
@@ -155,6 +161,9 @@ export function renderUIComponents(renderer: ShaclRenderer, uiComponents: UIComp
 }
 
 export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UIComponent, classes: TailwindClasses) {
+   if (renderer.mode === 'view') {
+      return renderUIComponentViewMode(renderer, uiComponent, classes);
+   }
    return html`
        <div class="mb-4">
            ${renderPlusIcon(renderer, uiComponent, classes)}
@@ -174,7 +183,7 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                    <div class="flex items-start gap-2">
                        <div class="flex-1 min-w-0">
                            ${isHasValue ? nothing : renderOrSelectorForValue(renderer, uiComponent, value, index, classes)}
-                           ${renderWidget(renderer, uiComponent, value, index, classes, isHasValue)}
+                           ${renderEditor(renderer, uiComponent, value, index, classes, isHasValue)}
                        </div>
 
                        <div class="shrink-0 mt-2">
@@ -231,7 +240,7 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
    `;
 }
 
-export function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
+export function renderEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    switch (value.selectedWidget) {
       case shui("AutoCompleteEditor"):
          return renderAutoCompleteEditor(renderer, uiComponent, value, index, classes, disabled);
@@ -282,5 +291,78 @@ export function renderWidget(renderer: ShaclRenderer, uiComponent: UIComponent, 
                  })}
              </div>
          `;
+   }
+}
+
+/**
+ * View-mode rendering of a single component: a muted caption label + optional description above
+ * the read-only value(s), with no editing affordances (no +/x/widget-switch icons, no
+ * or/alternative-path editing). When the property prefers the multi-viewer shui:ValueTableViewer,
+ * all values are rendered as one table.
+ */
+function renderUIComponentViewMode(renderer: ShaclRenderer, uiComponent: UIComponent, classes: TailwindClasses) {
+   const header = html`
+       ${uiComponent.label ? html`<div class="${twMerge(classes.viewerLabelClass)}">${uiComponent.label}</div>` : nothing}
+       ${uiComponent.description ? html`<p class="${twMerge(classes.viewerDescriptionClass)}">${uiComponent.description}</p>` : nothing}
+   `;
+
+   if (uiComponent.defaultWidget === shui("ValueTableViewer")) {
+      return html`
+          <div class="${twMerge(classes.viewerFieldClass)}">
+              ${header}
+              ${renderValueTableViewer(renderer, uiComponent, classes)}
+          </div>
+      `;
+   }
+
+   return html`
+       <div class="${twMerge(classes.viewerFieldClass)}">
+           ${header}
+           ${uiComponent.values.length === 0
+              ? html`<span class="${twMerge(classes.viewerEmptyClass)}">—</span>`
+              : html`
+                  <div class="${twMerge(classes.viewerValuesClass)}">
+                      ${uiComponent.values.map((value, index) => html`
+                          <div class="${twMerge(classes.viewerValueClass)}">
+                              ${renderViewer(renderer, uiComponent, value, index, classes)}
+                          </div>
+                      `)}
+                  </div>
+              `}
+       </div>
+   `;
+}
+
+/** Per-value dispatch for view mode: routes value.selectedWidget (a viewer IRI) to its render fn. */
+export function renderViewer(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses) {
+   switch (value.selectedWidget) {
+      case shui("BlankNodeViewer"):
+         return renderBlankNodeViewer(renderer, uiComponent, value, index, classes);
+      case shui("DetailsViewer"):
+         return renderDetailsViewer(renderer, uiComponent, value, index, classes);
+      case shui("HTMLViewer"):
+         return renderHTMLViewer(renderer, uiComponent, value, index, classes);
+      case shui("HyperlinkViewer"):
+         return renderHyperlinkViewer(renderer, uiComponent, value, index, classes);
+      case shui("ImageViewer"):
+         return renderImageViewer(renderer, uiComponent, value, index, classes);
+      case shui("IRIViewer"):
+         return renderIRIViewer(renderer, uiComponent, value, index, classes);
+      case shui("LabelViewer"):
+         return renderLabelViewer(renderer, uiComponent, value, index, classes);
+      case shui("LangStringViewer"):
+         return renderLangStringViewer(renderer, uiComponent, value, index, classes);
+      case shui("LiteralViewer"):
+         return renderLiteralViewer(renderer, uiComponent, value, index, classes);
+      case shui("ValueTableViewer"):
+         // Multi-viewer: handled once per component in renderUIComponentViewMode, not per value.
+         return nothing;
+      default:
+         // Sensible fallback by term type when no viewer scored.
+         if (value.value.termType === "NamedNode")
+            return renderIRIViewer(renderer, uiComponent, value, index, classes);
+         if (value.value.termType === "BlankNode")
+            return renderBlankNodeViewer(renderer, uiComponent, value, index, classes);
+         return renderLiteralViewer(renderer, uiComponent, value, index, classes);
    }
 }

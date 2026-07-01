@@ -9,6 +9,7 @@ export type UIComponent = {
    label?: string;
    description?: string;
    datatype?: string;
+   /** Top-scoring widget for this property (an editor in edit mode, a viewer in view mode). */
    defaultWidget?: string;
    defaultWidgets?: WidgetScore[];
    values: UIComponentValue[];
@@ -47,7 +48,9 @@ export type UIComponentValue = {
    value: Term;
    path: Path;
    class?: Term;
+   /** Ranked widgets of the current mode's kind (editors in edit mode, viewers in view mode). */
    widgets?: WidgetScore[];
+   /** Top-scoring widget IRI for this value (an editor in edit mode, a viewer in view mode). */
    selectedWidget?: string;
    /** Which or-option (index into orNode / orDatatype / orClass) this specific value uses. */
    selectedOrIndex?: number;
@@ -217,4 +220,26 @@ export type TailwindClasses = {
    orSelectorOptionSelectedClass?: string;
    orSelectorLabelClass?: string;
    orSelectorDescriptionClass?: string;
+   // ── Viewers (view mode) ──────────────────────────────────────────────────────
+   viewerFieldClass?: string;
+   viewerLabelClass?: string;
+   viewerDescriptionClass?: string;
+   viewerValuesClass?: string;
+   viewerValueClass?: string;
+   viewerEmptyClass?: string;
+   literalViewerClass?: string;
+   langStringViewerClass?: string;
+   langStringViewerTagClass?: string;
+   iriViewerClass?: string;
+   hyperlinkViewerClass?: string;
+   imageViewerClass?: string;
+   htmlViewerClass?: string;
+   blankNodeViewerClass?: string;
+   detailsViewerClass?: string;
+   valueTableViewerClass?: string;
+   valueTableViewerHeaderClass?: string;
+   valueTableViewerRowClass?: string;
+   valueTableViewerCellClass?: string;
+   valueTablePaginationClass?: string;
+   valueTablePaginationButtonClass?: string;
 };

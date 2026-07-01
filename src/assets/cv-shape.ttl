@@ -29,6 +29,7 @@ ex:PersonShape
         sh:maxCount 1 ;
         sh:nodeKind sh:IRI ;
         sh:order 1 ;
+        shui:viewer shui:ImageViewer;
     ] ;
 
     #################################################################
@@ -125,6 +126,7 @@ ex:PersonShape
         sh:path cv:hasEducation ;
         sh:node ex:EducationShape ;
         shui:editor shui:DetailsEditor;
+        shui:viewer shui:DetailsViewer;
     ] ;
 
     #################################################################
@@ -137,6 +139,7 @@ ex:PersonShape
         sh:path cv:hasSkill ;
         sh:node ex:SkillShape ;
         shui:editor shui:DetailsEditor;
+        shui:viewer shui:DetailsViewer;
     ] ;
 
     #################################################################
@@ -149,6 +152,7 @@ ex:PersonShape
         sh:path cv:hasWorkHistory ;
         sh:node ex:WorkHistoryShape ;
         shui:editor shui:DetailsEditor;
+        shui:viewer shui:DetailsViewer;
     ] .
 
 #################################################################
@@ -168,6 +172,7 @@ ex:EducationShape
         sh:minCount 1 ;
         sh:in ( <https://data.verborgh.org/ruben> sh:PropertyShape rdfc:Processor cvb:EduHighSchool cvb:EduBachelor cvb:EduMaster cvb:EduDoctorate ) ;
         sh:group ex:EducationDegreeGroup ;
+        shui:viewer shui:LabelViewer;
     ] ;
 
     sh:property [
@@ -204,6 +209,7 @@ ex:EducationShape
         sh:minCount 1 ;
         sh:node ex:EducationalOrgShape ;
         shui:editor shui:DetailsEditor;
+        shui:viewer shui:DetailsViewer;
     ] .
 
 ex:EducationDegreeGroup
@@ -341,6 +347,7 @@ ex:WorkHistoryShape
         sh:minCount 1 ;
         sh:node ex:EmployerShape ;
         shui:editor shui:DetailsEditor;
+        shui:viewer shui:DetailsViewer;
     ] .
 
 ex:WorkHistoryGroup

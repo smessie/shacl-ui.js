@@ -89,6 +89,14 @@ export class ShaclRenderer extends TwLitElement {
   @property({ reflect: true })
   theme: 'dark' | 'light' = window.matchMedia("(prefers-color-scheme: dark)").matches ? 'dark' : 'light';
 
+  /**
+   * Rendering mode. In `'edit'` (default) each value is rendered with its selected editor widget
+   * and full editing affordances. In `'view'` each value is rendered read-only with its selected
+   * viewer widget (see the SHACL-UI viewers spec).
+   */
+  @property({ reflect: true })
+  mode: 'edit' | 'view' = 'edit';
+
   @property({type: Boolean})
   dereferenceForLabelResolution: boolean = false;
 
@@ -199,6 +207,10 @@ export class ShaclRenderer extends TwLitElement {
 
   @state()
   orSelectOpen: Record<string, boolean> = {};
+
+  /** Current page index (0-based) for each ValueTableViewer, keyed by component uuid. */
+  @state()
+  valueTablePage: Record<string, number> = {};
 
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
@@ -361,6 +373,13 @@ export class ShaclRenderer extends TwLitElement {
     };
   }
 
+  setValueTablePage(key: string, value: number) {
+    this.valueTablePage = {
+      ...this.valueTablePage,
+      [key]: value
+    };
+  }
+
   setSubClassEditorOpen(key: string, value: boolean) {
     this.subClassEditorOpen = {
       ...this.subClassEditorOpen,
@@ -454,6 +473,12 @@ export class ShaclRenderer extends TwLitElement {
     }
 
     let reconstructUi = false;
+    // Switching between edit and view mode changes which widget (editor vs viewer) each value uses,
+    // so the UI model must be rebuilt. Only rebuild when the graphs are already loaded (the guard
+    // below); the initial construction is driven by the graph changes.
+    if (changedProperties.has('mode') && this.shapesStore && this.dataStore && this.widgetScoringStore) {
+      reconstructUi = true;
+    }
     try {
       if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {
         this.loading = true;

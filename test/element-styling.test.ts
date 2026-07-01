@@ -32,4 +32,10 @@ describe("styling slots (single source of truth)", () => {
       expect(ShaclRenderer.DEFAULTS.componentClass).toBe("bg-white dark:bg-zinc-800");
       expect(ShaclRenderer.DEFAULTS.orSelectorDescriptionClass).toContain("text-sm");
    });
+
+   it("includes viewer slots with dark-mode variants", () => {
+      expect(ShaclRenderer.DEFAULTS.literalViewerClass).toContain("dark:text-zinc-100");
+      expect(ShaclRenderer.DEFAULTS.iriViewerClass).toContain("dark:text-blue-400");
+      expect(ShaclRenderer.DEFAULTS.valueTableViewerHeaderClass).toContain("dark:");
+   });
 });

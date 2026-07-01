@@ -1,7 +1,7 @@
 @prefix dash:   <http://datashapes.org/dash#> .
 @prefix rdf:    <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs:   <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix schema: <http://schema.org/> .
+@prefix schema: <https://schema.org/> .
 @prefix sh:     <http://www.w3.org/ns/shacl#> .
 @prefix xsd:    <http://www.w3.org/2001/XMLSchema#> .
 @prefix foaf:   <http://xmlns.com/foaf/0.1/> .
@@ -27,12 +27,14 @@ ex:ScholarlyArticleShape
                      sh:node     <#AuthorShape> ;
                      sh:nodeKind sh:IRI ;
                      # shui:editor shui:DetailsEditor ;
+                     shui:viewer shui:LabelViewer ;
                      sh:name     "Authors" ;
                      sh:description "Add the authors of the publication by linking their WebIDs." ;
                      sh:minCount 1 ; ] ;
     sh:property    [ sh:path     bibframe:contribution ;
                      sh:node     <#ContributionShape> ;
                      shui:editor shui:DetailsEditor ;
+                     shui:viewer shui:DetailsViewer ;
                      sh:name     "Author contributions" ;
                      sh:description "Describe each authorship contribution by linking an author to their position in the author list." ;
                      sh:minCount 1 ; ] ;
@@ -51,12 +53,14 @@ ex:ScholarlyArticleShape
     sh:property    [ sh:path     schema:about ;
                      sh:or       ( [ sh:node <#AboutShape> ] [ sh:node <#SourceCodeShape> ] ) ;
                      shui:editor shui:DetailsEditor ;
+                     shui:viewer shui:DetailsViewer ;
                      sh:name     "Related topics or resources" ;
                      sh:description "Add the topics the publication is about, or link related tools, benchmarks, or other software resources it mentions or introduces." ;
                      sh:minCount 1 ; ] ;
     sh:property    [ sh:path     [ sh:inversePath schema:targetProduct ] ;
                      sh:node     <#SourceCodeShape> ;
                      shui:editor shui:DetailsEditor ;
+                     shui:viewer shui:DetailsViewer ;
                      sh:name     "Source code" ;
                      sh:description "Link the software source code resource associated with this publication." ;
                      sh:minCount 1 ; ] .
@@ -86,6 +90,7 @@ ex:ScholarlyArticleShape
     sh:property [ sh:path     rdf:type ;
                   sh:hasValue schema:SoftwareSourceCode ;
                   sh:nodeKind sh:IRI ;
+                  shui:viewer shui:LabelViewer ;
                   sh:name     "Resource type" ;
                   sh:description "This resource must be identified as software source code." ;
                   sh:minCount 1 ] ;

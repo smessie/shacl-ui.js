@@ -61,6 +61,13 @@
   const turtleOutput = document.getElementById('turtle-output');
   const turtleOutputContainer = document.getElementById('turtle-output-container');
   const copyBtn = document.getElementById('copy-btn');
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  // In read-only view mode there is nothing to submit: hide the "Get Data" button and output.
+  if (shaclRenderer.getAttribute('mode') === 'view') {
+    submitBtn?.classList.add('hidden');
+    turtleOutputContainer.classList.add('hidden');
+  }
 
   let currentTurtleData = '';
 

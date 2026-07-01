@@ -80,6 +80,32 @@ export const STYLING_SLOTS = {
    orSelectorOptionSelectedClass: 'bg-zinc-100 dark:bg-zinc-700',
    orSelectorLabelClass: 'font-medium',
    orSelectorDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-200',
+
+   // ── Viewers (view mode) ──────────────────────────────────────────────────────
+   // Read-only presentation widgets. Styled to match the editors and to follow the
+   // reflected `theme` host attribute via `dark:` variants.
+   viewerFieldClass: 'py-2',
+   viewerLabelClass: 'text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1',
+   viewerDescriptionClass: 'text-xs text-zinc-400 dark:text-zinc-500 mb-1',
+   viewerValuesClass: 'flex flex-col gap-1',
+   viewerValueClass: 'text-sm text-zinc-800 dark:text-zinc-100 leading-relaxed',
+   viewerEmptyClass: 'text-sm text-zinc-400 dark:text-zinc-500 italic',
+
+   literalViewerClass: 'text-zinc-800 dark:text-zinc-100 break-words whitespace-pre-wrap',
+   langStringViewerClass: 'inline-flex items-baseline gap-1.5 text-zinc-800 dark:text-zinc-100 break-words',
+   langStringViewerTagClass: 'shrink-0 text-[0.65rem] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300',
+   iriViewerClass: 'text-blue-600 dark:text-blue-400 hover:underline break-all',
+   hyperlinkViewerClass: 'inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline break-all',
+   imageViewerClass: 'max-w-full h-auto max-h-64 rounded border border-zinc-200 dark:border-zinc-700 object-contain',
+   htmlViewerClass: 'prose prose-zinc dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-100',
+   blankNodeViewerClass: 'italic text-zinc-600 dark:text-zinc-300 break-words',
+   detailsViewerClass: 'rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-4 py-1',
+   valueTableViewerClass: 'w-full overflow-auto max-h-96 border border-zinc-200 dark:border-zinc-700 rounded-md',
+   valueTableViewerHeaderClass: 'sticky top-0 bg-zinc-50 dark:bg-zinc-900 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-300 px-3 py-2 border-b border-zinc-200 dark:border-zinc-700',
+   valueTableViewerRowClass: 'border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-700/40',
+   valueTableViewerCellClass: 'px-3 py-2 align-top text-sm text-zinc-800 dark:text-zinc-100',
+   valueTablePaginationClass: 'flex items-center justify-between gap-2 px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-700',
+   valueTablePaginationButtonClass: 'px-2 py-1 rounded border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer',
 } as const;
 
 /** Names of every styling slot. */

@@ -196,6 +196,7 @@ async function save() {
 | `widgetScoringGraphUrl`         | `string`            | URL to dereference for the widget-scoring graph.                                                       |
 | `focusNode`                     | `string`            | IRI of the RDF node being edited.                                                                      |
 | `constraintShape`               | `string`            | IRI of the `sh:NodeShape` to use as the root constraint.                                               |
+| `mode`                          | `'edit' \| 'view'`  | Render editable editor widgets (`edit`, default) or read-only viewer widgets (`view`).                 |
 | `theme`                         | `'light' \| 'dark'` | Colour theme. Defaults to the OS preference.                                                           |
 | `useLightDom`                   | `boolean`           | Render into the light DOM instead of a Shadow DOM (useful when you want your own CSS to apply).        |
 | `expandPrefixes`                | `boolean`           | Auto-expand prefixed IRIs entered in IRI fields (default: `true`).                                     |
@@ -275,7 +276,7 @@ ex:NamePropertyShape
 
 ---
 
-## Available widgets
+## Available editor widgets
 
 | Widget IRI                     | Description                                                                                               |
 |--------------------------------|-----------------------------------------------------------------------------------------------------------|
@@ -295,6 +296,25 @@ ex:NamePropertyShape
 | `shui:SubClassEditor`          | Searchable autocomplete over sub-classes of `sh:rootClass`.                                               |
 | `shui:RichTextEditor`          | WYSIWYG HTML editor with toolbar; stores `rdf:HTML` literals.                                             |
 | `shui:BlankNodeEditor`         | Read-only display of blank-node identifiers.                                                              |
+
+---
+
+## Available viewer widgets (view mode)
+
+Set `mode="view"` to render the data read-only using **viewer** widgets instead of editors. Viewers are selected by the same [widget-scoring](#widget-scoring) mechanism (a viewer is preferred with `shui:viewer` on the property shape, mirroring `shui:editor`), and are styled with their own Tailwind slots (below) so they support light and dark mode just like the editors.
+
+| Widget IRI                | Applies to                        | Rendering                                                                     |
+|---------------------------|-----------------------------------|-------------------------------------------------------------------------------|
+| `shui:LiteralViewer`      | any literal                       | The lexical form of the value.                                                |
+| `shui:LangStringViewer`   | `rdf:langString`                  | The text plus a language-tag indicator.                                       |
+| `shui:HTMLViewer`         | `rdf:HTML` / `xsd:string`         | The literal parsed into sanitized HTML DOM elements.                          |
+| `shui:HyperlinkViewer`    | `xsd:anyURI` / `xsd:string`       | A clickable hyperlink to the URI/URL.                                         |
+| `shui:ImageViewer`        | IRIs/literals with image ext.     | The image at the URL (`<img>`), with a text fallback if it fails to load.     |
+| `shui:IRIViewer`          | IRIs                              | A hyperlink to the IRI, showing the IRI.                                      |
+| `shui:LabelViewer`        | IRIs                              | A hyperlink to the IRI, showing the resource's display label.                 |
+| `shui:BlankNodeViewer`    | blank nodes                       | A human-readable label of the blank node (falls back to its `_:id`).          |
+| `shui:DetailsViewer`      | IRIs or blank nodes               | The value node's details rendered as a nested, read-only sub-form.            |
+| `shui:ValueTableViewer`   | multiple values (needs `sh:node`) | All values in one scrollable, paginated table; columns from the `sh:node` shape ordered by `sh:order`. |
 
 ---
 
@@ -384,6 +404,27 @@ The full list of styling attributes and their built-in defaults is shown below.
 | `orSelectorOptionSelectedClass`            | `bg-zinc-100 dark:bg-zinc-700`                                                                                                                                                                                     |
 | `orSelectorLabelClass`                     | `font-medium`                                                                                                                                                                                                      |
 | `orSelectorDescriptionClass`               | `text-sm text-zinc-500 dark:text-zinc-200`                                                                                                                                                                         |
+| `viewerFieldClass`                         | `py-2`                                                                                                                                                                                                             |
+| `viewerLabelClass`                         | `text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400 mb-1`                                                                                                                                |
+| `viewerDescriptionClass`                   | `text-xs text-zinc-400 dark:text-zinc-500 mb-1`                                                                                                                                                                    |
+| `viewerValuesClass`                        | `flex flex-col gap-1`                                                                                                                                                                                              |
+| `viewerValueClass`                         | `text-sm text-zinc-800 dark:text-zinc-100 leading-relaxed`                                                                                                                                                         |
+| `viewerEmptyClass`                         | `text-sm text-zinc-400 dark:text-zinc-500 italic`                                                                                                                                                                 |
+| `literalViewerClass`                       | `text-zinc-800 dark:text-zinc-100 break-words whitespace-pre-wrap`                                                                                                                                                 |
+| `langStringViewerClass`                    | `inline-flex items-baseline gap-1.5 text-zinc-800 dark:text-zinc-100 break-words`                                                                                                                                  |
+| `langStringViewerTagClass`                 | `shrink-0 text-[0.65rem] font-medium uppercase tracking-wide px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-300`                                                                   |
+| `iriViewerClass`                           | `text-blue-600 dark:text-blue-400 hover:underline break-all`                                                                                                                                                       |
+| `hyperlinkViewerClass`                     | `inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline break-all`                                                                                                                        |
+| `imageViewerClass`                         | `max-w-full h-auto max-h-64 rounded border border-zinc-200 dark:border-zinc-700 object-contain`                                                                                                                    |
+| `htmlViewerClass`                          | `prose prose-zinc dark:prose-invert max-w-none text-zinc-800 dark:text-zinc-100`                                                                                                                                   |
+| `blankNodeViewerClass`                     | `italic text-zinc-600 dark:text-zinc-300 break-words`                                                                                                                                                              |
+| `detailsViewerClass`                       | `rounded-lg border border-zinc-200 dark:border-zinc-700 bg-zinc-50/60 dark:bg-zinc-800/40 px-4 py-1`                                                                                                               |
+| `valueTableViewerClass`                    | `w-full overflow-auto max-h-96 border border-zinc-200 dark:border-zinc-700 rounded-md`                                                                                                                             |
+| `valueTableViewerHeaderClass`              | `sticky top-0 bg-zinc-50 dark:bg-zinc-900 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-300 px-3 py-2 border-b border-zinc-200 dark:border-zinc-700`                         |
+| `valueTableViewerRowClass`                 | `border-b border-zinc-100 dark:border-zinc-800 last:border-0 hover:bg-zinc-50 dark:hover:bg-zinc-700/40`                                                                                                            |
+| `valueTableViewerCellClass`                | `px-3 py-2 align-top text-sm text-zinc-800 dark:text-zinc-100`                                                                                                                                                     |
+| `valueTablePaginationClass`                | `flex items-center justify-between gap-2 px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-700`                                                                          |
+| `valueTablePaginationButtonClass`          | `px-2 py-1 rounded border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer`                                            |
 
 ---
 
