@@ -1,5 +1,9 @@
 import {describe, expect, it} from "vitest";
-import {ShaclRenderer} from "../lib/shacl-renderer.ts";
+// Side-effect import: registers the <shacl-renderer> custom element via @customElement.
+// `ShaclRenderer` is only used in type positions below, so a plain value import would be
+// elided by the bundler and the element would never be defined.
+import "../lib/shacl-renderer.ts";
+import type {ShaclRenderer} from "../lib/shacl-renderer.ts";
 
 const SHAPES = `@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://example.org/> .
