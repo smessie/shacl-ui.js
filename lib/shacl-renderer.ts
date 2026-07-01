@@ -6,7 +6,7 @@ import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
 import {constructUiComponents, uiComponentsToQuads} from "./core/ui-model.ts";
 import {renderRootSlots} from "./presentation/widgets.ts";
 import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent} from "./types.ts";
-import {STYLING_SLOTS, STYLING_SLOT_NAMES} from "./styling-slots.ts";
+import {STYLING_SLOT_NAMES, STYLING_SLOTS} from "./styling-slots.ts";
 import * as RDF from "rdf-js";
 import {type Quad, type Quad_Object, type Quad_Subject} from "rdf-js";
 import {DataFactory} from "rdf-data-factory";
@@ -14,6 +14,9 @@ import type {Term} from "@rdfjs/types";
 import tailwindStyles from './styles/tailwind.global.css?inline';
 import './styles/tailwind.global.css';
 import {twMerge} from 'tailwind-merge';
+
+// Re-export the score function.
+export {score} from "./core/score.ts";
 
 const df: RDF.DataFactory = new DataFactory();
 
