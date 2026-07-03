@@ -1,3 +1,5 @@
+// Must run before readable-stream (via rdf-parse / string-to-stream) is evaluated.
+import "./core/ensure-process.ts";
 import {css, html, LitElement, type PropertyValues, unsafeCSS} from 'lit'
 import {customElement, property, state} from 'lit/decorators.js'
 import {TW} from "./shared/tailwind-mixin";

@@ -5,17 +5,17 @@ import tailwindcss from "@tailwindcss/vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import tailwindShadowDOM from "vite-plugin-tailwind-shadowdom";
 import { viteStaticCopy } from "vite-plugin-static-copy";
-import { injectGlobalProcess, processPolyfillOverrides } from "./vite.process-polyfill.ts";
 
 export default defineConfig({
   plugins: [
     tsconfigPaths(),
     tailwindcss(),
-    // Provide the global `process` ourselves and map the `process` module to CJS `process/browser`
-    // (see vite.process-polyfill.ts) to avoid "TypeError: process.nextTick is not a function".
-    injectGlobalProcess,
     nodePolyfills({
-      ...processPolyfillOverrides,
+      // See vite.config.ts: map the `process` module to CJS `process/browser` (avoids the
+      // optimizeDeps `{ default, process }` namespace interop bug); the global `process` is
+      // guaranteed at runtime by lib/core/ensure-process.ts.
+      globals: { process: false },
+      overrides: { process: 'process/browser' },
       protocolImports: true,
     }),
     tailwindShadowDOM(),
@@ -42,7 +42,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "process/": "process/browser",
+      "process/": "process/browser",  // Resolve `require('process')` inside comunica deps; `process.nextTick` itself is guaranteed at runtime by lib/core/ensure-process.ts.
       "@rdfjs/types": resolve(__dirname, "src/shims/rdfjs-types.ts"),
     },
   },
@@ -50,6 +50,3 @@ export default defineConfig({
     exclude: ["@rdfjs/types"],
   },
 });
-
-
-
