@@ -1,6 +1,6 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
-import dts from "vite-plugin-dts";
+import dts from "unplugin-dts/vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from '@tailwindcss/vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
@@ -9,7 +9,7 @@ import tailwindShadowDOM from "vite-plugin-tailwind-shadowdom";
 export default defineConfig({
    plugins: [
       tsconfigPaths(),
-      dts({ rollupTypes: true }),
+      dts({ bundleTypes: true }),
       tailwindcss(),
       nodePolyfills({
          // Don't let the plugin polyfill the `process` module with its ESM shim: rolldown's
