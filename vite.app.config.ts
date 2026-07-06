@@ -1,6 +1,5 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
-import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from "@tailwindcss/vite";
 import { nodePolyfills } from "vite-plugin-node-polyfills";
 import tailwindShadowDOM from "vite-plugin-tailwind-shadowdom";
@@ -8,7 +7,6 @@ import { viteStaticCopy } from "vite-plugin-static-copy";
 
 export default defineConfig({
   plugins: [
-    tsconfigPaths(),
     tailwindcss(),
     nodePolyfills({
       // See vite.config.ts: map the `process` module to CJS `process/browser` (avoids the
@@ -41,6 +39,7 @@ export default defineConfig({
     },
   },
   resolve: {
+    tsconfigPaths: true,
     alias: {
       "process/": "process/browser",  // Resolve `require('process')` inside comunica deps; `process.nextTick` itself is guaranteed at runtime by lib/core/ensure-process.ts.
       "@rdfjs/types": resolve(__dirname, "src/shims/rdfjs-types.ts"),

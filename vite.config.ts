@@ -1,14 +1,12 @@
 import { defineConfig } from "vite";
 import { resolve } from "path";
 import dts from "unplugin-dts/vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 import tailwindcss from '@tailwindcss/vite';
 import { nodePolyfills } from 'vite-plugin-node-polyfills';
 import tailwindShadowDOM from "vite-plugin-tailwind-shadowdom";
 
 export default defineConfig({
    plugins: [
-      tsconfigPaths(),
       dts({ bundleTypes: true }),
       tailwindcss(),
       nodePolyfills({
@@ -32,6 +30,7 @@ export default defineConfig({
       },
    },
    resolve: {
+      tsconfigPaths: true,
       alias: {
          "process/": 'process/browser',  // Resolve `require('process')` inside comunica deps; `process.nextTick` itself is guaranteed at runtime by lib/core/ensure-process.ts.
          '@rdfjs/types': resolve(__dirname, 'src/shims/rdfjs-types.ts'),  // Needed to resolve "Failed to resolve entry for package "@rdfjs/types". The package may have incorrect main/module/exports specified in its package.json."
