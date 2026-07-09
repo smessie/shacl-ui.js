@@ -356,13 +356,6 @@ PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-shui:textAreaEditorScoreMinus1
-    a shui:WidgetScore ;
-    shui:shapesGraphShape shui:isSingleLineTrue ;
-    shui:score -1 ;
-    shui:widget shui:TextAreaEditor ;
-.
-
 shui:textAreaEditorScore40
     a shui:WidgetScore ;
     shui:widget shui:TextAreaEditor ;
@@ -409,13 +402,6 @@ shui:prefersTextAreaEditor
 PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-
-shui:textAreaWithLangEditorScoreMinus1
-    a shui:WidgetScore ;
-    shui:widget shui:TextAreaWithLangEditor ;
-    shui:score -1 ;
-    shui:shapesGraphShape shui:isSingleLineTrue ;
-.
 
 shui:textAreaWithLangEditorScore40
     a shui:WidgetScore ;
@@ -464,13 +450,6 @@ PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
-shui:textFieldEditorScoreMinus1
-    a shui:WidgetScore ;
-    shui:widget shui:TextFieldEditor ;
-    shui:score -1 ;
-    shui:shapesGraphShape shui:isSingleLineFalse ;
-.
-
 shui:textFieldEditorScore40
     a shui:WidgetScore ;
     shui:widget shui:TextFieldEditor ;
@@ -516,13 +495,6 @@ shui:prefersTextFieldEditor
 PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-
-shui:textFieldWithLangEditorScoreMinus1
-    a shui:WidgetScore ;
-    shui:widget shui:TextFieldWithLangEditor ;
-    shui:score -1 ;
-    shui:shapesGraphShape shui:isSingleLineFalse ;
-.
 
 shui:textFieldWithLangEditorScore40
     a shui:WidgetScore ;
@@ -1096,4 +1068,164 @@ shui:hasDatatypeNumericConstraint
             ]
         ) ;
     ] ;
+.
+
+PREFIX sh: <http://www.w3.org/ns/shacl#>
+PREFIX shui: <http://www.w3.org/ns/shacl-ui/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+##########################
+# Accept Matcher Shapes  #
+##########################
+
+# Accept the TextArea editors unless the property shape requires a single-line value.
+shui:notSingleLineTrue
+    a sh:NodeShape ;
+    sh:not shui:isSingleLineTrue ;
+.
+
+# Accept the TextField editors unless the property shape forbids a single-line value.
+shui:notSingleLineFalse
+    a sh:NodeShape ;
+    sh:not shui:isSingleLineFalse ;
+.
+
+############################
+# Widget Accept Matchers   #
+############################
+# Exactly one shui:WidgetAcceptMatcher per scored widget. A widget is accepted when its
+# matcher conforms; matchers without shapes accept unconditionally.
+
+shui:textAreaEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:TextAreaEditor ;
+    shui:shapesGraphShape shui:notSingleLineTrue ;
+.
+
+shui:textAreaWithLangEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:TextAreaWithLangEditor ;
+    shui:shapesGraphShape shui:notSingleLineTrue ;
+.
+
+shui:textFieldEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:TextFieldEditor ;
+    shui:shapesGraphShape shui:notSingleLineFalse ;
+.
+
+shui:textFieldWithLangEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:TextFieldWithLangEditor ;
+    shui:shapesGraphShape shui:notSingleLineFalse ;
+.
+
+shui:autoCompleteEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:AutoCompleteEditor ;
+.
+
+shui:blankNodeEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:BlankNodeEditor ;
+.
+
+shui:blankNodeViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:BlankNodeViewer ;
+.
+
+shui:booleanEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:BooleanEditor ;
+.
+
+shui:datePickerEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:DatePickerEditor ;
+.
+
+shui:dateTimePickerEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:DateTimePickerEditor ;
+.
+
+shui:detailsEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:DetailsEditor ;
+.
+
+shui:detailsViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:DetailsViewer ;
+.
+
+shui:enumSelectEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:EnumSelectEditor ;
+.
+
+shui:htmlViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:HTMLViewer ;
+.
+
+shui:hyperlinkViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:HyperlinkViewer ;
+.
+
+shui:iriEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:IRIEditor ;
+.
+
+shui:iriViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:IRIViewer ;
+.
+
+shui:imageViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:ImageViewer ;
+.
+
+shui:instancesSelectEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:InstancesSelectEditor ;
+.
+
+shui:labelViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:LabelViewer ;
+.
+
+shui:langStringViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:LangStringViewer ;
+.
+
+shui:literalViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:LiteralViewer ;
+.
+
+shui:numberFieldEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:NumberFieldEditor ;
+.
+
+shui:richTextEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:RichTextEditor ;
+.
+
+shui:subClassEditorAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:SubClassEditor ;
+.
+
+shui:valueTableViewerAcceptMatcher
+    a shui:WidgetAcceptMatcher ;
+    shui:widget shui:ValueTableViewer ;
 .

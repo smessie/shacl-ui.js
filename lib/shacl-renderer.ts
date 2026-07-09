@@ -17,8 +17,8 @@ import tailwindStyles from './styles/tailwind.global.css?inline';
 import './styles/tailwind.global.css';
 import {twMerge} from 'tailwind-merge';
 
-// Re-export the score function.
-export {score} from "./core/score.ts";
+// Re-export the scoring function.
+export {score, matcherFunction, acceptFunction, scoreFunction, selectWidget, validationFunction} from "./core/score.ts";
 
 const df: RDF.DataFactory = new DataFactory();
 
