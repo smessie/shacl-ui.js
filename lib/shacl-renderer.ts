@@ -5,7 +5,7 @@ import {customElement, property, state} from 'lit/decorators.js'
 import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
-import {constructUiComponents, uiComponentsToQuads} from "./core/ui-model.ts";
+import {constructUiComponents} from "./core/ui-model.ts";
 import {renderRootSlots} from "./presentation/widgets.ts";
 import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent} from "./types.ts";
 import {STYLING_SLOT_NAMES, STYLING_SLOTS} from "./styling-slots.ts";
@@ -336,7 +336,7 @@ export class ShaclRenderer extends TwLitElement {
    * @returns {Promise<string | Quad[]>} The current data graph as a string in the specified content type, or as an array of quads if no content type is provided.
    */
   async data(contentType?: string): Promise<string | Quad[]> {
-    const outputQuads = uiComponentsToQuads(this.ui);
+    const outputQuads = this.dataStore?.getQuads() ?? [];
     if (contentType) {
       return await serializeRdf(outputQuads, contentType);
     }

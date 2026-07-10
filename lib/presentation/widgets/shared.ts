@@ -290,6 +290,14 @@ export function getDefaultTermForWidget(renderer: ShaclRenderer, widget: string 
                   clonedChild.focusNode = newFocusNode;
                   return clonedChild;
                });
+               // A property that references a node shape via sh:node declares the entity's class on
+               // that node shape (sh:class). Type the newly-created entity accordingly so a
+               // DetailsEditor default value is a well-formed instance of the expected class.
+               if (addToDatastore && uiComponent.node && renderer.shapesStore) {
+                  for (const classQuad of renderer.shapesStore.getQuads(uiComponent.node, SH('class'), null)) {
+                     renderer.addToDataStore(newFocusNode, {path: rdf('type'), type: 'predicate'}, classQuad.object);
+                  }
+               }
             } else if (uiComponent.classes && uiComponent.classes.length > 0) {
                const classValue = uiComponent.classes[0];
                if (classValue) {
@@ -339,6 +347,15 @@ export function addChildrenToDataStore(renderer: ShaclRenderer, children: UIComp
       if (child.focusNode && child.paths.length > 0 && child.values.length > 0) {
          for (const value of child.values) {
             renderer.addToDataStore(child.focusNode, value.path, value.value);
+
+            // Type each nested entity value with the sh:class declared on the node shape it
+            // references via sh:node, so a cloned DetailsEditor child is a well-formed instance of
+            // the expected class (the class lives on the child node shape, not the property shape).
+            if (child.node && renderer.shapesStore && value.value.termType !== "Literal") {
+               for (const classQuad of renderer.shapesStore.getQuads(child.node, SH('class'), null)) {
+                  renderer.addToDataStore(value.value, {path: rdf('type'), type: 'predicate'}, classQuad.object);
+               }
+            }
          }
 
          // Recursively add grandchildren to the data store
