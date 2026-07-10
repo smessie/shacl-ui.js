@@ -585,8 +585,27 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
             addedQuads.push(quad);
          }
       }
+      // A non-literal default value (a fresh nested node) is only added as an object above, but
+      // validationFunction requires non-literal value nodes to appear as a subject in the data
+      // graph. Seed a temporary type triple so the prospective value is scored by its node kind
+      // (e.g. shui:isIRIOrBlankNode -> DetailsEditor), mirroring how a real nested value becomes a
+      // subject once its default children are materialised. No widget dataGraphShape inspects the
+      // value's class, so the concrete type is irrelevant to scoring; use the declared class when
+      // known for faithfulness, otherwise rdfs:Resource.
+      if (defaultTerm.termType !== "Literal" && dataGraph.getQuads(defaultTerm, null, null).length === 0) {
+         const typeTerm = clazz && clazz.termType === "NamedNode" ? clazz : RDFS("Resource");
+         const typeQuad = df.quad(defaultTerm as Quad_Subject, RDF_("type"), typeTerm as Quad_Object);
+         if (dataGraph.addQuad(typeQuad)) {
+            addedQuads.push(typeQuad);
+         }
+      }
       try {
-         const scores = await score(focusNode, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+         // Score the just-added default value node, not the parent focus node. The scoring
+         // function's first argument is the value being scored (its node kind is validated
+         // against each score's shui:dataGraphShape); passing focusNode here would score the
+         // parent subject instead, so an IRI subject would spuriously match IRI/blank-node
+         // widgets (e.g. DetailsEditor at score 0) regardless of the property's value kind.
+         const scores = await score(defaultTerm, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
          editorDefaultWidget = topEditor(scores);
          element.defaultWidgets = forMode(scores);
          element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
@@ -597,6 +616,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
 
    // Make sure we have at least minCount values, by adding empty values if needed. New values are
    // always seeded with the editor's default term, even in view mode.
+   const dataValueCount = element.values.length;
    for (let i = values.length; i < (element.minCount ?? 0); i++) {
       const value = getDefaultTermForWidget(renderer, editorDefaultWidget, element, true, !!focusNode);
       const path = paths[0];
@@ -611,8 +631,15 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       });
    }
 
-   // Score all values and attach the highest-scoring widget of the current mode's kind.
-   element.values = await Promise.all(element.values.map(async (value) => {
+   // Score all values and attach the highest-scoring widget of the current mode's kind. Only the
+   // data-derived values (indices below dataValueCount) are (re-)scored here: the freshly-seeded
+   // default values appended above already carry the property's default widgets, and a seeded
+   // nested value may be a blank/IRI node not yet materialised in the data graph, so re-scoring it
+   // would find no widgets and wrongly reset it to "none".
+   element.values = await Promise.all(element.values.map(async (value, index) => {
+      if (index >= dataValueCount) {
+         return value;
+      }
       const scores = await score(value.value, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
       value.widgets = forMode(scores);
       value.selectedWidget = value.widgets[0]?.widget.value.value;
