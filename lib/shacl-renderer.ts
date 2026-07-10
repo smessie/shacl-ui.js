@@ -6,8 +6,10 @@ import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
 import {constructUiComponents} from "./core/ui-model.ts";
-import {renderRootSlots} from "./presentation/widgets.ts";
-import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent} from "./types.ts";
+import {cloneUiComponent} from "./core/clone.ts";
+import {rdf, xsd} from "./core/namespaces.ts";
+import {renderRootSlots, addChildrenToDataStore} from "./presentation/widgets.ts";
+import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {STYLING_SLOT_NAMES, STYLING_SLOTS} from "./styling-slots.ts";
 import type {Term} from "@rdfjs/types";
 import * as RDF from "@rdfjs/types";
@@ -297,6 +299,19 @@ export class ShaclRenderer extends TwLitElement {
    * Rebuilds the UI with the selected option's sh:property list merged with the base shape.
    */
   async selectRootOrOption(groupIndex: number, optionIndex: number) {
+    // When switching to a different option, purge the previously-selected
+    // option's data from the data graph so only the currently selected option's
+    // values remain. Locate the still-current orSection render slot for this
+    // group and remove each of its components' values (and nested children).
+    const currentIndex = this.rootOrGroups[groupIndex]?.selectedIndex;
+    if (currentIndex !== undefined && currentIndex !== optionIndex) {
+      const slot = this.renderSlots.find(
+        (s): s is Extract<RootRenderSlot, {kind: 'orSection'}> =>
+          s.kind === 'orSection' && s.groupIndex === groupIndex,
+      );
+      if (slot) this.removeComponentsData(slot.section.components);
+    }
+
     const updatedGroups: RootOrGroup[] = this.rootOrGroups.map((g, i) =>
       i === groupIndex ? {...g, selectedIndex: optionIndex} : g,
     );
@@ -469,6 +484,77 @@ export class ShaclRenderer extends TwLitElement {
     } else {
       console.warn('Cannot remove from data store: missing dataStore, focusNode, path, or value');
     }
+  }
+
+  /**
+   * Removes from the data store all values (and nested child subtrees) contributed
+   * by the given UIComponents. Used when switching a sh:or option so the
+   * deselected option's data no longer appears in the data graph.
+   */
+  removeComponentsData(components: UIComponent[]) {
+    for (const component of components) {
+      for (const [index, value] of component.values.entries()) {
+        this.removeFromDataStore(component.focusNode, value.path, value.value, component.children?.[index]);
+      }
+    }
+  }
+
+  /**
+   * Switches the nested `sh:or` option for a single value of a property whose
+   * `sh:or` unions `sh:node`, `sh:datatype`, or `sh:class` constraints. The
+   * previously-selected option's data is removed from the data graph and the
+   * newly-selected option's default data is materialized, so only the currently
+   * selected option's value remains in the data graph.
+   */
+  selectValueOrOption(uiComponent: UIComponent, value: UIComponentValue, valueIndex: number, index: number) {
+    if (value.selectedOrIndex === index) return;
+
+    if (uiComponent.orNode && uiComponent.orNode[index]) {
+      // Keep the value's node link; swap its nested children. Purge the
+      // previously-selected node option's nested data, then seed the newly
+      // selected option's default children into the data graph.
+      this.removeComponentsData(uiComponent.children?.[valueIndex] ?? []);
+      const orOption = uiComponent.orNode[index];
+      const newChildren = (orOption.defaultChild ?? []).map(child => {
+        const cloned = cloneUiComponent(child);
+        cloned.focusNode = value.value;
+        return cloned;
+      });
+      if (!uiComponent.children) uiComponent.children = [];
+      uiComponent.children[valueIndex] = newChildren;
+      addChildrenToDataStore(this, newChildren);
+    } else if (uiComponent.orDatatype && uiComponent.orDatatype[index]) {
+      // The literal value itself encodes the datatype option: remove the old
+      // literal and seed a fresh empty literal of the newly selected datatype.
+      this.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+      const datatype = uiComponent.orDatatype[index].datatype;
+      const newValue = df.literal('', df.namedNode(datatype ?? xsd('string')));
+      value.value = newValue;
+      uiComponent.datatype = datatype;
+      this.addToDataStore(uiComponent.focusNode, value.path, newValue);
+    } else if (uiComponent.orClass && uiComponent.orClass[index]) {
+      // The typed node value encodes the class option: remove the old node (and
+      // its nested subtree), then seed a fresh node typed with the new class.
+      this.removeFromDataStore(uiComponent.focusNode, value.path, value.value, uiComponent.children?.[valueIndex]);
+      const option = uiComponent.orClass[index];
+      const newNode = this.preferSkolemizedBlankNodes
+        ? df.namedNode(`urn:uuid:${crypto.randomUUID()}`)
+        : df.blankNode();
+      value.value = newNode;
+      const newChildren = (option.classValue.children ?? []).map(child => {
+        const cloned = cloneUiComponent(child);
+        cloned.focusNode = newNode;
+        return cloned;
+      });
+      if (!uiComponent.children) uiComponent.children = [];
+      uiComponent.children[valueIndex] = newChildren;
+      this.addToDataStore(uiComponent.focusNode, value.path, newNode);
+      this.addToDataStore(newNode, {path: rdf('type'), type: 'predicate'}, option.class);
+      addChildrenToDataStore(this, newChildren);
+    }
+
+    value.selectedOrIndex = index;
+    this.rerender();
   }
 
   protected async willUpdate(changedProperties: PropertyValues) {

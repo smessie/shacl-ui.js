@@ -102,28 +102,11 @@ export function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: U
                                   index === selectedIndex ? classes.orSelectorOptionSelectedClass : ''
                           )}"
                               @mousedown="${() => {
-                                  value.selectedOrIndex = index;
-
-                                  // For orNode: rebuild children for this specific value using the
-                                  // newly selected node shape. Re-use pre-built children where available
-                                  // (values that existed in the data graph at construction time), and
-                                  // fall back to cloning defaultChild for values added afterward.
-                                  if (uiComponent.orNode && uiComponent.orNode[index]) {
-                                      const orOption = uiComponent.orNode[index];
-                                      const existingChildren = orOption.children?.[valueIndex];
-                                      const newChildren = existingChildren !== undefined
-                                              ? existingChildren
-                                              : (orOption.defaultChild ?? []).map(child => {
-                                                  const cloned = cloneUiComponent(child);
-                                                  cloned.focusNode = value.value;
-                                                  return cloned;
-                                              });
-                                      if (!uiComponent.children) uiComponent.children = [];
-                                      uiComponent.children[valueIndex] = newChildren;
-                                  }
-
                                   renderer.setOrSelectOpen(key, false);
-                                  renderer.rerender();
+                                  // Purge the previously-selected option's data and materialize the
+                                  // newly-selected option's defaults so only the current selection's
+                                  // value remains in the data graph.
+                                  renderer.selectValueOrOption(uiComponent, value, valueIndex, index);
                               }}">
                               <div class="${twMerge(classes.orSelectorLabelClass)}">
                                   ${until(labeledValue.then(res => res.label))}

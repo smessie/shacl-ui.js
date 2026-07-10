@@ -12,7 +12,7 @@
  *   - viewers-nested.ts       - read-only details and value-table viewers (view mode)
  */
 export {renderRootSlots, renderUIComponents, renderUIComponent, renderEditor, renderViewer} from "./widgets/layout.ts";
-export {getDefaultTermForWidget} from "./widgets/shared.ts";
+export {getDefaultTermForWidget, addChildrenToDataStore} from "./widgets/shared.ts";
 export {renderHTMLViewer, renderHyperlinkViewer, renderLangStringViewer, renderLiteralViewer} from "./widgets/viewers-literal.ts";
 export {renderBlankNodeViewer, renderIRIViewer, renderImageViewer, renderLabelViewer} from "./widgets/viewers-node.ts";
 export {renderDetailsViewer, renderValueTableViewer} from "./widgets/viewers-nested.ts";
