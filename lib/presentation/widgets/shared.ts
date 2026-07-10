@@ -42,10 +42,10 @@ export function renderDescription(uiComponent: UIComponent, classes: TailwindCla
 /**
  * Returns a human-readable label for an or-option at the given index.
  */
-export async function getOrOptionLabel(uiComponent: UIComponent, index: number, dataGraph: RdfStore, shapesGraph: RdfStore): Promise<LabeledValue> {
+export async function getOrOptionLabel(renderer: ShaclRenderer, uiComponent: UIComponent, index: number, dataGraph: RdfStore, shapesGraph: RdfStore): Promise<LabeledValue> {
    const {orNode, orDatatype, orClass} = uiComponent;
    if (orNode) {
-      const labeledValue = await toLabeledValue(orNode[index]?.node, dataGraph, shapesGraph, false);
+      const labeledValue = await toLabeledValue(orNode[index]?.node, dataGraph, shapesGraph, renderer.labelConfig);
       const iri = orNode[index]?.node?.value ?? '';
       if (labeledValue.label === iri) {
          labeledValue.label = iri.split('#').pop()?.split('/').pop() || `Option ${index + 1}`;
@@ -84,7 +84,7 @@ export function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: U
            <!-- Small chip-style trigger – shows the selected type without occupying a full input row -->
            <div class="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-700/60 rounded px-2 py-0.5 cursor-pointer hover:bg-zinc-200 dark:hover:bg-zinc-600 transition-colors mb-2"
                 @click="${() => renderer.setOrSelectOpen(key, !open)}">
-               <span>${until(getOrOptionLabel(uiComponent, selectedIndex, renderer.dataStore!, renderer.shapesStore!).then(res => res.label))}</span>
+               <span>${until(getOrOptionLabel(renderer, uiComponent, selectedIndex, renderer.dataStore!, renderer.shapesStore!).then(res => res.label))}</span>
                <svg class="w-3 h-3 opacity-60"
                     xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor" stroke-width="2.5">
@@ -95,7 +95,7 @@ export function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: U
            ${open ? html`
                <ul class="${twMerge(classes.orSelectorDropdownClass, 'absolute z-50 w-full mt-1')}">
                    ${indices.map(index => {
-                      const labeledValue = getOrOptionLabel(uiComponent, index, renderer.dataStore!, renderer.shapesStore!);
+                      const labeledValue = getOrOptionLabel(renderer, uiComponent, index, renderer.dataStore!, renderer.shapesStore!);
                       return html`
                           <li class="${twMerge(
                                   classes.orSelectorOptionClass,

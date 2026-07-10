@@ -38,7 +38,7 @@ const iris = (results: {widget: {value: {value: string}}}[]) => results.map(r =>
 describe("score()", () => {
    it("ranks widgets by descending score", async () => {
       const scoring = await TTL(TWO_WIDGETS);
-      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, false);
+      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, {});
       expect(iris(results)).toEqual([
          "http://www.w3.org/ns/shacl-ui/TextArea",
          "http://www.w3.org/ns/shacl-ui/TextField",
@@ -47,7 +47,7 @@ describe("score()", () => {
 
    it("de-duplicates a widget to its highest score", async () => {
       const scoring = await TTL(DUPLICATE);
-      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, false);
+      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, {});
       const textFields = results.filter(r => r.widget.value.value.endsWith("TextField"));
       expect(textFields).toHaveLength(1);
       expect(textFields[0].score).toBe(7);
@@ -55,7 +55,7 @@ describe("score()", () => {
 
    it("breaks score ties by the Unicode codepoint of the widget IRI", async () => {
       const scoring = await TTL(TIE);
-      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, false);
+      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, {});
       expect(iris(results)).toEqual([
          "http://www.w3.org/ns/shacl-ui/TextArea",
          "http://www.w3.org/ns/shacl-ui/TextField",
@@ -65,7 +65,7 @@ describe("score()", () => {
    it("ignores widget scores that depend on data-graph shapes when there is no focus node", async () => {
       const scoring = await TTL(`ex:ws a shui:WidgetScore ; shui:widget shui:TextField ; shui:score 5 ;
                                     shui:dataGraphShape ex:someShape .`);
-      const results = await score(null, await EMPTY(), df.namedNode("http://example.org/s"), await EMPTY(), scoring, false);
+      const results = await score(null, await EMPTY(), df.namedNode("http://example.org/s"), await EMPTY(), scoring, {});
       expect(results).toHaveLength(0);
    });
 
@@ -79,7 +79,7 @@ describe("score()", () => {
          ex:amArea a shui:WidgetAcceptMatcher ; shui:widget shui:TextArea ;
                    shui:shapesGraphShape ex:needsPath .
          ex:needsPath a sh:NodeShape ; sh:property [ sh:path sh:path ; sh:minCount 1 ] .`);
-      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, false);
+      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, {});
       expect(iris(results)).toEqual(["http://www.w3.org/ns/shacl-ui/TextField"]);
    });
 
@@ -87,24 +87,24 @@ describe("score()", () => {
       const scoring = await TTL(`
          ex:ws a shui:WidgetScore ; shui:widget shui:TextField ; shui:score 5 .
          ex:am a shui:WidgetAcceptMatcher ; shui:widget shui:TextField .`);
-      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, false);
+      const results = await score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, {});
       expect(iris(results)).toEqual(["http://www.w3.org/ns/shacl-ui/TextField"]);
    });
 
    it("throws on a malformed WidgetScore (missing shui:score)", async () => {
       const scoring = await TTL(`ex:ws a shui:WidgetScore ; shui:widget shui:TextField .`);
-      await expect(score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, false)).rejects.toThrow(/Malformed/);
+      await expect(score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, {})).rejects.toThrow(/Malformed/);
    });
 
    it("throws on a malformed WidgetScore (non-numeric shui:score)", async () => {
       const scoring = await TTL(`ex:ws a shui:WidgetScore ; shui:widget shui:TextField ; shui:score "big" .`);
-      await expect(score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, false)).rejects.toThrow(/not a number/);
+      await expect(score(focusNode, await EMPTY(), shape, await EMPTY(), scoring, {})).rejects.toThrow(/not a number/);
    });
 
    it("throws when a mandatory input is missing", async () => {
       const scoring = await TTL(TWO_WIDGETS);
       // @ts-expect-error deliberately passing a missing shape node
-      await expect(score(focusNode, await EMPTY(), null, await EMPTY(), scoring, false)).rejects.toThrow(/shape node/);
+      await expect(score(focusNode, await EMPTY(), null, await EMPTY(), scoring, {})).rejects.toThrow(/shape node/);
    });
 });
 

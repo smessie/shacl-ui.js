@@ -32,7 +32,7 @@ export function renderBlankNodeViewer(renderer: ShaclRenderer, _uiComponent: UIC
    const raw = value.value.value;
    const fallback = `_:${raw}`;
    const text = until(
-      toLabeledValue(value.value, renderer.dataStore!, renderer.shapesStore!, renderer.dereferenceForLabelResolution)
+      toLabeledValue(value.value, renderer.dataStore!, renderer.shapesStore!, renderer.labelConfig)
          // toLabeledValue falls back to the term's raw id when no label predicate exists; show `_:id` then.
          .then(lv => (lv.label && lv.label !== raw) ? lv.label : fallback),
       fallback,

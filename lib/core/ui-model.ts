@@ -21,7 +21,7 @@ import {DCTERMS, isViewerIri, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from ".
 import {score} from "./score.ts";
 import {extractShaclList, extractSubclasses} from "./rdf-list.ts";
 import {extractPaths} from "./paths.ts";
-import {toLabeledValue} from "./labels.ts";
+import {toLabeledValue, toPropertyLabel, selectByLanguage, extractLanguageIn} from "./labels.ts";
 import {getDefaultTermForWidget} from "../presentation/widgets.ts";
 import {ShaclRenderer} from "../shacl-renderer.ts";
 
@@ -137,10 +137,11 @@ export async function constructUiComponents(
       const orListHead = orQuad.object;
       const orList = extractShaclList(orListHead, shapesGraph);
 
+      const rootLabelConfig = renderer.labelConfig;
       const options: RootOrOption[] = orList.map(item => ({
          node: item,
-         label: shapesGraph.getQuads(item, SH("name"), null)[0]?.object.value,
-         description: shapesGraph.getQuads(item, SH("description"), null)[0]?.object.value,
+         label: selectByLanguage(shapesGraph.getQuads(item, SH("name"), null), {preferredLanguages: rootLabelConfig.preferredLanguages})?.value,
+         description: selectByLanguage(shapesGraph.getQuads(item, SH("description"), null), {preferredLanguages: rootLabelConfig.preferredLanguages})?.value,
       }));
 
       if (options.length === 0) continue;
@@ -264,8 +265,16 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       return;
    }
 
-   const label = shapesGraph.getQuads(property, SH("name"), null)[0]?.object;
-   const description = shapesGraph.getQuads(property, SH("description"), null)[0]?.object;
+   const singlePredicate = paths.length === 1 && (paths[0].type === "predicate" || paths[0].type === "inverse")
+      ? paths[0].path
+      : undefined;
+   const labelConfig = renderer.labelConfig;
+   const resolvedLabel = await toPropertyLabel(property, singlePredicate, dataGraph, shapesGraph, labelConfig);
+   const label = resolvedLabel.length > 0 ? resolvedLabel : undefined;
+   const description = selectByLanguage(
+      shapesGraph.getQuads(property, SH("description"), null),
+      {languageIn: extractLanguageIn(property, shapesGraph), preferredLanguages: labelConfig.preferredLanguages},
+   )?.value;
    const datatype = shapesGraph.getQuads(property, SH("datatype"), null)[0]?.object;
    const minCount = shapesGraph.getQuads(property, SH("minCount"), null)[0]?.object;
    const maxCount = shapesGraph.getQuads(property, SH("maxCount"), null)[0]?.object;
@@ -305,14 +314,14 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          ...dataGraph.getQuads(null, RDF_("type"), clazz),
          ...shapesGraph.getQuads(null, RDF_("type"), clazz),
       ].map(quad => quad.subject)));
-      instances = await Promise.all(instanceSubjects.map(subject => toLabeledValue(subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)));
+      instances = await Promise.all(instanceSubjects.map(subject => toLabeledValue(subject, dataGraph, shapesGraph, renderer.labelConfig)));
    }
    let classValues: ClassValue[] | undefined = undefined;
    if (classes) {
       classValues = await Promise.all(classes.map(async (clazz) => {
          const classValue: ClassValue = {
             iri: clazz,
-            value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
+            value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.labelConfig),
          };
          // Find NodeShape with sh:targetClass equal to the class, and if found, construct UI components for that NodeShape and add them as children of the class value.
          const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
@@ -328,7 +337,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    if (rootClass) {
       subclasses = [rootClass];
       await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
-      labeledSubclasses = await Promise.all(subclasses.map(async (subclass) => await toLabeledValue(subclass, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)));
+      labeledSubclasses = await Promise.all(subclasses.map(async (subclass) => await toLabeledValue(subclass, dataGraph, shapesGraph, renderer.labelConfig)));
    }
 
    let values: UIComponentValue[] = [];
@@ -396,8 +405,8 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       focusNode: focusNode ?? undefined,
       paths: paths,
       node: node,
-      label: label?.value,
-      description: description?.value,
+      label: label,
+      description: description,
       datatype: datatype?.value,
       values: values,
       children: children,
@@ -474,11 +483,11 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
                classTerms.flatMap(c => [
                   ...dataGraph.getQuads(null, RDF_("type"), c),
                   ...shapesGraph.getQuads(null, RDF_("type"), c)
-               ].map(async quad => toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution)))
+               ].map(async quad => toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.labelConfig)))
             );
             const classValue: ClassValue = {
                iri: clazz,
-               value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution),
+               value: await toLabeledValue(clazz, dataGraph, shapesGraph, renderer.labelConfig),
             };
             const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
             if (nodeShapeQuad) {
@@ -531,7 +540,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    if (inQuad) {
       element.options = await Promise.all(extractShaclList(inQuad.object, shapesGraph).map(async (option) => {
          if (option.termType === "NamedNode" || option.termType === "BlankNode") {
-            return await toLabeledValue(option, dataGraph, shapesGraph, renderer.dereferenceForLabelResolution);
+            return await toLabeledValue(option, dataGraph, shapesGraph, renderer.labelConfig);
          } else {
             return {
                value: df.fromTerm(option as any),
@@ -563,7 +572,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    const topEditor = (scores: WidgetScore[]) => scores.find(s => !isViewerIri(s.widget.value.value))?.widget.value.value;
 
    // Configure the default widget based on the shape only.
-   const defaultScores = await score(null, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+   const defaultScores = await score(null, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.labelConfig);
    let editorDefaultWidget = topEditor(defaultScores);
    element.defaultWidgets = forMode(defaultScores);
    element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
@@ -605,7 +614,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          // against each score's shui:dataGraphShape); passing focusNode here would score the
          // parent subject instead, so an IRI subject would spuriously match IRI/blank-node
          // widgets (e.g. DetailsEditor at score 0) regardless of the property's value kind.
-         const scores = await score(defaultTerm, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+         const scores = await score(defaultTerm, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.labelConfig);
          editorDefaultWidget = topEditor(scores);
          element.defaultWidgets = forMode(scores);
          element.defaultWidget = element.defaultWidgets[0]?.widget.value.value;
@@ -640,7 +649,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       if (index >= dataValueCount) {
          return value;
       }
-      const scores = await score(value.value, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.dereferenceForLabelResolution);
+      const scores = await score(value.value, dataGraph, property, shapesGraph, widgetScoringGraph, renderer.labelConfig);
       value.widgets = forMode(scores);
       value.selectedWidget = value.widgets[0]?.widget.value.value;
       return value;

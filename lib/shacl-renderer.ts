@@ -8,6 +8,7 @@ import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
 import {constructUiComponents} from "./core/ui-model.ts";
 import {cloneUiComponent} from "./core/clone.ts";
 import {rdf, xsd} from "./core/namespaces.ts";
+import {type LabelResolutionConfig, resolvePreferredLanguages} from "./core/labels.ts";
 import {renderRootSlots, addChildrenToDataStore} from "./presentation/widgets.ts";
 import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {STYLING_SLOT_NAMES, STYLING_SLOTS} from "./styling-slots.ts";
@@ -106,6 +107,40 @@ export class ShaclRenderer extends TwLitElement {
 
   @property({type: Boolean})
   dereferenceForLabelResolution: boolean = false;
+
+  /**
+   * Application-level preferred languages for Label and Language Resolution, as a comma-separated
+   * list in priority order (e.g. `"fr,en"`). Earlier entries are preferred. When left empty, the
+   * browser's `navigator.languages` is used as the default. `sh:languageIn` in the shapes graph
+   * still takes precedence over this value.
+   */
+  @property()
+  languages: string = '';
+
+  /**
+   * Optional override for the value-node label predicates, as a comma-separated list of predicate
+   * IRIs in priority order. When empty, the built-in default set is used
+   * (`rdfs:label`, `dcterms:title`, `skos:prefLabel`, `schema:name`).
+   */
+  @property()
+  labelPredicates: string = '';
+
+  /**
+   * Resolves the {@link LabelResolutionConfig} used by label/description/language resolution from
+   * the current renderer configuration (preferred languages, optional predicate override, and the
+   * dereferencing fallback flag).
+   */
+  get labelConfig(): LabelResolutionConfig {
+    const config: LabelResolutionConfig = {
+      preferredLanguages: resolvePreferredLanguages(this.languages),
+      dereferenceForLabelResolution: this.dereferenceForLabelResolution,
+    };
+    const predicates = this.labelPredicates.split(",").map(p => p.trim()).filter(p => p.length > 0);
+    if (predicates.length > 0) {
+      config.labelPredicates = predicates;
+    }
+    return config;
+  }
 
   @property({type: Boolean})
   expandPrefixes: boolean = true;

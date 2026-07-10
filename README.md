@@ -201,6 +201,8 @@ async function save() {
 | `useLightDom`                   | `boolean`           | Render into the light DOM instead of a Shadow DOM (useful when you want your own CSS to apply).        |
 | `expandPrefixes`                | `boolean`           | Auto-expand prefixed IRIs entered in IRI fields (default: `true`).                                     |
 | `dereferenceForLabelResolution` | `boolean`           | Fetch remote resources to resolve labels (default: `false`).                                           |
+| `languages`                     | `string`            | Preferred UI languages as a comma-separated list in priority order (e.g. `"fr,en"`). Falls back to `navigator.languages` when empty. `sh:languageIn` still takes precedence. |
+| `labelPredicates`               | `string`            | Optional comma-separated list of value-node label predicate IRIs, in priority order. Defaults to `rdfs:label`. |
 | `preferSkolemizedBlankNodes`    | `boolean`           | Use skolemised IRIs (`urn:uuid:…`) instead of blank nodes for new nested resources (default: `false`). |
 
 ---

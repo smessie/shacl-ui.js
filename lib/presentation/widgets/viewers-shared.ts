@@ -12,7 +12,7 @@ export function shortLabel(iri: string): string {
 /** Resolve a term's human-readable label, falling back to `fallback` while the promise resolves. */
 export function labelText(renderer: ShaclRenderer, value: UIComponentValue, fallback: string) {
    return until(
-      toLabeledValue(value.value, renderer.dataStore!, renderer.shapesStore!, renderer.dereferenceForLabelResolution)
+      toLabeledValue(value.value, renderer.dataStore!, renderer.shapesStore!, renderer.labelConfig)
          .then(lv => lv.label || fallback),
       fallback,
    );

@@ -6,7 +6,7 @@ import {RDF, SHUI} from "./namespaces.ts";
 // @ts-ignore
 import {Validator} from "shacl-engine";
 import {DataFactory} from "rdf-data-factory";
-import {toLabeledValue} from "./labels.ts";
+import {toLabeledValue, type LabelResolutionConfig} from "./labels.ts";
 
 const df: RDFJS.DataFactory = new DataFactory();
 
@@ -274,7 +274,7 @@ export async function selectWidget(
  * scores for a focus node and property shape. The first element is the default widget; the rest
  * are the alternatives a user may switch to.
  */
-export async function score(focusNode: Term | null, dataGraph: RdfStore, constraintShape: Term, shapesGraph: RdfStore, widgetScoringGraph: RdfStore, dereferenceForLabelResolution: boolean): Promise<WidgetScore[]> {
+export async function score(focusNode: Term | null, dataGraph: RdfStore, constraintShape: Term, shapesGraph: RdfStore, widgetScoringGraph: RdfStore, labelConfig: LabelResolutionConfig): Promise<WidgetScore[]> {
    const matches = await scoreFunction(false, focusNode, dataGraph, constraintShape, shapesGraph, widgetScoringGraph);
 
    // Widget Selection post-processing: de-duplicate by widget IRI, keeping the highest score
@@ -293,7 +293,7 @@ export async function score(focusNode: Term | null, dataGraph: RdfStore, constra
    const survivors = deduped.filter((_, i) => accepted[i]);
 
    return Promise.all(survivors.map(async m => ({
-      widget: await toLabeledValue(m.widget, dataGraph, shapesGraph, dereferenceForLabelResolution),
+      widget: await toLabeledValue(m.widget, dataGraph, shapesGraph, labelConfig),
       source: m.source,
       score: m.score,
    })));
