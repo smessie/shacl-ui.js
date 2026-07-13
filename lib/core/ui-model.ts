@@ -74,6 +74,17 @@ function sortComponents(elements: UIComponent[]): UIComponent[] {
 // Used by constructUiComponents (root level) and all recursive/nested calls.
 // ---------------------------------------------------------------------------
 
+/**
+ * Canonical key for an sh:path object, used to detect property shapes that share the same
+ * path. Complex paths with structurally equal expressions produce the same key even when
+ * declared as distinct blank nodes.
+ */
+function pathKey(pathObject: Term, shapesGraph: RdfStore): string {
+   if (pathObject.termType === "NamedNode") return pathObject.value;
+   const expr = parsePathExpr(pathObject, shapesGraph);
+   return expr ? serializePathExpr(expr) : `${pathObject.termType}:${pathObject.value}`;
+}
+
 async function buildUiComponents(
    renderer: ShaclRenderer,
    shapesGraph: RdfStore,
@@ -84,12 +95,53 @@ async function buildUiComponents(
 ): Promise<UIComponent[]> {
    if (!constraintShape) return [];
 
-   const elements: UIComponent[] = [];
+   // Property UI Component aggregation (spec §rendering-concepts): property shapes that share
+   // the same focus node and property path combine into ONE component. Group the sh:property
+   // objects by canonical path; singleton groups (the common case) are processed directly.
+   const groups = new Map<string, Term[]>();
    for (const uiProperty of shapesGraph.getQuads(constraintShape, SH("property"), null)) {
-      const element = await extractProperty(
-         uiProperty.object, renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph,
-      );
-      if (element) elements.push(element);
+      const pathObject = shapesGraph.getQuads(uiProperty.object, SH("path"), null)[0]?.object;
+      // Shapes without a resolvable path key stay separate (extractProperty warns and skips them).
+      const key = pathObject ? pathKey(pathObject, shapesGraph) : `no-path:${uiProperty.object.value}`;
+      const group = groups.get(key);
+      if (group) group.push(uiProperty.object);
+      else groups.set(key, [uiProperty.object]);
+   }
+
+   const elements: UIComponent[] = [];
+   for (const group of groups.values()) {
+      if (group.length === 1) {
+         const element = await extractProperty(
+            group[0], renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph,
+         );
+         if (element) elements.push(element);
+         continue;
+      }
+      // Merge the group into a synthetic property-shape node: copy every member's constraint
+      // quads onto a fresh blank node (sh:path only from the first member, so the merged node
+      // keeps exactly one sh:path). The temporary quads are removed again after extraction —
+      // the same pattern as the temporary default-value quads used during scoring.
+      const merged = df.blankNode(`merged-${self.crypto.randomUUID()}`);
+      const addedQuads: Quad[] = [];
+      let pathCopied = false;
+      for (const member of group) {
+         for (const quad of shapesGraph.getQuads(member, null, null)) {
+            if (quad.predicate.equals(SH("path"))) {
+               if (pathCopied) continue;
+               pathCopied = true;
+            }
+            const mergedQuad = df.quad(merged, quad.predicate as Quad_Object & Quad['predicate'], quad.object);
+            if (shapesGraph.addQuad(mergedQuad)) addedQuads.push(mergedQuad);
+         }
+      }
+      try {
+         const element = await extractProperty(
+            merged, renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph,
+         );
+         if (element) elements.push(element);
+      } finally {
+         for (const quad of addedQuads) shapesGraph.removeQuad(quad);
+      }
    }
 
    return sortComponents(elements);
