@@ -113,19 +113,23 @@ export function resolvePreferredLanguages(languages?: string): string[] {
 
 /**
  * Local Name Resolution: derives a human-friendly label from an IRI by taking its local name
- * (the part after the last `#` or `/`) and splitting camelCase identifiers, underscores and
- * hyphens into space-separated words. Falls back to the full IRI when no local name can be
- * derived. For example, `.../givenName` becomes `given Name` and `...#TimBL` becomes `Tim B L`.
+ * (the part after the last `#` or `/`) and splitting camelCase identifiers, underscores, hyphens
+ * and digit boundaries into space-separated words, capitalizing the result. Falls back to the
+ * full IRI when no local name can be derived. For example, `.../givenName` becomes `Given Name`,
+ * `.../address2Line` becomes `Address 2 Line` and `...#TimBL` becomes `Tim B L`.
  */
 export function localNameResolution(iri: string): string {
    const local = (iri.split("#").pop() ?? "").split("/").pop() ?? "";
    if (local.length === 0) return iri;
    const spaced = local
       .replace(/(?<=[A-Za-z])(?=[A-Z])/g, " ")
+      .replace(/(?<=[A-Za-z])(?=[0-9])/g, " ")
+      .replace(/(?<=[0-9])(?=[A-Za-z])/g, " ")
       .replace(/[_-]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
-   return spaced.length > 0 ? spaced : iri;
+   if (spaced.length === 0) return iri;
+   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
 /**

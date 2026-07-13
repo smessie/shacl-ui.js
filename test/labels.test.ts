@@ -26,8 +26,8 @@ const iri = (v: string) => df.namedNode(v);
 const lit = (v: string, lang?: string) => df.literal(v, lang);
 
 describe("localNameResolution", () => {
-   it("splits camelCase into words", () => {
-      expect(localNameResolution("http://example.org/givenName")).toBe("given Name");
+   it("splits camelCase into words and capitalizes the result", () => {
+      expect(localNameResolution("http://example.org/givenName")).toBe("Given Name");
    });
 
    it("splits consecutive uppercase letters (spec TimBL example)", () => {
@@ -35,8 +35,13 @@ describe("localNameResolution", () => {
    });
 
    it("replaces underscores and hyphens with spaces", () => {
-      expect(localNameResolution("http://example.org/full_name")).toBe("full name");
-      expect(localNameResolution("http://example.org/full-name")).toBe("full name");
+      expect(localNameResolution("http://example.org/full_name")).toBe("Full name");
+      expect(localNameResolution("http://example.org/full-name")).toBe("Full name");
+   });
+
+   it("splits on digit boundaries", () => {
+      expect(localNameResolution("http://example.org/address2Line")).toBe("Address 2 Line");
+      expect(localNameResolution("http://example.org/line2")).toBe("Line 2");
    });
 
    it("uses the local name after the last # or /", () => {
@@ -126,7 +131,7 @@ describe("toPropertyLabel", () => {
       const shapes = await TTL(`ex:shape sh:path ex:givenName .`);
       const label = await toPropertyLabel(iri("http://example.org/shape"), "http://example.org/givenName",
          await EMPTY(), shapes, {preferredLanguages: ["en"]});
-      expect(label).toBe("given Name");
+      expect(label).toBe("Given Name");
    });
 });
 
@@ -164,7 +169,7 @@ describe("toValueNodeLabel", () => {
 
    it("step 5: an IRI without a label uses local name resolution", async () => {
       const label = await toValueNodeLabel(iri("http://example.org/givenName"), await EMPTY(), await EMPTY(), {});
-      expect(label).toBe("given Name");
+      expect(label).toBe("Given Name");
    });
 
    it("step 6: a blank node without a label uses a placeholder", async () => {
@@ -186,6 +191,6 @@ describe("toLabeledValue", () => {
 
    it("falls back to local name resolution for an unlabelled IRI", async () => {
       const lv = await toLabeledValue(iri("http://example.org/givenName"), await EMPTY(), await EMPTY(), {});
-      expect(lv.label).toBe("given Name");
+      expect(lv.label).toBe("Given Name");
    });
 });
