@@ -133,12 +133,20 @@ export function localNameResolution(iri: string): string {
 }
 
 /**
- * Finds the property path annotated with `shui:propertyRole shui:LabelRole` on the applicable
- * node shape for value node `V`. The applicable node shape is taken from `ctx.nodeShape` when
- * provided, otherwise it is discovered from the shapes graph by `sh:targetNode`/`sh:targetClass`
- * targeting `V`. Returns the predicate IRI of that path, or `undefined` when none applies.
+ * Finds the property paths annotated with the `shui:LabelRole` property role on the applicable
+ * node shape(s) for value node `V`, in preference order. The applicable node shape is taken from
+ * `ctx.nodeShape` when provided, plus shapes discovered by `sh:targetNode`/`sh:targetClass`
+ * targeting `V`.
+ *
+ * All three annotation forms of the spec (§property-roles) are supported:
+ * - direct:    `shui:propertyRole shui:LabelRole`
+ * - qualified: `shui:propertyRole [ shui:propertyRole shui:LabelRole ; sh:order 0 ]`
+ * - RDF 1.2:   `shui:propertyRole shui:LabelRole {| sh:order 0 |}` (read via `rdf:reifies`)
+ *
+ * Qualified/annotated roles are always preferred over direct ones and are ordered by ascending
+ * `sh:order`; direct roles follow in document order.
  */
-function findLabelRolePath(V: Term, dataGraph: RdfStore, shapesGraph: RdfStore, ctx?: LabelContext): NamedNode | undefined {
+function findLabelRolePaths(V: Term, dataGraph: RdfStore, shapesGraph: RdfStore, ctx?: LabelContext): NamedNode[] {
    const nodeShapes: Term[] = [];
    if (ctx?.nodeShape) {
       nodeShapes.push(ctx.nodeShape);
@@ -156,18 +164,58 @@ function findLabelRolePath(V: Term, dataGraph: RdfStore, shapesGraph: RdfStore, 
       }
    }
 
+   type Candidate = {path: NamedNode; qualified: boolean; order: number};
+   const candidates: Candidate[] = [];
    for (const nodeShape of nodeShapes) {
       for (const propertyQuad of shapesGraph.getQuads(nodeShape, SH("property"))) {
          const propertyShape = propertyQuad.object;
-         const roleQuad = shapesGraph.getQuads(propertyShape, SHUI("propertyRole"), SHUI("LabelRole"))[0];
-         if (!roleQuad) continue;
-         const pathQuad = shapesGraph.getQuads(propertyShape, SH("path"))[0];
-         if (pathQuad && pathQuad.object.termType === "NamedNode") {
-            return pathQuad.object;
+         for (const roleQuad of shapesGraph.getQuads(propertyShape, SHUI("propertyRole"))) {
+            const roleObject = roleQuad.object;
+            let matches = false;
+            let qualified = false;
+            let order = Infinity;
+            if (roleObject.equals(SHUI("LabelRole"))) {
+               matches = true;
+               // RDF 1.2 triple-annotation form: a reifier of this very triple carrying sh:order.
+               const tripleTerm = df.quad(propertyShape as any, SHUI("propertyRole"), roleObject as any);
+               for (const reifierQuad of shapesGraph.getQuads(null, RDF("reifies"), tripleTerm)) {
+                  const orderQuad = shapesGraph.getQuads(reifierQuad.subject, SH("order"))[0];
+                  if (orderQuad) {
+                     qualified = true;
+                     const parsed = parseFloat(orderQuad.object.value);
+                     if (!isNaN(parsed)) order = Math.min(order, parsed);
+                  }
+               }
+            } else {
+               // Qualified form: an intermediate node carrying the inner role and its sh:order.
+               if (shapesGraph.getQuads(roleObject, SHUI("propertyRole"), SHUI("LabelRole")).length > 0) {
+                  matches = true;
+                  qualified = true;
+                  const orderRaw = shapesGraph.getQuads(roleObject, SH("order"))[0]?.object.value;
+                  const parsed = orderRaw !== undefined ? parseFloat(orderRaw) : NaN;
+                  if (!isNaN(parsed)) order = parsed;
+               }
+            }
+            if (!matches) continue;
+            const pathQuad = shapesGraph.getQuads(propertyShape, SH("path"))[0];
+            if (pathQuad && pathQuad.object.termType === "NamedNode") {
+               candidates.push({path: pathQuad.object, qualified, order});
+            }
          }
       }
    }
-   return undefined;
+
+   // Qualified first (ascending sh:order, stable), then direct in document order; dedupe paths.
+   const ordered = [
+      ...candidates.filter(c => c.qualified).sort((a, b) => a.order - b.order),
+      ...candidates.filter(c => !c.qualified),
+   ];
+   const seen = new Set<string>();
+   return ordered.filter(c => {
+      if (seen.has(c.path.value)) return false;
+      seen.add(c.path.value);
+      return true;
+   }).map(c => c.path);
 }
 
 /** Dereferences the IRI (and an LOV mirror) and resolves a label from the fetched graph, if any. */
@@ -213,9 +261,9 @@ export async function toValueNodeLabel(V: Term, dataGraph: RdfStore, shapesGraph
       return V.value;
    }
 
-   // Step 2: shui:LabelRole path on the applicable node shape, read from the data graph.
-   const labelRolePath = findLabelRolePath(V, dataGraph, shapesGraph, ctx);
-   if (labelRolePath) {
+   // Step 2: shui:LabelRole paths on the applicable node shape, read from the data graph,
+   // tried in role-preference order (qualified by ascending sh:order, then direct).
+   for (const labelRolePath of findLabelRolePaths(V, dataGraph, shapesGraph, ctx)) {
       const picked = selectByLanguage(dataGraph.getQuads(V, labelRolePath), langOpts);
       if (picked) return picked.value;
    }
