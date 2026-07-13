@@ -54,12 +54,12 @@ export function extractAlternativePaths(alternativePathNode: Term, shapesGraph: 
  * Collects all transitive `rdfs:subClassOf` subclasses of `rootClass` into `subclasses`.
  * The visited set (seeded with the root) guards against cyclic/diamond hierarchies.
  */
-export async function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: Term[], visited: Set<string> = new Set<string>([rootClass.value])): Promise<void> {
+export function extractSubclasses(rootClass: Term, dataGraph: RdfStore, shapesGraph: RdfStore, subclasses: Term[], visited: Set<string> = new Set<string>([rootClass.value])): void {
    const subclassObjects = [... dataGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject), ...shapesGraph.getQuads(null, RDFS("subClassOf"), rootClass).map(quad => quad.subject)];
    for (const subclass of subclassObjects) {
       if (visited.has(subclass.value)) continue; // guard against cyclic/diamond subclass hierarchies
       visited.add(subclass.value);
       subclasses.push(subclass);
-      await extractSubclasses(subclass, dataGraph, shapesGraph, subclasses, visited);
+      extractSubclasses(subclass, dataGraph, shapesGraph, subclasses, visited);
    }
 }

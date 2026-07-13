@@ -1,7 +1,7 @@
 import type {Term} from "@rdfjs/types";
 import * as RDFJS from '@rdfjs/types';
 import type {RdfStore} from "rdf-stores";
-import type {WidgetScore} from "../types.ts";
+import type {LabeledValue, WidgetScore} from "../types.ts";
 import {RDF, SHUI} from "./namespaces.ts";
 // @ts-ignore
 import {Validator} from "shacl-engine";
@@ -23,6 +23,38 @@ function getValidator(shapesGraph: RdfStore): any {
       validatorCache.set(shapesGraph, validator);
    }
    return validator;
+}
+
+/**
+ * Derived structures of a scoring graph, cached per store. score() runs roughly twice per
+ * property plus once per value, and without this cache each run re-scans every
+ * shui:WidgetScore / shui:WidgetAcceptMatcher in the scoring graph. Scoring stores are
+ * replaced (never mutated) when the graph attribute changes, so a WeakMap keyed on the store
+ * invalidates naturally.
+ */
+type ScoringCache = {
+   /** collectWidgetScores result: all well-formed WidgetScores, sorted. Treat as immutable. */
+   sortedScores?: {node: Term; widget: Term; score: number}[];
+   /** widget IRI → its WidgetAcceptMatcher node (first declared wins), undefined = none. */
+   acceptMatcherByWidget?: Map<string, Term | undefined>;
+   /** matcher node key → its shapesGraphShape / dataGraphShape terms. */
+   matcherShapes: Map<string, {shapesGraphShapes: Term[]; dataGraphShapes: Term[]}>;
+   /**
+    * widget IRI + label-config fingerprint → resolved label. Assumes widget-IRI labels in the
+    * data/shapes graphs do not change mid-session (they virtually never do).
+    */
+   widgetLabels: Map<string, Promise<LabeledValue>>;
+};
+
+const scoringCache = new WeakMap<RdfStore, ScoringCache>();
+
+function getScoringCache(scoringGraph: RdfStore): ScoringCache {
+   let cache = scoringCache.get(scoringGraph);
+   if (!cache) {
+      cache = {matcherShapes: new Map(), widgetLabels: new Map()};
+      scoringCache.set(scoringGraph, cache);
+   }
+   return cache;
 }
 
 /** A single result produced by the score function: a widget, the WidgetScore it came from, and its score. */
@@ -55,20 +87,38 @@ function compareByCodepoint(a: string, b: string): number {
    return ac.length - bc.length;
 }
 
-/** Read the shapesGraphShape and dataGraphShape values off any shui:WidgetMatcher node. */
+/** Read the shapesGraphShape and dataGraphShape values off any shui:WidgetMatcher node. Cached per store. */
 function getMatcherShapes(scoringGraph: RdfStore, matcherNode: Term): {shapesGraphShapes: Term[]; dataGraphShapes: Term[]} {
-   return {
-      shapesGraphShapes: scoringGraph.getQuads(matcherNode, SHUI("shapesGraphShape"), null).map(q => q.object),
-      dataGraphShapes: scoringGraph.getQuads(matcherNode, SHUI("dataGraphShape"), null).map(q => q.object),
-   };
+   const cache = getScoringCache(scoringGraph);
+   const key = `${matcherNode.termType}:${matcherNode.value}`;
+   let shapes = cache.matcherShapes.get(key);
+   if (!shapes) {
+      shapes = {
+         shapesGraphShapes: scoringGraph.getQuads(matcherNode, SHUI("shapesGraphShape"), null).map(q => q.object),
+         dataGraphShapes: scoringGraph.getQuads(matcherNode, SHUI("dataGraphShape"), null).map(q => q.object),
+      };
+      cache.matcherShapes.set(key, shapes);
+   }
+   return shapes;
 }
 
-/** Find the single shui:WidgetAcceptMatcher whose shui:widget matches the given widget IRI. */
+/** Find the single shui:WidgetAcceptMatcher whose shui:widget matches the given widget IRI. Cached per store. */
 function findAcceptMatcher(scoringGraph: RdfStore, widget: Term): Term | undefined {
-   const matchers = scoringGraph.getQuads(null, RDF("type"), SHUI("WidgetAcceptMatcher")).map(q => q.subject);
-   return matchers.find(m =>
-      scoringGraph.getQuads(m, SHUI("widget"), widget).length > 0,
-   );
+   const cache = getScoringCache(scoringGraph);
+   if (!cache.acceptMatcherByWidget) {
+      // Precompute the whole widget → matcher map in one scan. The first declared matcher for
+      // a widget wins, matching the previous `.find` semantics.
+      const map = new Map<string, Term | undefined>();
+      for (const matcher of scoringGraph.getQuads(null, RDF("type"), SHUI("WidgetAcceptMatcher")).map(q => q.subject)) {
+         for (const widgetQuad of scoringGraph.getQuads(matcher, SHUI("widget"), null)) {
+            if (!map.has(widgetQuad.object.value)) {
+               map.set(widgetQuad.object.value, matcher);
+            }
+         }
+      }
+      cache.acceptMatcherByWidget = map;
+   }
+   return cache.acceptMatcherByWidget.get(widget.value);
 }
 
 /**
@@ -77,6 +127,10 @@ function findAcceptMatcher(scoringGraph: RdfStore, widget: Term): Term | undefin
  * @throws Error if any WidgetScore is malformed.
  */
 function collectWidgetScores(scoringGraph: RdfStore): {node: Term; widget: Term; score: number}[] {
+   const cache = getScoringCache(scoringGraph);
+   if (cache.sortedScores) {
+      return cache.sortedScores;
+   }
    const nodes = scoringGraph.getQuads(null, RDF("type"), SHUI("WidgetScore")).map(q => q.subject);
    const collected = nodes.map(node => {
       const widgetQuads = scoringGraph.getQuads(node, SHUI("widget"), null);
@@ -94,6 +148,7 @@ function collectWidgetScores(scoringGraph: RdfStore): {node: Term; widget: Term;
       return {node, widget: widgetQuads[0].object, score};
    });
    collected.sort((a, b) => (b.score - a.score) || compareByCodepoint(a.widget.value, b.widget.value));
+   cache.sortedScores = collected;
    return collected;
 }
 
@@ -292,8 +347,27 @@ export async function score(focusNode: Term | null, dataGraph: RdfStore, constra
    ));
    const survivors = deduped.filter((_, i) => accepted[i]);
 
+   // Widget labels are stable for a given scoring store + label configuration, so resolve each
+   // widget IRI's label only once instead of per score() call (which runs per property and per
+   // value). Cache the promise so concurrent calls share one resolution.
+   const cache = getScoringCache(widgetScoringGraph);
+   const configFingerprint = JSON.stringify([
+      labelConfig.preferredLanguages ?? [],
+      labelConfig.labelPredicates ?? [],
+      labelConfig.dereferenceForLabelResolution ?? false,
+   ]);
+   const widgetLabel = (widget: Term): Promise<LabeledValue> => {
+      const key = `${widget.value}|${configFingerprint}`;
+      let promise = cache.widgetLabels.get(key);
+      if (!promise) {
+         promise = toLabeledValue(widget, dataGraph, shapesGraph, labelConfig);
+         cache.widgetLabels.set(key, promise);
+      }
+      return promise;
+   };
+
    return Promise.all(survivors.map(async m => ({
-      widget: await toLabeledValue(m.widget, dataGraph, shapesGraph, labelConfig),
+      widget: await widgetLabel(m.widget),
       source: m.source,
       score: m.score,
    })));

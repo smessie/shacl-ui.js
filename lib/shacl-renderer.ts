@@ -126,11 +126,21 @@ export class ShaclRenderer extends TwLitElement {
   labelPredicates: string = '';
 
   /**
+   * Cached {@link LabelResolutionConfig}. The getter below is called in hot loops (per property,
+   * per instance, per or-option render), so the config is computed once and invalidated in
+   * willUpdate when one of its source properties changes.
+   */
+  private cachedLabelConfig: LabelResolutionConfig | null = null;
+
+  /**
    * Resolves the {@link LabelResolutionConfig} used by label/description/language resolution from
    * the current renderer configuration (preferred languages, optional predicate override, and the
    * dereferencing fallback flag).
    */
   get labelConfig(): LabelResolutionConfig {
+    if (this.cachedLabelConfig) {
+      return this.cachedLabelConfig;
+    }
     const config: LabelResolutionConfig = {
       preferredLanguages: resolvePreferredLanguages(this.languages),
       dereferenceForLabelResolution: this.dereferenceForLabelResolution,
@@ -139,6 +149,7 @@ export class ShaclRenderer extends TwLitElement {
     if (predicates.length > 0) {
       config.labelPredicates = predicates;
     }
+    this.cachedLabelConfig = config;
     return config;
   }
 
@@ -604,6 +615,11 @@ export class ShaclRenderer extends TwLitElement {
     // Invalidate the memoized styling classes when any styling slot changed.
     if (this.mergedClasses && (Object.keys(ShaclRenderer.DEFAULTS) as (keyof TailwindClasses)[]).some(key => changedProperties.has(key))) {
       this.mergedClasses = null;
+    }
+
+    // Invalidate the memoized label config when one of its source properties changed.
+    if (changedProperties.has('languages') || changedProperties.has('labelPredicates') || changedProperties.has('dereferenceForLabelResolution')) {
+      this.cachedLabelConfig = null;
     }
 
     let reconstructUi = false;

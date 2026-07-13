@@ -301,7 +301,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    if (clazz) {
       if (clazz.termType === "NamedNode") {
          classes = [clazz];
-         await extractSubclasses(clazz, dataGraph, shapesGraph, classes);
+         extractSubclasses(clazz, dataGraph, shapesGraph, classes);
       } else if (clazz.termType === "BlankNode") {
          classes = extractShaclList(clazz, shapesGraph);
       } else {
@@ -338,7 +338,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    let subclasses: Term[] | undefined = undefined;
    if (rootClass) {
       subclasses = [rootClass];
-      await extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
+      extractSubclasses(rootClass, dataGraph, shapesGraph, subclasses);
       labeledSubclasses = await Promise.all(subclasses.map(async (subclass) => await toLabeledValue(subclass, dataGraph, shapesGraph, renderer.labelConfig)));
    }
 
@@ -485,7 +485,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          element.orClass = await Promise.all(orList.map(async orListItem => {
             const clazz = shapesGraph.getQuads(orListItem, SH("class"), null)[0]?.object;
             const classTerms: Term[] = [clazz];
-            await extractSubclasses(clazz, dataGraph, shapesGraph, classTerms);
+            extractSubclasses(clazz, dataGraph, shapesGraph, classTerms);
             // Dedupe subjects typed in both graphs or by several (sub)classes, mirroring the
             // main sh:class path above.
             const instanceSubjects = dedupeTerms(classTerms.flatMap(c => [

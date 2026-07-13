@@ -47,7 +47,7 @@ describe("extractSubclasses", () => {
       store.addQuad(df.quad(b, RDFS("subClassOf"), a));
       store.addQuad(df.quad(a, RDFS("subClassOf"), b));
       const subclasses = [a];
-      await extractSubclasses(a, empty, store, subclasses);
+      extractSubclasses(a, empty, store, subclasses);
       // A (seed) + B, with no infinite re-walk and no duplicates.
       expect(subclasses.map(t => t.value).sort()).toEqual([
          "http://example.org/A",
