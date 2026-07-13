@@ -30,6 +30,8 @@ export type UIComponent = {
    order?: number;
    group?: UIGroup;
    nodeKind?: Term;
+   /** Ordered sh:languageIn language tags declared on the property shape, if any. */
+   languageIn?: string[];
    orNode?: OrNode[];
    orDatatype?: OrDatatype[];
    orClass?: OrClass[];

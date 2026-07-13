@@ -5,9 +5,10 @@ import {type TailwindClasses, type UIComponent, type UIComponentValue} from "../
 import {findTailwindMarginBottomValue} from "../tailwind.ts";
 import {mutateTerm} from "../../core/rdf.ts";
 import {ShaclRenderer} from "../../shacl-renderer.ts";
-import {sanitizeHtml, isSafeLinkUrl, renderXIcon} from "./shared.ts";
+import {sanitizeHtml, isSafeLinkUrl, renderXIcon, getHtmlLang, setHtmlLang} from "./shared.ts";
 import {renderUIComponents} from "./layout.ts";
 import {renderDetailsClassSelect} from "./editors-select.ts";
+import {languageOptions} from "./editors-fields.ts";
 
 export function renderDetailsEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    const childComponents = uiComponent.children ? (uiComponent.children[index] ?? []) : [];
@@ -58,6 +59,10 @@ export function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UICom
       };
       reader.readAsDataURL(file);
    };
+
+   // The spec stores the RichTextEditor language in the lang attribute of the HTML root.
+   const currentLang = getHtmlLang(value.value.value ?? '');
+   const langOptions = languageOptions(renderer, uiComponent, currentLang);
 
    return html`
        <div class="${twMerge('relative', `mb-${findTailwindMarginBottomValue(twMerge(classes.globalFieldClass, classes.richTextEditorClass)) || '0'}`)}">
@@ -202,6 +207,25 @@ export function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UICom
                                   if (file) insertImage(file);
                               }}">
                    </label>
+
+                   <!-- Language (stored as the lang attribute of the HTML root) -->
+                   <select data-rte-lang
+                           class="${twMerge(classes.richTextEditorSelectClass)}"
+                           aria-label="Content language"
+                           @change="${(e: Event) => {
+                               const lang = (e.target as HTMLSelectElement).value || undefined;
+                               const newHtml = setHtmlLang(value.value.value ?? '', lang);
+                               const newTerm = mutateTerm(value.value, newHtml);
+                               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                               renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+                               value.value = newTerm;
+                               renderer.rerender();
+                           }}">
+                       <option value="" ?selected="${!currentLang}">Language</option>
+                       ${langOptions.map(lang => html`
+                           <option value="${lang}" ?selected="${lang === currentLang}">${lang}</option>
+                       `)}
+                   </select>
 
                    <!-- HTML toggle -->
                    <button type="button"

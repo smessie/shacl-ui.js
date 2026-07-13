@@ -401,9 +401,10 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    // For complex paths without an sh:name, fall back to the path serialization
    // (Property Labels step 5: implementation-specific rendering of the path).
    const label = resolvedLabel.length > 0 ? resolvedLabel : (complexPathExpr ? paths[0].path : undefined);
+   const languageIn = extractLanguageIn(property, shapesGraph);
    const description = selectByLanguage(
       shapesGraph.getQuads(property, SH("description"), null),
-      {languageIn: extractLanguageIn(property, shapesGraph), preferredLanguages: labelConfig.preferredLanguages},
+      {languageIn, preferredLanguages: labelConfig.preferredLanguages},
    )?.value;
    const datatype = shapesGraph.getQuads(property, SH("datatype"), null)[0]?.object;
    const minCount = shapesGraph.getQuads(property, SH("minCount"), null)[0]?.object;
@@ -569,6 +570,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       maxInclusive: maxInclusive,
       order: order ? parseFloat(order) : undefined,
       nodeKind: nodeKind,
+      languageIn: languageIn,
       hasValue: hasValue,
    }
 

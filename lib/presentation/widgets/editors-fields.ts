@@ -242,6 +242,28 @@ export function renderTextFieldEditor(renderer: ShaclRenderer, uiComponent: UICo
    `;
 }
 
+/**
+ * Ordered language options offered by the language dropdown of the WithLang editors: the
+ * property shape's sh:languageIn when declared (spec: the dropdown lists these), otherwise the
+ * configured/browser preferred languages. The current tag is always included.
+ */
+export function languageOptions(renderer: ShaclRenderer, uiComponent: UIComponent, current?: string): string[] {
+   const base = (uiComponent.languageIn && uiComponent.languageIn.length > 0)
+      ? uiComponent.languageIn
+      : (renderer.labelConfig.preferredLanguages ?? []);
+   return [...new Set(current ? [...base, current] : base)];
+}
+
+/** Datalist that turns the free-text language input into a dropdown with free entry. */
+function renderLangDatalist(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number) {
+   const options = languageOptions(renderer, uiComponent, (value.value as Literal).language || undefined);
+   return html`
+       <datalist id="${uiComponent.uuid}-${index}-langs">
+           ${options.map(lang => html`<option value="${lang}"></option>`)}
+       </datalist>
+   `;
+}
+
 export function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiComponent: UIComponent, value: UIComponentValue, index: number, classes: TailwindClasses, disabled: boolean = false) {
    // Just like a TextFieldEditor, but a grouped input with as second field, a small input for language tag
    return html`
@@ -283,12 +305,14 @@ export function renderTextFieldWithLangEditor(renderer: ShaclRenderer, uiCompone
 
            <!-- Language tag -->
            <div class="relative">
+               ${renderLangDatalist(renderer, uiComponent, value, index)}
                <input
                        type="text"
                        ?required="${(uiComponent.minCount ?? 0) > 0}"
                        inputmode="latin"
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
+                       list="${uiComponent.uuid}-${index}-langs"
                        .value="${(value.value as Literal).language ?? ''}"
                        ?disabled="${disabled}"
                        class="${twMerge(
@@ -365,12 +389,14 @@ export function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponen
 
            <!-- Language tag -->
            <div class="relative">
+               ${renderLangDatalist(renderer, uiComponent, value, index)}
                <input
                        type="text"
                        ?required="${(uiComponent.minCount ?? 0) > 0}"
                        inputmode="latin"
                        pattern="[a-zA-Z-]*"
                        placeholder="Lang"
+                       list="${uiComponent.uuid}-${index}-langs"
                        .value="${(value.value as Literal).language ?? ''}"
                        ?disabled="${disabled}"
                        class="${twMerge(
@@ -379,6 +405,7 @@ export function renderTextAreaWithLangEditor(renderer: ShaclRenderer, uiComponen
                                'w-25 rounded-l-none mb-0 h-full',
                                disabled ? 'cursor-not-allowed opacity-60' : ''
                        )}"
+                       aria-label="Language tag"
                        @change="${(e: Event) => {
                            const input = e.target as HTMLInputElement;
                            const newTerm = mutateTerm(value.value, undefined, input.value);

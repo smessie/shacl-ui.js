@@ -22,6 +22,42 @@ export function sanitizeHtml(value: string): string {
    return DOMPurify.sanitize(value);
 }
 
+/**
+ * Reads the language of an rdf:HTML literal's content from the `lang` attribute of its single
+ * root element (the spec stores the RichTextEditor language there). Returns undefined for
+ * fragments without a single root element or without a lang attribute.
+ */
+export function getHtmlLang(html: string): string | undefined {
+   const template = document.createElement('template');
+   template.innerHTML = html;
+   const children = template.content.children;
+   if (children.length === 1) {
+      return children[0].getAttribute('lang') || undefined;
+   }
+   return undefined;
+}
+
+/**
+ * Sets (or removes, when `lang` is undefined) the language of an rdf:HTML fragment on its root
+ * element's `lang` attribute. A fragment without a single root element is wrapped in a
+ * `<div lang="...">` so the attribute has a place to live.
+ */
+export function setHtmlLang(html: string, lang: string | undefined): string {
+   const template = document.createElement('template');
+   template.innerHTML = html;
+   const content = template.content;
+   if (content.children.length === 1 && content.childNodes.length === 1) {
+      if (lang) content.children[0].setAttribute('lang', lang);
+      else content.children[0].removeAttribute('lang');
+      return template.innerHTML;
+   }
+   if (!lang) return html;
+   const wrapper = document.createElement('div');
+   wrapper.setAttribute('lang', lang);
+   wrapper.append(...content.childNodes);
+   return wrapper.outerHTML;
+}
+
 /** Allow only http(s)/mailto links, blocking javascript:/data: schemes from sh:or rich-text links. */
 export function isSafeLinkUrl(url: string): boolean {
    try {

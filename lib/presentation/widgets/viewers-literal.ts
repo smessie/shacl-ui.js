@@ -4,7 +4,7 @@ import {twMerge} from "tailwind-merge";
 import {type Literal} from "@rdfjs/types";
 import {type TailwindClasses, type UIComponent, type UIComponentValue} from "../../types.ts";
 import {ShaclRenderer} from "../../shacl-renderer.ts";
-import {sanitizeHtml, isSafeLinkUrl} from "./shared.ts";
+import {sanitizeHtml, isSafeLinkUrl, getHtmlLang} from "./shared.ts";
 
 /** shui:LiteralViewer — the lexical form of any literal. */
 export function renderLiteralViewer(_renderer: ShaclRenderer, _uiComponent: UIComponent, value: UIComponentValue, _index: number, classes: TailwindClasses) {
@@ -40,9 +40,10 @@ export function renderHyperlinkViewer(_renderer: ShaclRenderer, _uiComponent: UI
    `;
 }
 
-/** shui:HTMLViewer — the literal parsed into (sanitized) HTML DOM elements. */
+/** shui:HTMLViewer — the literal parsed into (sanitized) HTML DOM elements. The language is
+ *  read from the lang attribute of the HTML root (spec), falling back to the literal's tag. */
 export function renderHTMLViewer(_renderer: ShaclRenderer, _uiComponent: UIComponent, value: UIComponentValue, _index: number, classes: TailwindClasses) {
-   const lang = (value.value as Literal).language;
+   const lang = getHtmlLang(value.value.value ?? '') ?? (value.value as Literal).language;
    return html`
        <div class="${twMerge(classes.htmlViewerClass)}">
            <div .innerHTML="${sanitizeHtml(value.value.value ?? '')}"></div>
