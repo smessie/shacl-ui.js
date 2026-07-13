@@ -57,12 +57,14 @@ function sortComponents(elements: UIComponent[]): UIComponent[] {
          if (a.group.order !== b.group.order) return a.group.order - b.group.order;
          // Same group → sort by element order.
          if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+         if (a.order === undefined && b.order === undefined) return 0;
          return a.order !== undefined ? -1 : 1;
       }
       if (a.group?.order !== undefined) return -1;
       if (b.group?.order !== undefined) return 1;
       // Neither has a group order.
       if (a.order !== undefined && b.order !== undefined) return a.order - b.order;
+      if (a.order === undefined && b.order === undefined) return 0;
       return a.order !== undefined ? -1 : 1;
    });
 }
@@ -364,7 +366,12 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
                parts.push(...await buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph));
             } else if (classes) {
                const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
-               parts.push(...await buildUiComponents(renderer, shapesGraph, usedClass, dataGraph, value, widgetScoringGraph));
+               if (usedClass) {
+                  // Resolve the node shape targeting the class (sh:targetClass); fall back to the
+                  // class term itself to keep supporting implicit class shapes (shape == class).
+                  const usedShape = shapesGraph.getQuads(null, SH("targetClass"), usedClass)[0]?.subject ?? usedClass;
+                  parts.push(...await buildUiComponents(renderer, shapesGraph, usedShape, dataGraph, value, widgetScoringGraph));
+               }
             }
             if (propertiesLength > 0) {
                parts.push(...await buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph));
@@ -479,11 +486,14 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
             const clazz = shapesGraph.getQuads(orListItem, SH("class"), null)[0]?.object;
             const classTerms: Term[] = [clazz];
             await extractSubclasses(clazz, dataGraph, shapesGraph, classTerms);
+            // Dedupe subjects typed in both graphs or by several (sub)classes, mirroring the
+            // main sh:class path above.
+            const instanceSubjects = dedupeTerms(classTerms.flatMap(c => [
+               ...dataGraph.getQuads(null, RDF_("type"), c),
+               ...shapesGraph.getQuads(null, RDF_("type"), c)
+            ].map(quad => quad.subject)));
             const instances = await Promise.all(
-               classTerms.flatMap(c => [
-                  ...dataGraph.getQuads(null, RDF_("type"), c),
-                  ...shapesGraph.getQuads(null, RDF_("type"), c)
-               ].map(async quad => toLabeledValue(quad.subject, dataGraph, shapesGraph, renderer.labelConfig)))
+               instanceSubjects.map(subject => toLabeledValue(subject, dataGraph, shapesGraph, renderer.labelConfig))
             );
             const classValue: ClassValue = {
                iri: clazz,

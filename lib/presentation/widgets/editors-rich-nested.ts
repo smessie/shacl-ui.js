@@ -42,7 +42,12 @@ export function renderRichTextEditor(renderer: ShaclRenderer, uiComponent: UICom
 
       editor.focus();
       document.execCommand(command, false, arg);
-      value.value.value = sanitizeHtml(editor.innerHTML);
+      // Replace the term instead of mutating it in place: the data store indexes terms by
+      // their string value, so an in-place mutation would leave the stored quad unfindable.
+      const newTerm = mutateTerm(value.value, sanitizeHtml(editor.innerHTML));
+      renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+      renderer.addToDataStore(uiComponent.focusNode, value.path, newTerm);
+      value.value = newTerm;
       renderer.rerender();
    };
 

@@ -111,11 +111,11 @@ export function renderOrSelectorForValue(renderer: ShaclRenderer, uiComponent: U
                               <div class="${twMerge(classes.orSelectorLabelClass)}">
                                   ${until(labeledValue.then(res => res.label))}
                               </div>
-                              ${until(labeledValue.then(res => res.description)) ? html`
+                              ${until(labeledValue.then(res => res.description ? html`
                                   <div class="${twMerge(classes.orSelectorDescriptionClass)}">
-                                      ${until(labeledValue.then(res => res.description))}
+                                      ${res.description}
                                   </div>
-                              ` : nothing}
+                              ` : nothing), nothing)}
                           </li>
                       `})}
                </ul>

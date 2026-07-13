@@ -509,10 +509,17 @@ export class ShaclRenderer extends TwLitElement {
     }
     if (this.dataStore && focusNode && path && value) {
       const pathTerm = df.namedNode(path.path);
+      // Remove synchronously via getQuads + removeQuad. RdfStore.removeMatches is stream-based
+      // and only removes on later microtasks, while every caller (editor change handlers,
+      // selectValueOrOption, data()) relies on the quad being gone immediately.
       if (path.type === "predicate") {
-        this.dataStore.removeMatches(focusNode, pathTerm, value);
+        for (const quad of this.dataStore.getQuads(focusNode, pathTerm, value)) {
+          this.dataStore.removeQuad(quad);
+        }
       } else if (path.type === "inverse") {
-        this.dataStore.removeMatches(value, pathTerm, focusNode);
+        for (const quad of this.dataStore.getQuads(value, pathTerm, focusNode)) {
+          this.dataStore.removeQuad(quad);
+        }
       } else {
         console.warn(`Unsupported path type for removal: ${path.type}`);
       }
@@ -562,10 +569,11 @@ export class ShaclRenderer extends TwLitElement {
       // The literal value itself encodes the datatype option: remove the old
       // literal and seed a fresh empty literal of the newly selected datatype.
       this.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+      // Note: uiComponent.datatype is deliberately left untouched — the or-selection is
+      // per-value, and the new literal's own datatype carries it (see getDataType).
       const datatype = uiComponent.orDatatype[index].datatype;
       const newValue = df.literal('', df.namedNode(datatype ?? xsd('string')));
       value.value = newValue;
-      uiComponent.datatype = datatype;
       this.addToDataStore(uiComponent.focusNode, value.path, newValue);
     } else if (uiComponent.orClass && uiComponent.orClass[index]) {
       // The typed node value encodes the class option: remove the old node (and
@@ -605,6 +613,11 @@ export class ShaclRenderer extends TwLitElement {
     if (changedProperties.has('mode') && this.shapesStore && this.dataStore && this.widgetScoringStore) {
       reconstructUi = true;
     }
+    // Changing the focus node or constraint shape re-targets the form, so rebuild too (the
+    // initial construction is driven by the graph changes below, hence the loaded-stores guard).
+    if ((changedProperties.has('focusNode') || changedProperties.has('constraintShape')) && this.shapesStore && this.dataStore && this.widgetScoringStore) {
+      reconstructUi = true;
+    }
     try {
       if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {
         this.loading = true;
@@ -636,13 +649,26 @@ export class ShaclRenderer extends TwLitElement {
         this.widgetScoringStore = await dereferenceRdf(new URL(this.widgetScoringGraphUrl, window.location.href).href);
         reconstructUi = true;
       }
-      if (reconstructUi && this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
-        const result = await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore);
-        this.ui = result.components;
-        this.renderSlots = result.renderSlots;
-        this.rootOrGroups = result.rootOrGroups;
-        this.error = null;
-        this.loading = false;
+      if (reconstructUi) {
+        if (this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
+          const result = await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore);
+          this.ui = result.components;
+          this.renderSlots = result.renderSlots;
+          this.rootOrGroups = result.rootOrGroups;
+          this.error = null;
+          this.loading = false;
+        } else {
+          // Inputs changed but the UI cannot be constructed: report which required input is
+          // missing instead of spinning forever.
+          const missing: string[] = [];
+          if (!this.dataStore) missing.push('data graph');
+          if (!this.shapesStore) missing.push('shapes graph');
+          if (!this.widgetScoringStore) missing.push('widget scoring graph');
+          if (!this.focusNode || this.focusNode.trim().length === 0) missing.push('focusNode');
+          if (!this.constraintShape || this.constraintShape.trim().length === 0) missing.push('constraintShape');
+          this.error = `Cannot render the form: missing required input(s): ${missing.join(', ')}.`;
+          this.loading = false;
+        }
       }
     } catch (err) {
       console.error('shacl-renderer: failed to parse graphs or construct the UI', err);

@@ -197,7 +197,9 @@ export function renderDetailsClassSelect(renderer: ShaclRenderer, uiComponent: U
                                        }
                                        uiComponent.children![index] = newChildren;
                                    } else {
-                                       uiComponent.children = [[]];
+                                       // Only clear this row's children; other value rows keep theirs.
+                                       if (!uiComponent.children) uiComponent.children = [];
+                                       uiComponent.children[index] = [];
                                    }
 
                                    // Close the dropdown and update the filter text to match the selected class.

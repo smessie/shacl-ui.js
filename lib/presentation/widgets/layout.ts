@@ -1,12 +1,10 @@
 // Root dispatch for the widget layer: render slots -> components -> the per-widget switch.
 import {html, nothing, type TemplateResult} from "lit";
 import {twMerge} from "tailwind-merge";
-import {type Quad_Object, type Quad_Subject} from "@rdfjs/types";
 import {type RootRenderSlot, type TailwindClasses, type UIComponent, type UIComponentValue} from "../../types.ts";
 import {shui} from "../../core/namespaces.ts";
 import {ShaclRenderer} from "../../shacl-renderer.ts";
 import {
-   df,
    renderDescription,
    renderLabel,
    renderOrSelectorForValue,
@@ -231,25 +229,11 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                                ${uiComponent.paths.map(path => html`
                                    <li class="${twMerge(classes.alternativePathOptionClass, path.path === value.path.path ? classes.alternativePathOptionSelectedClass : '')}"
                                        @click="${() => {
-                                           // Find all quads for the current path and re-add them with the new path.
+                                           // Move only THIS value's triple to the new path; sibling
+                                           // values keep their own (possibly the old) path.
                                            if (uiComponent.focusNode && value.path) {
-                                               const oldPathTerm = df.namedNode(value.path.path);
-                                               const newPathTerm = df.namedNode(path.path);
-                                               if (value.path.type === "predicate") {
-                                                   const quads = renderer.dataStore?.getQuads(uiComponent.focusNode as Quad_Subject, oldPathTerm, null);
-                                                   quads?.forEach(quad => {
-                                                       renderer.dataStore?.addQuad(df.quad(quad.subject, newPathTerm, quad.object));
-                                                       renderer.dataStore?.removeQuad(quad);
-                                                   });
-                                               } else if (value.path.type === "inverse") {
-                                                   const quads = renderer.dataStore?.getQuads(null, oldPathTerm, uiComponent.focusNode as Quad_Object);
-                                                   quads?.forEach(quad => {
-                                                       renderer.dataStore?.addQuad(df.quad(quad.subject, newPathTerm, quad.object));
-                                                       renderer.dataStore?.removeQuad(quad);
-                                                   });
-                                               } else {
-                                                   console.warn(`Unsupported path type ${value.path.type} for component ${uiComponent.uuid}, cannot update path in dataStore`);
-                                               }
+                                               renderer.removeFromDataStore(uiComponent.focusNode, value.path, value.value);
+                                               renderer.addToDataStore(uiComponent.focusNode, path, value.value);
                                            } else {
                                                console.warn(`Cannot update path in dataStore for component ${uiComponent.uuid} because it is missing a focus node or current path.`);
                                            }
