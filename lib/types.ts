@@ -37,7 +37,12 @@ export type UIComponent = {
    hasValue?: Term;
 };
 
-export type PathType = "predicate" | "inverse" | "alternative" | "sequence";
+/**
+ * `"complex"` marks a synthetic Path for a full SHACL path expression (sequence, closure, …)
+ * whose values were collected read-only in view mode; its `path` holds a SPARQL-like
+ * serialization used for display/keys only — it is never written to the data graph.
+ */
+export type PathType = "predicate" | "inverse" | "alternative" | "sequence" | "complex";
 
 export type Path = {
    path: string;

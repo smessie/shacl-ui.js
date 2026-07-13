@@ -20,7 +20,7 @@ import type {
 import {DCTERMS, isViewerIri, RDF as RDF_, RDFS, SCHEMA, SH, shui, SKOS} from "./namespaces.ts";
 import {score} from "./score.ts";
 import {extractShaclList, extractSubclasses} from "./rdf-list.ts";
-import {extractPaths} from "./paths.ts";
+import {evaluatePathExpr, extractPaths, parsePathExpr, type PathExpr, serializePathExpr} from "./paths.ts";
 import {toLabeledValue, toPropertyLabel, selectByLanguage, extractLanguageIn} from "./labels.ts";
 import {getDefaultTermForWidget} from "../presentation/widgets.ts";
 import {ShaclRenderer} from "../shacl-renderer.ts";
@@ -260,11 +260,21 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       console.warn(`Expected exactly one sh:path for constraint ${property.value}, found ${pathQuads.length}, skipping path extraction for this constraint`);
       return;
    }
-   const paths = extractPaths(property, shapesGraph, pathQuads[0].object);
+   let paths = extractPaths(property, shapesGraph, pathQuads[0].object, true);
 
+   // Complex path expressions (sequence, closures, nested combinations) cannot be edited, but
+   // in view mode their values are collected read-only per the spec (SHOULD support). A
+   // synthetic 'complex' Path carries a SPARQL-like serialization for display/keys only.
+   let complexPathExpr: PathExpr | undefined = undefined;
    if (!paths || paths.length === 0) {
-      console.warn(`UI property ${property.value} does not have a valid path, skipping`);
-      return;
+      if (renderer.mode === 'view') {
+         complexPathExpr = parsePathExpr(pathQuads[0].object, shapesGraph);
+      }
+      if (!complexPathExpr) {
+         console.warn(`UI property ${property.value} does not have a valid path, skipping`);
+         return;
+      }
+      paths = [{path: serializePathExpr(complexPathExpr), type: "complex"}];
    }
 
    const singlePredicate = paths.length === 1 && (paths[0].type === "predicate" || paths[0].type === "inverse")
@@ -272,7 +282,9 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       : undefined;
    const labelConfig = renderer.labelConfig;
    const resolvedLabel = await toPropertyLabel(property, singlePredicate, dataGraph, shapesGraph, labelConfig);
-   const label = resolvedLabel.length > 0 ? resolvedLabel : undefined;
+   // For complex paths without an sh:name, fall back to the path serialization
+   // (Property Labels step 5: implementation-specific rendering of the path).
+   const label = resolvedLabel.length > 0 ? resolvedLabel : (complexPathExpr ? paths[0].path : undefined);
    const description = selectByLanguage(
       shapesGraph.getQuads(property, SH("description"), null),
       {languageIn: extractLanguageIn(property, shapesGraph), preferredLanguages: labelConfig.preferredLanguages},
@@ -344,7 +356,42 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
 
    let values: UIComponentValue[] = [];
    let children: UIComponent[][] | undefined = undefined;
-   for (const path of paths) {
+
+   // Build the nested children for each value. A PropertyShape may combine sh:node
+   // (or sh:class) with inline sh:property; in that case both sets of components apply
+   // to the SAME value, so they are merged into one child entry per value to keep the
+   // children array aligned 1:1 with values (previously they were appended as separate
+   // entries, doubling the children and misaligning child[index] lookups).
+   const buildNestedChildren = async (pathValues: Term[]): Promise<UIComponent[][] | undefined> => {
+      if (!(node || classes || propertiesLength > 0)) return undefined;
+      return await Promise.all(pathValues.map(async (value) => {
+         const parts: UIComponent[] = [];
+         if (node) {
+            parts.push(...await buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph));
+         } else if (classes) {
+            const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
+            if (usedClass) {
+               // Resolve the node shape targeting the class (sh:targetClass); fall back to the
+               // class term itself to keep supporting implicit class shapes (shape == class).
+               const usedShape = shapesGraph.getQuads(null, SH("targetClass"), usedClass)[0]?.subject ?? usedClass;
+               parts.push(...await buildUiComponents(renderer, shapesGraph, usedShape, dataGraph, value, widgetScoringGraph));
+            }
+         }
+         if (propertiesLength > 0) {
+            parts.push(...await buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph));
+         }
+         return parts;
+      }));
+   };
+
+   if (complexPathExpr) {
+      // View-mode read-only collection through the full path expression. These values are
+      // never written back to the data graph (their Path is the synthetic 'complex' one).
+      const pathValues = focusNode ? evaluatePathExpr([focusNode], complexPathExpr, dataGraph) : [];
+      const nestedPerValue = await buildNestedChildren(pathValues);
+      if (nestedPerValue) children = [...(children ?? []), ...nestedPerValue];
+      pathValues.forEach(value => values.push({value: value, path: paths[0]}));
+   } else for (const path of paths) {
       if (path.type !== "predicate" && path.type !== "inverse") {
          console.warn(`Unsupported path type ${path.type} for constraint ${property.value}, skipping value extraction for this path`);
          continue;
@@ -354,32 +401,8 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          ? (focusNode ? dataGraph.getQuads(focusNode, df.namedNode(path.path), null).map(quad => quad.object) : [])
          : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
 
-      // Build the nested children for each value. A PropertyShape may combine sh:node
-      // (or sh:class) with inline sh:property; in that case both sets of components apply
-      // to the SAME value, so they are merged into one child entry per value to keep the
-      // children array aligned 1:1 with values (previously they were appended as separate
-      // entries, doubling the children and misaligning child[index] lookups).
-      if (node || classes || propertiesLength > 0) {
-         const nestedPerValue = await Promise.all(pathValues.map(async (value) => {
-            const parts: UIComponent[] = [];
-            if (node) {
-               parts.push(...await buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph));
-            } else if (classes) {
-               const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
-               if (usedClass) {
-                  // Resolve the node shape targeting the class (sh:targetClass); fall back to the
-                  // class term itself to keep supporting implicit class shapes (shape == class).
-                  const usedShape = shapesGraph.getQuads(null, SH("targetClass"), usedClass)[0]?.subject ?? usedClass;
-                  parts.push(...await buildUiComponents(renderer, shapesGraph, usedShape, dataGraph, value, widgetScoringGraph));
-               }
-            }
-            if (propertiesLength > 0) {
-               parts.push(...await buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph));
-            }
-            return parts;
-         }));
-         children = [...(children ?? []), ...nestedPerValue];
-      }
+      const nestedPerValue = await buildNestedChildren(pathValues);
+      if (nestedPerValue) children = [...(children ?? []), ...nestedPerValue];
 
       pathValues.forEach(value => {
          values.push({
@@ -389,8 +412,9 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       });
    }
 
-   // Ensure sh:hasValue term is always present as the first value.
-   if (hasValue) {
+   // Ensure sh:hasValue term is always present as the first value. (Not applicable to
+   // read-only complex paths, whose values cannot be written to the data graph.)
+   if (hasValue && !complexPathExpr) {
       const idx = values.findIndex(v => v.value.equals(hasValue));
       if (idx < 0) {
          // Not in data graph yet – prepend it and add it to the store.
@@ -634,9 +658,10 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    }
 
    // Make sure we have at least minCount values, by adding empty values if needed. New values are
-   // always seeded with the editor's default term, even in view mode.
+   // always seeded with the editor's default term, even in view mode. Read-only complex paths are
+   // exempt: their values cannot be materialized in the data graph.
    const dataValueCount = element.values.length;
-   for (let i = values.length; i < (element.minCount ?? 0); i++) {
+   for (let i = values.length; !complexPathExpr && i < (element.minCount ?? 0); i++) {
       const value = getDefaultTermForWidget(renderer, editorDefaultWidget, element, true, !!focusNode);
       const path = paths[0];
       renderer.addToDataStore(focusNode ?? undefined, path, value);
