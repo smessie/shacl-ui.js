@@ -5,7 +5,7 @@ import {customElement, property, state} from 'lit/decorators.js'
 import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
-import {constructUiComponents} from "./core/ui-model.ts";
+import {constructUiComponents, resolveAutomaticInputs} from "./core/ui-model.ts";
 import {cloneUiComponent} from "./core/clone.ts";
 import {rdf, xsd} from "./core/namespaces.ts";
 import {type LabelResolutionConfig, resolvePreferredLanguages} from "./core/labels.ts";
@@ -666,8 +666,19 @@ export class ShaclRenderer extends TwLitElement {
         reconstructUi = true;
       }
       if (reconstructUi) {
-        if (this.shapesStore && this.focusNode && this.focusNode.trim().length !== 0 && this.dataStore && this.widgetScoringStore && this.constraintShape && this.constraintShape.trim().length !== 0) {
-          const result = await constructUiComponents(this, this.shapesStore, df.namedNode(this.constraintShape), this.dataStore, this.focusNode ? df.namedNode(this.focusNode) : undefined, this.widgetScoringStore);
+        // Automatic mode: when the focus node and/or constraint shape is not provided, derive
+        // it from the SHACL targets in the shapes/data graphs (sh:targetNode, sh:targetClass,
+        // implicit class targets).
+        let focusNode = this.focusNode?.trim() || undefined;
+        let constraintShape = this.constraintShape?.trim() || undefined;
+        if ((!focusNode || !constraintShape) && this.shapesStore && this.dataStore) {
+          const resolved = resolveAutomaticInputs(this.shapesStore, this.dataStore, focusNode, constraintShape);
+          focusNode = resolved.focusNode;
+          constraintShape = resolved.constraintShape;
+        }
+
+        if (this.shapesStore && this.dataStore && this.widgetScoringStore && focusNode && constraintShape) {
+          const result = await constructUiComponents(this, this.shapesStore, df.namedNode(constraintShape), this.dataStore, df.namedNode(focusNode), this.widgetScoringStore);
           this.ui = result.components;
           this.renderSlots = result.renderSlots;
           this.rootOrGroups = result.rootOrGroups;
@@ -675,13 +686,13 @@ export class ShaclRenderer extends TwLitElement {
           this.loading = false;
         } else {
           // Inputs changed but the UI cannot be constructed: report which required input is
-          // missing instead of spinning forever.
+          // missing (and could not be derived) instead of spinning forever.
           const missing: string[] = [];
           if (!this.dataStore) missing.push('data graph');
           if (!this.shapesStore) missing.push('shapes graph');
           if (!this.widgetScoringStore) missing.push('widget scoring graph');
-          if (!this.focusNode || this.focusNode.trim().length === 0) missing.push('focusNode');
-          if (!this.constraintShape || this.constraintShape.trim().length === 0) missing.push('constraintShape');
+          if (!focusNode) missing.push('focusNode');
+          if (!constraintShape) missing.push('constraintShape');
           this.error = `Cannot render the form: missing required input(s): ${missing.join(', ')}.`;
           this.loading = false;
         }

@@ -69,6 +69,70 @@ function sortComponents(elements: UIComponent[]): UIComponent[] {
    });
 }
 
+/**
+ * Automatic mode (spec §rendering-concepts): derives a missing focus node and/or constraint
+ * shape from SHACL targets. Returns IRI strings; a field stays undefined when it cannot be
+ * derived. Only named nodes are considered (the renderer's attributes are IRIs).
+ *
+ * - Missing shape: a shape with `sh:targetNode` = focus node, else a shape whose
+ *   `sh:targetClass` matches one of the focus node's `rdf:type`s, else the type itself when it
+ *   is declared a `sh:NodeShape` (implicit class target).
+ * - Missing focus node: the shape's first `sh:targetNode`, else the first data-graph instance
+ *   of one of its `sh:targetClass`es.
+ * - Both missing: the first declared `sh:NodeShape` that resolves to a focus node.
+ */
+export function resolveAutomaticInputs(
+   shapesGraph: RdfStore,
+   dataGraph: RdfStore,
+   focusNode?: string,
+   constraintShape?: string,
+): {focusNode?: string; constraintShape?: string} {
+   if (focusNode && constraintShape) return {focusNode, constraintShape};
+
+   if (focusNode && !constraintShape) {
+      const focus = df.namedNode(focusNode);
+      const byTargetNode = shapesGraph.getQuads(null, SH("targetNode"), focus)
+         .find(q => q.subject.termType === "NamedNode")?.subject;
+      if (byTargetNode) return {focusNode, constraintShape: byTargetNode.value};
+      for (const typeQuad of dataGraph.getQuads(focus, RDF_("type"), null)) {
+         const byClass = shapesGraph.getQuads(null, SH("targetClass"), typeQuad.object)
+            .find(q => q.subject.termType === "NamedNode")?.subject;
+         if (byClass) return {focusNode, constraintShape: byClass.value};
+         // Implicit class target: the type itself is declared a NodeShape.
+         if (typeQuad.object.termType === "NamedNode"
+            && shapesGraph.getQuads(typeQuad.object, RDF_("type"), SH("NodeShape")).length > 0) {
+            return {focusNode, constraintShape: typeQuad.object.value};
+         }
+      }
+      return {focusNode};
+   }
+
+   if (!focusNode && constraintShape) {
+      const shape = df.namedNode(constraintShape);
+      const targetNode = shapesGraph.getQuads(shape, SH("targetNode"), null)
+         .find(q => q.object.termType === "NamedNode")?.object;
+      if (targetNode) return {focusNode: targetNode.value, constraintShape};
+      for (const classQuad of shapesGraph.getQuads(shape, SH("targetClass"), null)) {
+         const instance = dataGraph.getQuads(null, RDF_("type"), classQuad.object)
+            .find(q => q.subject.termType === "NamedNode")?.subject;
+         if (instance) return {focusNode: instance.value, constraintShape};
+      }
+      // Implicit class target: instances typed directly by the shape IRI.
+      const implicitInstance = dataGraph.getQuads(null, RDF_("type"), shape)
+         .find(q => q.subject.termType === "NamedNode")?.subject;
+      if (implicitInstance) return {focusNode: implicitInstance.value, constraintShape};
+      return {constraintShape};
+   }
+
+   // Both missing: try every declared NodeShape until one resolves to a focus node.
+   for (const shapeQuad of shapesGraph.getQuads(null, RDF_("type"), SH("NodeShape"))) {
+      if (shapeQuad.subject.termType !== "NamedNode") continue;
+      const attempt = resolveAutomaticInputs(shapesGraph, dataGraph, undefined, shapeQuad.subject.value);
+      if (attempt.focusNode) return attempt;
+   }
+   return {};
+}
+
 // ---------------------------------------------------------------------------
 // Internal builder – processes sh:property on one shape node.
 // Used by constructUiComponents (root level) and all recursive/nested calls.
