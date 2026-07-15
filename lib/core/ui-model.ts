@@ -133,6 +133,44 @@ export function resolveAutomaticInputs(
    return {};
 }
 
+/**
+ * Collection mode (spec §rendering-concepts): returns every target focus node of
+ * `constraintShape`, as IRI strings, deduplicated and in data-graph order (no sorting).
+ * Only NamedNodes are considered.
+ *
+ * - every `sh:targetNode` of the shape;
+ * - every data-graph instance (`rdf:type`) of each `sh:targetClass`;
+ * - implicit class target: instances typed directly by the shape IRI.
+ */
+export function resolveAllFocusNodes(
+   shapesGraph: RdfStore,
+   dataGraph: RdfStore,
+   constraintShape: string,
+): string[] {
+   const shape = df.namedNode(constraintShape);
+   const seen = new Set<string>();
+   const result: string[] = [];
+   const add = (term: Term) => {
+      if (term.termType === "NamedNode" && !seen.has(term.value)) {
+         seen.add(term.value);
+         result.push(term.value);
+      }
+   };
+
+   for (const q of shapesGraph.getQuads(shape, SH("targetNode"), null)) {
+      add(q.object);
+   }
+   for (const classQuad of shapesGraph.getQuads(shape, SH("targetClass"), null)) {
+      for (const instanceQuad of dataGraph.getQuads(null, RDF_("type"), classQuad.object)) {
+         add(instanceQuad.subject);
+      }
+   }
+   for (const instanceQuad of dataGraph.getQuads(null, RDF_("type"), shape)) {
+      add(instanceQuad.subject);
+   }
+   return result;
+}
+
 // ---------------------------------------------------------------------------
 // Internal builder – processes sh:property on one shape node.
 // Used by constructUiComponents (root level) and all recursive/nested calls.
