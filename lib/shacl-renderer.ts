@@ -645,7 +645,7 @@ export class ShaclRenderer extends TwLitElement {
         this.dataStore = await dereferenceRdf(new URL(this.dataGraphUrl, window.location.href).href);
         reconstructUi = true;
       }
-      if (changedProperties.has('shapesGraph') || changedProperties.has('shapesGraphContentType')) {
+      if ((changedProperties.has('shapesGraph') || changedProperties.has('shapesGraphContentType')) && this.shapesGraph && this.shapesGraph.trim().length !== 0) {
         this.loading = true;
         this.shapesStore = await parseRdf(this.shapesGraph, this.shapesGraphContentType);
         reconstructUi = true;
@@ -655,7 +655,7 @@ export class ShaclRenderer extends TwLitElement {
         this.shapesStore = await dereferenceRdf(new URL(this.shapesGraphUrl, window.location.href).href);
         reconstructUi = true;
       }
-      if (changedProperties.has('widgetScoringGraph') || changedProperties.has('widgetScoringGraphContentType')) {
+      if ((changedProperties.has('widgetScoringGraph') || changedProperties.has('widgetScoringGraphContentType')) && this.widgetScoringGraph && this.widgetScoringGraph.trim().length !== 0) {
         this.loading = true;
         this.widgetScoringStore = await parseRdf(this.widgetScoringGraph, this.widgetScoringGraphContentType);
         reconstructUi = true;
@@ -663,6 +663,15 @@ export class ShaclRenderer extends TwLitElement {
       if (changedProperties.has('widgetScoringGraphUrl') && this.widgetScoringGraphUrl && this.widgetScoringGraphUrl.trim().length !== 0) {
         this.loading = true;
         this.widgetScoringStore = await dereferenceRdf(new URL(this.widgetScoringGraphUrl, window.location.href).href);
+        reconstructUi = true;
+      }
+      // Injected stores (used by collection-mode child renderers): when the caller sets the
+      // parsed stores directly and provides no graph strings/URLs, rebuild from those stores.
+      const graphsProvided = !!(this.dataGraph || this.dataGraphUrl || this.shapesGraph || this.shapesGraphUrl || this.widgetScoringGraph || this.widgetScoringGraphUrl);
+      if (!graphsProvided
+          && (changedProperties.has('dataStore') || changedProperties.has('shapesStore') || changedProperties.has('widgetScoringStore'))
+          && this.dataStore && this.shapesStore && this.widgetScoringStore) {
+        this.loading = true;
         reconstructUi = true;
       }
       if (reconstructUi) {
