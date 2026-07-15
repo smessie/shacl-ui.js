@@ -246,4 +246,19 @@ ex:widget a ex:Widget .`});
       expect((el.shadowRoot ?? el).textContent).toContain("No items match");
       el.remove();
    });
+
+   it("preserves the picker selection across an edit/view mode toggle", async () => {
+      const el = await buildCollection({focusNodeMode: "picker"});
+      await waitForCollection(el);
+      el.selectedFocusNode = "http://example.org/bob";
+      await waitForCollection(el);
+      // A mode change rebuilds the collection; the user's selection must survive.
+      el.mode = "view";
+      await waitForCollection(el);
+      expect(el.selectedFocusNode).toBe("http://example.org/bob");
+      const children = childRenderers(el);
+      expect(children).toHaveLength(1);
+      expect(children[0].focusNode).toBe("http://example.org/bob");
+      el.remove();
+   });
 });

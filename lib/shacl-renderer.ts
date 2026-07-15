@@ -816,8 +816,16 @@ export class ShaclRenderer extends TwLitElement {
             this.collectionConstraintShape = constraintShape;
             this.collectionFocusNodes = focusNodes;
             this.collectionFocusNodeLabels = await this.resolveFocusNodeLabels(focusNodes);
-            // Default selection: the first target in picker mode, otherwise 'ALL' (render all).
-            this.selectedFocusNode = this.focusNodeMode === 'picker' ? focusNodes[0] : 'ALL';
+            // Selection: the first target in picker mode, otherwise 'ALL' (render all). Preserve a
+            // still-valid prior selection across rebuilds (e.g. an edit/view `mode` toggle) so the
+            // user's picker choice is not discarded; only reset when the mode changed or the prior
+            // selection is no longer valid for the resolved target set.
+            const defaultSelection = this.focusNodeMode === 'picker' ? focusNodes[0] : 'ALL';
+            const prior = this.selectedFocusNode;
+            const priorStillValid = !changedProperties.has('focusNodeMode')
+              && prior !== undefined
+              && (prior === 'ALL' ? this.focusNodeMode !== 'picker' : focusNodes.includes(prior));
+            this.selectedFocusNode = priorStillValid ? prior : defaultSelection;
             this.ui = [];
             this.renderSlots = [];
             this.rootOrGroups = [];
