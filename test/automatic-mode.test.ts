@@ -46,49 +46,53 @@ ex:PersonShape a sh:NodeShape ; sh:targetClass ex:Person ;
       el.remove();
    });
 
-   it("derives the focus node from sh:targetNode when only the constraint shape is given", async () => {
+   it("enters collection mode from sh:targetNode when only the constraint shape is given", async () => {
       const shapes = `@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://example.org/> .
 ex:PersonShape a sh:NodeShape ; sh:targetNode ex:alice ;
    sh:property [ sh:path ex:name ; sh:name "Name" ] .`;
       const el = await buildElement(shapes, {constraintShape: "http://example.org/PersonShape"});
       expect(el.error).toBeNull();
-      expect(el.ui).toHaveLength(1);
-      expect(el.ui[0].focusNode?.value).toBe("http://example.org/alice");
+      expect(el.collectionMode).toBe(true);
+      expect(el.collectionFocusNodes).toEqual(["http://example.org/alice"]);
       el.remove();
    });
 
-   it("derives the focus node from a sh:targetClass instance when only the constraint shape is given", async () => {
+   it("enters collection mode from a sh:targetClass instance when only the constraint shape is given", async () => {
       const shapes = `@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://example.org/> .
 ex:PersonShape a sh:NodeShape ; sh:targetClass ex:Person ;
    sh:property [ sh:path ex:name ; sh:name "Name" ] .`;
       const el = await buildElement(shapes, {constraintShape: "http://example.org/PersonShape"});
       expect(el.error).toBeNull();
-      expect(el.ui[0].focusNode?.value).toBe("http://example.org/alice");
+      expect(el.collectionMode).toBe(true);
+      expect(el.collectionFocusNodes).toEqual(["http://example.org/alice"]);
       el.remove();
    });
 
-   it("derives both inputs when neither is given", async () => {
+   it("enters collection mode (deriving the shape) when neither input is given", async () => {
       const shapes = `@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://example.org/> .
 ex:PersonShape a sh:NodeShape ; sh:targetClass ex:Person ;
    sh:property [ sh:path ex:name ; sh:name "Name" ] .`;
       const el = await buildElement(shapes, {});
       expect(el.error).toBeNull();
-      expect(el.ui).toHaveLength(1);
-      expect(el.ui[0].focusNode?.value).toBe("http://example.org/alice");
+      expect(el.collectionMode).toBe(true);
+      expect(el.collectionConstraintShape).toBe("http://example.org/PersonShape");
+      expect(el.collectionFocusNodes).toEqual(["http://example.org/alice"]);
       el.remove();
    });
 
-   it("reports an error when the missing inputs cannot be derived", async () => {
+   it("renders an empty collection when the constraint shape has no targets", async () => {
       const shapes = `@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix ex: <http://example.org/> .
 ex:OrphanShape a sh:NodeShape ;
    sh:property [ sh:path ex:name ; sh:name "Name" ] .`;
       const el = await buildElement(shapes, {constraintShape: "http://example.org/OrphanShape"});
       expect(el.loading).toBe(false);
-      expect(el.error).toMatch(/focusNode/);
+      expect(el.error).toBeNull();
+      expect(el.collectionMode).toBe(true);
+      expect(el.collectionFocusNodes).toEqual([]);
       el.remove();
    });
 });

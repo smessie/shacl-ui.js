@@ -5,10 +5,11 @@ import {customElement, property, state} from 'lit/decorators.js'
 import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
-import {constructUiComponents, resolveAutomaticInputs} from "./core/ui-model.ts";
+import {constructUiComponents, resolveAutomaticInputs, resolveAllFocusNodes} from "./core/ui-model.ts";
 import {cloneUiComponent} from "./core/clone.ts";
-import {rdf, xsd} from "./core/namespaces.ts";
+import {rdf, xsd, SH, RDF as RDF_} from "./core/namespaces.ts";
 import {type LabelResolutionConfig, resolvePreferredLanguages} from "./core/labels.ts";
+import {toValueNodeLabel} from "./core/labels.ts";
 import {renderRootSlots, addChildrenToDataStore} from "./presentation/widgets.ts";
 import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
 import {STYLING_SLOT_NAMES, STYLING_SLOTS} from "./styling-slots.ts";
@@ -201,6 +202,36 @@ export class ShaclRenderer extends TwLitElement {
   @property()
   constraintShape: string = '';
 
+  /**
+   * Collection rendering (active only when `focusNode` is omitted and a `constraintShape`
+   * is available). `undefined` (default) shows a focus-node picker that includes an
+   * "All items" option and initially renders every target stacked. `'list'` renders every
+   * target stacked with no picker. `'picker'` shows a picker without the "All items" option
+   * and initially renders the first target.
+   */
+  @property({ reflect: true })
+  focusNodeMode?: 'list' | 'picker';
+
+  /** True while the element is rendering a collection (target set) instead of a single node. */
+  @state()
+  collectionMode: boolean = false;
+
+  /** Resolved target focus-node IRIs, in data-graph order. */
+  @state()
+  collectionFocusNodes: string[] = [];
+
+  /** The constraint shape resolved for the collection. */
+  @state()
+  collectionConstraintShape: string | undefined = undefined;
+
+  /** Resolved display label per collection focus node, for the picker and item headers. */
+  @state()
+  collectionFocusNodeLabels: Record<string, string> = {};
+
+  /** The picker's current selection. `'ALL'` renders every target stacked. */
+  @state()
+  selectedFocusNode: string | 'ALL' | undefined = undefined;
+
   // ── Styling slots ────────────────────────────────────────────────────────────
   // Each slot is a reactive string property generated from STYLING_SLOTS via the
   // `static properties` block above (so the slot list lives in exactly one place).
@@ -304,6 +335,16 @@ export class ShaclRenderer extends TwLitElement {
     return Object.fromEntries(
       STYLING_SLOT_NAMES.map(name => [name, this.m(name)]),
     ) as TailwindClasses;
+  }
+
+  /** Resolve a display label for each collection focus node (used by the picker and item headers). */
+  private async resolveFocusNodeLabels(focusNodes: string[]): Promise<Record<string, string>> {
+    const labels: Record<string, string> = {};
+    if (!this.dataStore || !this.shapesStore) return labels;
+    for (const fn of focusNodes) {
+      labels[fn] = await toValueNodeLabel(df.namedNode(fn), this.dataStore, this.shapesStore, this.labelConfig);
+    }
+    return labels;
   }
 
   render() {
@@ -634,6 +675,9 @@ export class ShaclRenderer extends TwLitElement {
     if ((changedProperties.has('focusNode') || changedProperties.has('constraintShape')) && this.shapesStore && this.dataStore && this.widgetScoringStore) {
       reconstructUi = true;
     }
+    if (changedProperties.has('focusNodeMode') && this.shapesStore && this.dataStore && this.widgetScoringStore) {
+      reconstructUi = true;
+    }
     try {
       if ((changedProperties.has('dataGraph') || changedProperties.has('dataGraphContentType')) && this.dataGraph && this.dataGraph.trim().length !== 0 && this.dataGraphContentType && this.dataGraphContentType.trim().length !== 0) {
         this.loading = true;
@@ -675,35 +719,67 @@ export class ShaclRenderer extends TwLitElement {
         reconstructUi = true;
       }
       if (reconstructUi) {
-        // Automatic mode: when the focus node and/or constraint shape is not provided, derive
-        // it from the SHACL targets in the shapes/data graphs (sh:targetNode, sh:targetClass,
-        // implicit class targets).
-        let focusNode = this.focusNode?.trim() || undefined;
-        let constraintShape = this.constraintShape?.trim() || undefined;
-        if ((!focusNode || !constraintShape) && this.shapesStore && this.dataStore) {
-          const resolved = resolveAutomaticInputs(this.shapesStore, this.dataStore, focusNode, constraintShape);
-          focusNode = resolved.focusNode;
-          constraintShape = resolved.constraintShape;
-        }
+        const explicitFocusNode = this.focusNode?.trim() || undefined;
 
-        if (this.shapesStore && this.dataStore && this.widgetScoringStore && focusNode && constraintShape) {
-          const result = await constructUiComponents(this, this.shapesStore, df.namedNode(constraintShape), this.dataStore, df.namedNode(focusNode), this.widgetScoringStore);
-          this.ui = result.components;
-          this.renderSlots = result.renderSlots;
-          this.rootOrGroups = result.rootOrGroups;
-          this.error = null;
-          this.loading = false;
+        if (!explicitFocusNode && this.shapesStore && this.dataStore && this.widgetScoringStore) {
+          // Collection mode: no focus node given -> render the shape's target set.
+          let constraintShape = this.constraintShape?.trim() || undefined;
+          if (!constraintShape) {
+            constraintShape = resolveAutomaticInputs(this.shapesStore, this.dataStore, undefined, undefined).constraintShape;
+            // Fallback for collection mode: pick the first NodeShape even if it has no instances.
+            if (!constraintShape) {
+              const firstNodeShape = this.shapesStore.getQuads(null, RDF_("type"), SH("NodeShape"))
+                .find(q => q.subject.termType === "NamedNode")?.subject;
+              if (firstNodeShape) constraintShape = firstNodeShape.value;
+            }
+          }
+
+          if (constraintShape) {
+            const focusNodes = resolveAllFocusNodes(this.shapesStore, this.dataStore, constraintShape);
+            this.collectionMode = true;
+            this.collectionConstraintShape = constraintShape;
+            this.collectionFocusNodes = focusNodes;
+            this.collectionFocusNodeLabels = await this.resolveFocusNodeLabels(focusNodes);
+            // Default selection: the first target in picker mode, otherwise 'ALL' (render all).
+            this.selectedFocusNode = this.focusNodeMode === 'picker' ? focusNodes[0] : 'ALL';
+            this.ui = [];
+            this.renderSlots = [];
+            this.rootOrGroups = [];
+            this.error = null;
+            this.loading = false;
+          } else {
+            this.collectionMode = false;
+            this.error = 'Cannot render the form: missing required input(s): constraintShape.';
+            this.loading = false;
+          }
         } else {
-          // Inputs changed but the UI cannot be constructed: report which required input is
-          // missing (and could not be derived) instead of spinning forever.
-          const missing: string[] = [];
-          if (!this.dataStore) missing.push('data graph');
-          if (!this.shapesStore) missing.push('shapes graph');
-          if (!this.widgetScoringStore) missing.push('widget scoring graph');
-          if (!focusNode) missing.push('focusNode');
-          if (!constraintShape) missing.push('constraintShape');
-          this.error = `Cannot render the form: missing required input(s): ${missing.join(', ')}.`;
-          this.loading = false;
+          // Single-node mode (unchanged behaviour).
+          this.collectionMode = false;
+          let focusNode = explicitFocusNode;
+          let constraintShape = this.constraintShape?.trim() || undefined;
+          if ((!focusNode || !constraintShape) && this.shapesStore && this.dataStore) {
+            const resolved = resolveAutomaticInputs(this.shapesStore, this.dataStore, focusNode, constraintShape);
+            focusNode = resolved.focusNode;
+            constraintShape = resolved.constraintShape;
+          }
+
+          if (this.shapesStore && this.dataStore && this.widgetScoringStore && focusNode && constraintShape) {
+            const result = await constructUiComponents(this, this.shapesStore, df.namedNode(constraintShape), this.dataStore, df.namedNode(focusNode), this.widgetScoringStore);
+            this.ui = result.components;
+            this.renderSlots = result.renderSlots;
+            this.rootOrGroups = result.rootOrGroups;
+            this.error = null;
+            this.loading = false;
+          } else {
+            const missing: string[] = [];
+            if (!this.dataStore) missing.push('data graph');
+            if (!this.shapesStore) missing.push('shapes graph');
+            if (!this.widgetScoringStore) missing.push('widget scoring graph');
+            if (!focusNode) missing.push('focusNode');
+            if (!constraintShape) missing.push('constraintShape');
+            this.error = `Cannot render the form: missing required input(s): ${missing.join(', ')}.`;
+            this.loading = false;
+          }
         }
       }
     } catch (err) {

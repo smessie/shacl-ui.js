@@ -97,3 +97,59 @@ ex:alice a ex:Person ; ex:name "Alice" .`);
       el.remove();
    });
 });
+
+const MULTI_DATA = `@prefix ex: <http://example.org/> .
+ex:alice a ex:Person ; ex:name "Alice" .
+ex:bob a ex:Person ; ex:name "Bob" .`;
+
+async function buildCollection(opts: {focusNodeMode?: 'list' | 'picker'; data?: string; constraintShape?: string}) {
+   const el = document.createElement("shacl-renderer") as ShaclRenderer;
+   el.shapesGraph = SHAPES;
+   el.shapesGraphContentType = "text/turtle";
+   el.dataGraph = opts.data ?? MULTI_DATA;
+   el.dataGraphContentType = "text/turtle";
+   el.widgetScoringGraph = SCORING;
+   el.widgetScoringGraphContentType = "text/turtle";
+   if (opts.focusNodeMode) el.focusNodeMode = opts.focusNodeMode;
+   if (opts.constraintShape) el.constraintShape = opts.constraintShape;
+   document.body.appendChild(el);
+   await waitForReady(el);
+   return el;
+}
+
+describe("collection state", () => {
+   it("enters collection mode and resolves all targets when focusNode is omitted (default)", async () => {
+      const el = await buildCollection({});
+      expect(el.error).toBeNull();
+      expect(el.collectionMode).toBe(true);
+      expect(el.collectionFocusNodes).toEqual([
+         "http://example.org/alice",
+         "http://example.org/bob",
+      ]);
+      expect(el.selectedFocusNode).toBe("ALL");
+      el.remove();
+   });
+
+   it("selects the first target in picker mode", async () => {
+      const el = await buildCollection({focusNodeMode: "picker"});
+      expect(el.collectionMode).toBe(true);
+      expect(el.selectedFocusNode).toBe("http://example.org/alice");
+      el.remove();
+   });
+
+   it("keeps 'ALL' as the selection in list mode", async () => {
+      const el = await buildCollection({focusNodeMode: "list"});
+      expect(el.collectionMode).toBe(true);
+      expect(el.selectedFocusNode).toBe("ALL");
+      el.remove();
+   });
+
+   it("resolves an empty target set without erroring", async () => {
+      const el = await buildCollection({data: `@prefix ex: <http://example.org/> .
+ex:widget a ex:Widget .`});
+      expect(el.error).toBeNull();
+      expect(el.collectionMode).toBe(true);
+      expect(el.collectionFocusNodes).toEqual([]);
+      el.remove();
+   });
+});
