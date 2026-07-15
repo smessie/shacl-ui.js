@@ -162,3 +162,88 @@ describe("collection styling slots", () => {
       expect(ShaclRendererClass.DEFAULTS.focusNodePickerClass).toContain("border");
    });
 });
+
+async function waitForCollection(el: ShaclRenderer, timeoutMs = 4000) {
+   await waitForReady(el, timeoutMs);
+   const start = Date.now();
+   const children = () => Array.from(
+      (el.shadowRoot ?? el).querySelectorAll("shacl-renderer"),
+   ) as ShaclRenderer[];
+   while (children().some(c => c.loading) && Date.now() - start < timeoutMs) {
+      await new Promise(r => setTimeout(r, 10));
+   }
+   for (const c of children()) await c.updateComplete;
+   await el.updateComplete;
+}
+
+function childRenderers(el: ShaclRenderer): ShaclRenderer[] {
+   return Array.from((el.shadowRoot ?? el).querySelectorAll("shacl-renderer")) as ShaclRenderer[];
+}
+
+describe("collection rendering", () => {
+   it("default mode renders a picker with an 'All items' option and all items stacked", async () => {
+      const el = await buildCollection({});
+      await waitForCollection(el);
+      const select = (el.shadowRoot ?? el).querySelector("select") as HTMLSelectElement;
+      expect(select).not.toBeNull();
+      expect(Array.from(select.options).map(o => o.value)).toEqual([
+         "ALL",
+         "http://example.org/alice",
+         "http://example.org/bob",
+      ]);
+      expect(childRenderers(el)).toHaveLength(2);
+      el.remove();
+   });
+
+   it("list mode renders every item stacked with no picker", async () => {
+      const el = await buildCollection({focusNodeMode: "list"});
+      await waitForCollection(el);
+      expect((el.shadowRoot ?? el).querySelector("select")).toBeNull();
+      expect(childRenderers(el)).toHaveLength(2);
+      el.remove();
+   });
+
+   it("picker mode renders a picker without 'All items' and a single item", async () => {
+      const el = await buildCollection({focusNodeMode: "picker"});
+      await waitForCollection(el);
+      const select = (el.shadowRoot ?? el).querySelector("select") as HTMLSelectElement;
+      expect(Array.from(select.options).map(o => o.value)).toEqual([
+         "http://example.org/alice",
+         "http://example.org/bob",
+      ]);
+      const children = childRenderers(el);
+      expect(children).toHaveLength(1);
+      expect(children[0].focusNode).toBe("http://example.org/alice");
+      el.remove();
+   });
+
+   it("changing the selection swaps the rendered child", async () => {
+      const el = await buildCollection({focusNodeMode: "picker"});
+      await waitForCollection(el);
+      el.selectedFocusNode = "http://example.org/bob";
+      await waitForCollection(el);
+      const children = childRenderers(el);
+      expect(children).toHaveLength(1);
+      expect(children[0].focusNode).toBe("http://example.org/bob");
+      el.remove();
+   });
+
+   it("child renderers share the parent's data store, so edits reach data()", async () => {
+      const el = await buildCollection({focusNodeMode: "list"});
+      await waitForCollection(el);
+      const children = childRenderers(el);
+      expect(children[0].dataStore).toBe(el.dataStore);
+      const quads = await el.data() as unknown[];
+      expect(quads.length).toBeGreaterThan(0);
+      el.remove();
+   });
+
+   it("renders an empty-state message when no items match", async () => {
+      const el = await buildCollection({data: `@prefix ex: <http://example.org/> .
+ex:widget a ex:Widget .`});
+      await waitForCollection(el);
+      expect(childRenderers(el)).toHaveLength(0);
+      expect((el.shadowRoot ?? el).textContent).toContain("No items match");
+      el.remove();
+   });
+});

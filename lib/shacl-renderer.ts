@@ -2,6 +2,7 @@
 import "./core/ensure-process.ts";
 import {css, html, LitElement, type PropertyValues, unsafeCSS} from 'lit'
 import {customElement, property, state} from 'lit/decorators.js'
+import {ref} from 'lit/directives/ref.js'
 import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
@@ -366,11 +367,86 @@ export class ShaclRenderer extends TwLitElement {
                </div>
              </div>
            `
+           : this.collectionMode
+           ? this.renderCollection(tailwindClasses)
            : html`
              ${renderRootSlots(renderer, this.renderSlots, tailwindClasses)}
            `}
       </div>
     `;
+  }
+
+  private renderCollection(tw: TailwindClasses) {
+    if (this.collectionFocusNodes.length === 0) {
+      return html`
+        <div class="${tw.viewerEmptyClass} p-4">
+          No items match ${this.collectionConstraintShape ?? 'the shape'}.
+        </div>
+      `;
+    }
+
+    const showPicker = this.focusNodeMode !== 'list';
+    const showAllOption = this.focusNodeMode === undefined;
+
+    return html`
+      ${showPicker
+        ? html`
+          <select
+            class="${tw.focusNodePickerClass}"
+            .value=${this.selectedFocusNode ?? ''}
+            @change=${(e: Event) => { this.selectedFocusNode = (e.target as HTMLSelectElement).value; }}
+          >
+            ${showAllOption ? html`<option value="ALL">All items</option>` : ''}
+            ${this.collectionFocusNodes.map(fn => html`
+              <option value="${fn}">${this.collectionFocusNodeLabels[fn] ?? fn}</option>
+            `)}
+          </select>
+        `
+        : ''}
+      ${this.selectedFocusNode === 'ALL'
+        ? this.renderStackedList(tw)
+        : this.renderChildRenderer(this.selectedFocusNode ?? this.collectionFocusNodes[0], tw)}
+    `;
+  }
+
+  private renderStackedList(tw: TailwindClasses) {
+    return html`
+      <div class="${tw.collectionClass}">
+        ${this.collectionFocusNodes.map(fn => html`
+          <div class="${tw.collectionItemClass}">
+            <div class="${tw.viewerLabelClass}">${this.collectionFocusNodeLabels[fn] ?? fn}</div>
+            ${this.renderChildRenderer(fn, tw)}
+          </div>
+        `)}
+      </div>
+    `;
+  }
+
+  private renderChildRenderer(focusNode: string, _tw: TailwindClasses) {
+    return html`
+      <shacl-renderer
+        .dataStore=${this.dataStore}
+        .shapesStore=${this.shapesStore}
+        .widgetScoringStore=${this.widgetScoringStore}
+        .focusNode=${focusNode}
+        .constraintShape=${this.collectionConstraintShape ?? ''}
+        .mode=${this.mode}
+        .theme=${this.theme}
+        .languages=${this.languages}
+        .labelPredicates=${this.labelPredicates}
+        .dereferenceForLabelResolution=${this.dereferenceForLabelResolution}
+        .expandPrefixes=${this.expandPrefixes}
+        .preferSkolemizedBlankNodes=${this.preferSkolemizedBlankNodes}
+        ${ref((el?: Element) => { if (el) this.forwardStylingSlots(el as ShaclRenderer); })}
+      ></shacl-renderer>
+    `;
+  }
+
+  /** Copy the user's styling-slot overrides onto a child renderer so it matches the parent. */
+  private forwardStylingSlots(child: ShaclRenderer) {
+    for (const name of STYLING_SLOT_NAMES) {
+      (child as unknown as Record<string, string>)[name] = (this as unknown as Record<string, string>)[name];
+    }
   }
 
   rerender() {
