@@ -249,4 +249,7 @@ export type TailwindClasses = {
    valueTableViewerCellClass?: string;
    valueTablePaginationClass?: string;
    valueTablePaginationButtonClass?: string;
+   collectionClass?: string;
+   collectionItemClass?: string;
+   focusNodePickerClass?: string;
 };

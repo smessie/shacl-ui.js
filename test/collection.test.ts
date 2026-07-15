@@ -4,6 +4,7 @@ import {parseRdf} from "../lib/core/rdf.ts";
 import {resolveAllFocusNodes} from "../lib/core/ui-model.ts";
 import "../lib/shacl-renderer.ts";
 import type {ShaclRenderer} from "../lib/shacl-renderer.ts";
+import {ShaclRenderer as ShaclRendererClass} from "../lib/shacl-renderer.ts";
 
 async function store(ttl: string): Promise<RdfStore> {
    return await parseRdf(ttl, "text/turtle");
@@ -151,5 +152,13 @@ ex:widget a ex:Widget .`});
       expect(el.collectionMode).toBe(true);
       expect(el.collectionFocusNodes).toEqual([]);
       el.remove();
+   });
+});
+
+describe("collection styling slots", () => {
+   it("exposes defaults for the three collection slots", () => {
+      expect(ShaclRendererClass.DEFAULTS.collectionClass).toContain("flex");
+      expect(ShaclRendererClass.DEFAULTS.collectionItemClass).toContain("border");
+      expect(ShaclRendererClass.DEFAULTS.focusNodePickerClass).toContain("border");
    });
 });

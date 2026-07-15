@@ -80,6 +80,9 @@ export const STYLING_SLOTS = {
    orSelectorOptionSelectedClass: 'bg-zinc-100 dark:bg-zinc-700',
    orSelectorLabelClass: 'font-medium',
    orSelectorDescriptionClass: 'text-sm text-zinc-500 dark:text-zinc-200',
+   collectionClass: 'flex flex-col gap-6',
+   collectionItemClass: 'border-b border-zinc-200 dark:border-zinc-700 pb-6 last:border-0 last:pb-0',
+   focusNodePickerClass: 'mb-4 w-full shadow appearance-none border dark:border-zinc-200 rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-zinc-400 dark:focus:border-zinc-300',
 
    // ── Viewers (view mode) ──────────────────────────────────────────────────────
    // Read-only presentation widgets. Styled to match the editors and to follow the
