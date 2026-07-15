@@ -19,6 +19,7 @@ Give it a data graph, a shapes graph, and a widget-scoring graph; it builds a fu
   - [Vue 3](#vue-3)
 - [Attributes & Properties](#attributes--properties)
 - [Retrieving edited data](#retrieving-edited-data)
+- [Collection rendering](#collection-rendering)
 - [Widget scoring](#widget-scoring)
 - [Available widgets](#available-widgets)
 - [Styling & Tailwind CSS classes](#styling--tailwind-css-classes)
@@ -194,8 +195,9 @@ async function save() {
 | `widgetScoringGraph`            | `string`            | Raw RDF string for the widget-scoring graph.                                                           |
 | `widgetScoringGraphContentType` | `string`            | Content type of `widgetScoringGraph`.                                                                  |
 | `widgetScoringGraphUrl`         | `string`            | URL to dereference for the widget-scoring graph.                                                       |
-| `focusNode`                     | `string`            | IRI of the RDF node being edited.                                                                      |
+| `focusNode`                     | `string`            | IRI of the RDF node being edited. Omit it to render the shape's whole [target set as a collection](#collection-rendering). |
 | `constraintShape`               | `string`            | IRI of the `sh:NodeShape` to use as the root constraint.                                               |
+| `focusNodeMode`                 | `'list' \| 'picker'`| Presentation when rendering a [collection](#collection-rendering) (i.e. `focusNode` is omitted). Unset shows a picker with an "All items" option; `list` stacks every item without a picker; `picker` shows a picker without "All items" and renders one item. |
 | `mode`                          | `'edit' \| 'view'`  | Render editable editor widgets (`edit`, default) or read-only viewer widgets (`view`).                 |
 | `theme`                         | `'light' \| 'dark'` | Colour theme. Defaults to the OS preference.                                                           |
 | `useLightDom`                   | `boolean`           | Render into the light DOM instead of a Shadow DOM (useful when you want your own CSS to apply).        |
@@ -219,6 +221,41 @@ const jsonld = await renderer.data('application/ld+json');
 // Returns an array of RDF/JS Quad objects
 const quads = await renderer.data();
 ```
+
+---
+
+## Collection rendering
+
+Omit `focusNode` to render **every** entity that the shape targets (via
+`sh:targetClass`, `sh:targetNode`, or an implicit class target) instead of a
+single node. Each item is rendered as its own Node UI Component.
+
+The optional `focusNodeMode` attribute controls the presentation:
+
+| `focusNodeMode`    | Behaviour |
+|--------------------|-----------|
+| _(unset, default)_ | A focus-node picker with an **"All items"** option; initially renders every item stacked. |
+| `list`             | Every item stacked, no picker. |
+| `picker`           | A focus-node picker **without** "All items"; initially renders the first item. |
+
+```html
+<shacl-renderer
+  shapesGraphUrl="/shapes/person-shape.ttl"
+  widgetScoringGraphUrl="/scoring/widget-scoring.ttl"
+  dataGraphUrl="/data/people.ttl"
+  constraintShape="http://example.org/PersonShape"
+  focusNodeMode="list"
+  mode="view"
+></shacl-renderer>
+```
+
+Editing an item's fields works as usual (use `mode="view"` for read-only); all
+items share one underlying data graph, so `element.data()` serialises every
+edit. Adding or removing whole items is not currently supported.
+
+Three styling slots target this mode: `collectionClass` (the stacked-list
+container), `collectionItemClass` (each item wrapper), and `focusNodePickerClass`
+(the picker dropdown).
 
 ---
 
@@ -427,6 +464,9 @@ The full list of styling attributes and their built-in defaults is shown below.
 | `valueTableViewerCellClass`                | `px-3 py-2 align-top text-sm text-zinc-800 dark:text-zinc-100`                                                                                                                                                     |
 | `valueTablePaginationClass`                | `flex items-center justify-between gap-2 px-3 py-2 text-sm text-zinc-500 dark:text-zinc-400 border-t border-zinc-200 dark:border-zinc-700`                                                                          |
 | `valueTablePaginationButtonClass`          | `px-2 py-1 rounded border border-zinc-300 dark:border-zinc-600 hover:bg-zinc-100 dark:hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer`                                            |
+| `collectionClass`                          | `flex flex-col gap-6`                                                                                                                                                                                              |
+| `collectionItemClass`                      | `border-b border-zinc-200 dark:border-zinc-700 pb-6 last:border-0 last:pb-0`                                                                                                                                       |
+| `focusNodePickerClass`                     | `mb-4 w-full shadow appearance-none border dark:border-zinc-200 rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-zinc-400 dark:focus:border-zinc-300`                                   |
 
 ---
 
