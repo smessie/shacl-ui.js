@@ -261,4 +261,27 @@ ex:widget a ex:Widget .`});
       expect(children[0].focusNode).toBe("http://example.org/bob");
       el.remove();
    });
+
+   it("forwards useLightDom to child renderers so they share the parent's rendering mode", async () => {
+      const el = document.createElement("shacl-renderer") as ShaclRenderer;
+      el.shapesGraph = SHAPES;
+      el.shapesGraphContentType = "text/turtle";
+      el.dataGraph = MULTI_DATA;
+      el.dataGraphContentType = "text/turtle";
+      el.widgetScoringGraph = SCORING;
+      el.widgetScoringGraphContentType = "text/turtle";
+      el.focusNodeMode = "list";
+      el.useLightDom = true;
+      document.body.appendChild(el);
+      await waitForCollection(el);
+      const children = childRenderers(el);
+      expect(children).toHaveLength(2);
+      for (const child of children) {
+         // Children must render in the same DOM (and thus theming) context as the parent,
+         // otherwise a light-DOM parent yields shadow-DOM children that mis-apply dark mode.
+         expect(child.useLightDom).toBe(true);
+         expect(child.shadowRoot).toBeNull();
+      }
+      el.remove();
+   });
 });

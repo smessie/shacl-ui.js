@@ -432,6 +432,7 @@ export class ShaclRenderer extends TwLitElement {
         .constraintShape=${this.collectionConstraintShape ?? ''}
         .mode=${this.mode}
         .theme=${this.theme}
+        .useLightDom=${this.useLightDom}
         .languages=${this.languages}
         .labelPredicates=${this.labelPredicates}
         .dereferenceForLabelResolution=${this.dereferenceForLabelResolution}
