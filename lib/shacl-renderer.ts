@@ -414,7 +414,7 @@ export class ShaclRenderer extends TwLitElement {
       <div class="${tw.collectionClass}">
         ${this.collectionFocusNodes.map(fn => html`
           <div class="${tw.collectionItemClass}">
-            <div class="${tw.viewerLabelClass}">${this.collectionFocusNodeLabels[fn] ?? fn}</div>
+            <div class="${twMerge(tw.viewerLabelClass, tw.collectionItemLabelClass)}">${this.collectionFocusNodeLabels[fn] ?? fn}</div>
             ${this.renderChildRenderer(fn, tw)}
           </div>
         `)}

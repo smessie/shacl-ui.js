@@ -251,5 +251,6 @@ export type TailwindClasses = {
    valueTablePaginationButtonClass?: string;
    collectionClass?: string;
    collectionItemClass?: string;
+   collectionItemLabelClass?: string;
    focusNodePickerClass?: string;
 };
