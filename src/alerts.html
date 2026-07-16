@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>shacl-ui.js</title>
+    <link rel="stylesheet" href="index.css" />
+    <script type="module" src="../lib/shacl-renderer.ts"></script>
+    <style>
+      .shiki, .shiki span {
+        color: var(--shiki-light) !important;
+        background-color: var(--shiki-light-bg) !important;
+      }
+      @media (prefers-color-scheme: dark) {
+        .shiki, .shiki span {
+          color: var(--shiki-dark) !important;
+          background-color: var(--shiki-dark-bg) !important;
+        }
+      }
+      #turtle-output pre {
+        padding: 1rem;
+        overflow-x: auto;
+        font-size: 0.8125rem;
+        line-height: 1.7;
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body class="bg-white dark:bg-zinc-800">
+    <form class="mx-auto max-w-4xl sm:px-6 lg:px-8 mt-6" id="shacl-form" action="#">
+      <shacl-renderer
+              useLightDom
+              id="shacl-renderer"
+              focusNodeMode="list"
+              mode="view"
+              dataGraphUrl="assets/alerts-data.ttl"
+              shapesGraphUrl="assets/alerts-shape.ttl"
+              widgetScoringGraphUrl="assets/widget-scoring.ttl"
+              constraintShape="http://example.org/AlertShape"
+              plusIconClass="size-6 float-right text-green-600 cursor-pointer hover:text-green-800"
+              collectionItemLabelClass="hidden"
+              collectionItemClass="pb-2"
+              collectionClass="gap-2"
+      >
+      </shacl-renderer>
+
+      <button type="submit" class="my-4 px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded dark:bg-gray-300 dark:hover:bg-gray-400 dark:text-gray-800">Get Data</button>
+
+      <div id="turtle-output-container" class="hidden mt-4 mb-8">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-semibold uppercase tracking-widest text-gray-500 dark:text-gray-400">Turtle Output</span>
+          <button id="copy-btn" type="button" class="text-xs px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 dark:bg-zinc-600 dark:hover:bg-zinc-500 dark:text-gray-200 text-gray-700 transition-colors">Copy</button>
+        </div>
+        <div id="turtle-output" class="rounded-lg overflow-hidden shadow-sm border border-gray-200 dark:border-zinc-600 overflow-x-auto"></div>
+      </div>
+    </form>
+  </body>
+
+<script type="module">
+  import { highlightTurtle } from './highlight.ts';
+
+  const form = document.getElementById('shacl-form');
+  const shaclRenderer = document.getElementById('shacl-renderer');
+  const turtleOutput = document.getElementById('turtle-output');
+  const turtleOutputContainer = document.getElementById('turtle-output-container');
+  const copyBtn = document.getElementById('copy-btn');
+  const submitBtn = form.querySelector('button[type="submit"]');
+
+  // In read-only view mode there is nothing to submit: hide the "Get Data" button and output.
+  if (shaclRenderer.getAttribute('mode') === 'view') {
+    submitBtn?.classList.add('hidden');
+    turtleOutputContainer.classList.add('hidden');
+  }
+
+  let currentTurtleData = '';
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const data = await shaclRenderer.data('text/turtle');
+    console.log('Current Data Graph:', `\n${data}`);
+    currentTurtleData = data;
+    turtleOutput.innerHTML = await highlightTurtle(data);
+    turtleOutputContainer.classList.remove('hidden');
+  });
+
+  copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(currentTurtleData);
+    copyBtn.textContent = 'Copied!';
+    setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+  });
+</script>
+</html>
