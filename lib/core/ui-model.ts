@@ -187,6 +187,25 @@ function pathKey(pathObject: Term, shapesGraph: RdfStore): string {
    return expr ? serializePathExpr(expr) : `${pathObject.termType}:${pathObject.value}`;
 }
 
+/**
+ * How often one shape may be expanded within a single nesting branch. Recursive shapes are left
+ * undefined by SHACL, and this UI model would otherwise never stop expanding them: `defaultChild`
+ * is built from the shapes graph alone, so it does not terminate on a finite data graph. Two
+ * occurrences keep a recursive model editable — a person's "knows" still shows the known person's
+ * own fields — while bounding the nesting depth (and the work) at a small multiple of the number
+ * of shapes.
+ */
+const MAX_SHAPE_EXPANSIONS_PER_BRANCH = 2;
+
+/**
+ * Builds the UI components of a constraint shape.
+ *
+ * `expandedShapes` counts, per shape, how often it is already being expanded higher up the
+ * current nesting branch. Shapes may refer back to themselves — directly (`sh:node` pointing at
+ * the enclosing shape) or through a class (`sh:class` naming the class that the enclosing shape
+ * targets) — in which case expansion stops at {@link MAX_SHAPE_EXPANSIONS_PER_BRANCH}. Sibling
+ * branches are unaffected: each level extends its own copy of the counts.
+ */
 async function buildUiComponents(
    renderer: ShaclRenderer,
    shapesGraph: RdfStore,
@@ -194,8 +213,17 @@ async function buildUiComponents(
    dataGraph: RdfStore,
    focusNode: Term | null | undefined,
    widgetScoringGraph: RdfStore,
+   expandedShapes: ReadonlyMap<string, number> = new Map(),
 ): Promise<UIComponent[]> {
    if (!constraintShape) return [];
+
+   const shapeKey = `${constraintShape.termType}:${constraintShape.value}`;
+   const expansions = expandedShapes.get(shapeKey) ?? 0;
+   if (expansions >= MAX_SHAPE_EXPANSIONS_PER_BRANCH) {
+      console.warn(`Recursive shape ${constraintShape.value} refers back to itself; nesting stops here.`);
+      return [];
+   }
+   const nestedShapes = new Map(expandedShapes).set(shapeKey, expansions + 1);
 
    // Property UI Component aggregation (spec §rendering-concepts): property shapes that share
    // the same focus node and property path combine into ONE component. Group the sh:property
@@ -214,7 +242,7 @@ async function buildUiComponents(
    for (const group of groups.values()) {
       if (group.length === 1) {
          const element = await extractProperty(
-            group[0], renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph,
+            group[0], renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph, nestedShapes,
          );
          if (element) elements.push(element);
          continue;
@@ -238,7 +266,7 @@ async function buildUiComponents(
       }
       try {
          const element = await extractProperty(
-            merged, renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph,
+            merged, renderer, shapesGraph, dataGraph, focusNode, widgetScoringGraph, nestedShapes,
          );
          if (element) elements.push(element);
       } finally {
@@ -408,7 +436,7 @@ export async function constructUiComponents(
    return {components: allComponents, renderSlots, rootOrGroups};
 }
 
-async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGraph: RdfStore, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore): Promise<UIComponent | undefined> {
+async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGraph: RdfStore, dataGraph: RdfStore, focusNode: Term | null | undefined, widgetScoringGraph: RdfStore, expandedShapes: ReadonlyMap<string, number> = new Map()): Promise<UIComponent | undefined> {
    const pathQuads = shapesGraph.getQuads(property, SH("path"), null);
    if (pathQuads.length !== 1) {
       console.warn(`Expected exactly one sh:path for constraint ${property.value}, found ${pathQuads.length}, skipping path extraction for this constraint`);
@@ -452,9 +480,9 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
    const node = shapesGraph.getQuads(property, SH("node"), null)[0]?.object;
    const propertiesLength = shapesGraph.getQuads(property, SH("property"), null).length;
    const defaultChild: UIComponent[] | undefined = node
-      ? await buildUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph)
+      ? await buildUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph, expandedShapes)
       : (propertiesLength > 0
-         ? await buildUiComponents(renderer, shapesGraph, property, dataGraph, null, widgetScoringGraph)
+         ? await buildUiComponents(renderer, shapesGraph, property, dataGraph, null, widgetScoringGraph, expandedShapes)
          : undefined);
    const pattern = shapesGraph.getQuads(property, SH("pattern"), null)[0]?.object.value;
    const minInclusive = shapesGraph.getQuads(property, SH("minInclusive"), null)[0]?.object.value;
@@ -495,7 +523,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          // Find NodeShape with sh:targetClass equal to the class, and if found, construct UI components for that NodeShape and add them as children of the class value.
          const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
          if (nodeShapeQuad) {
-            classValue.children = await buildUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
+            classValue.children = await buildUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph, expandedShapes);
          }
          return classValue;
       }));
@@ -522,18 +550,18 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
       return await Promise.all(pathValues.map(async (value) => {
          const parts: UIComponent[] = [];
          if (node) {
-            parts.push(...await buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph));
+            parts.push(...await buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph, expandedShapes));
          } else if (classes) {
             const usedClass = dataGraph.getQuads(value, RDF_("type"), null)[0]?.object;
             if (usedClass) {
                // Resolve the node shape targeting the class (sh:targetClass); fall back to the
                // class term itself to keep supporting implicit class shapes (shape == class).
                const usedShape = shapesGraph.getQuads(null, SH("targetClass"), usedClass)[0]?.subject ?? usedClass;
-               parts.push(...await buildUiComponents(renderer, shapesGraph, usedShape, dataGraph, value, widgetScoringGraph));
+               parts.push(...await buildUiComponents(renderer, shapesGraph, usedShape, dataGraph, value, widgetScoringGraph, expandedShapes));
             }
          }
          if (propertiesLength > 0) {
-            parts.push(...await buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph));
+            parts.push(...await buildUiComponents(renderer, shapesGraph, property, dataGraph, value, widgetScoringGraph, expandedShapes));
          }
          return parts;
       }));
@@ -619,7 +647,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
          // Handle sh:or of sh:node constraints.
          element.orNode = await Promise.all(orList.map(async orListItem => {
             const node = shapesGraph.getQuads(orListItem, SH("node"), null)[0]?.object;
-            const defaultChild = await buildUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph);
+            const defaultChild = await buildUiComponents(renderer, shapesGraph, node, dataGraph, null, widgetScoringGraph, expandedShapes);
 
             let values: UIComponentValue[] = [];
             let children: UIComponent[][] | undefined = undefined;
@@ -634,7 +662,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
                   : (focusNode ? dataGraph.getQuads(null, df.namedNode(path.path), focusNode).map(quad => quad.subject) : []);
 
                // sh:node is present, so we need to recursively construct UI components for the nested shape
-               const nestedComponents = await Promise.all(pathValues.map(async (value) => buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph)));
+               const nestedComponents = await Promise.all(pathValues.map(async (value) => buildUiComponents(renderer, shapesGraph, node, dataGraph, value, widgetScoringGraph, expandedShapes)));
                children = [...(children ?? []), ...nestedComponents];
 
                pathValues.forEach(value => {
@@ -681,7 +709,7 @@ async function extractProperty(property: Term, renderer: ShaclRenderer, shapesGr
             };
             const nodeShapeQuad = shapesGraph.getQuads(null, SH("targetClass"), clazz)[0];
             if (nodeShapeQuad) {
-               classValue.children = await buildUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph);
+               classValue.children = await buildUiComponents(renderer, shapesGraph, nodeShapeQuad.subject, dataGraph, undefined, widgetScoringGraph, expandedShapes);
             }
             return { class: clazz, classValue, instances } as OrClass;
          }));
