@@ -7,12 +7,25 @@ import {TW} from "./shared/tailwind-mixin";
 import type {RdfStore} from "rdf-stores";
 import {dereferenceRdf, parseRdf, serializeRdf} from "./core/rdf.ts";
 import {constructUiComponents, resolveAutomaticInputs, resolveAllFocusNodes} from "./core/ui-model.ts";
+import {
+  runValidation,
+  mapResultsToUi,
+  buildReportQuads,
+  toPublicEntries,
+  conformsTo,
+  conformanceDisallowsIris,
+  parseConformanceDisallows,
+  resultMatchesField,
+  valueErrorKeyPrefix,
+  type ValidationMaps,
+  type ValidationResultInternal,
+} from "./core/validation.ts";
 import {cloneUiComponent} from "./core/clone.ts";
 import {rdf, xsd, SH, RDF as RDF_} from "./core/namespaces.ts";
 import {type LabelResolutionConfig, resolvePreferredLanguages} from "./core/labels.ts";
 import {toValueNodeLabel} from "./core/labels.ts";
 import {renderRootSlots, addChildrenToDataStore} from "./presentation/widgets.ts";
-import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent, UIComponentValue} from "./types.ts";
+import type {Path, RootOrGroup, RootRenderSlot, TailwindClasses, UIComponent, UIComponentValue, ValidationReport} from "./types.ts";
 import {STYLING_SLOT_NAMES, STYLING_SLOTS} from "./styling-slots.ts";
 import type {Term} from "@rdfjs/types";
 import * as RDF from "@rdfjs/types";
@@ -154,6 +167,15 @@ export class ShaclRenderer extends TwLitElement {
     this.cachedLabelConfig = config;
     return config;
   }
+
+  /**
+   * The SHACL Conformance-Disallow Set used by `validate()`, as a comma-separated list of severity
+   * IRIs (`sh:`-prefixed names are accepted too, e.g. `"sh:Violation"`). A report conforms when it
+   * contains no result of one of these severities. Defaults to the SHACL default set
+   * `sh:Violation, sh:Warning, sh:Info`; set it to `sh:Violation` to let warnings pass.
+   */
+  @property()
+  conformanceDisallows: string = '';
 
   @property({type: Boolean})
   expandPrefixes: boolean = true;
@@ -297,6 +319,30 @@ export class ShaclRenderer extends TwLitElement {
   @state()
   valueTablePage: Record<string, number> = {};
 
+  /**
+   * Per-widget / per-component / node-level SHACL validation errors produced by `.validate()`,
+   * mapped onto this renderer's own UI tree. `null` until `validate()` has run (or after a
+   * rebuild). Consumed by the render layer to show messages beneath each widget.
+   */
+  @state()
+  validationMaps: ValidationMaps | null = null;
+
+  /** Raw RDF `sh:ValidationReport` quads from the most recent `validate()` (for `validationReport()`). */
+  private lastReportQuads: Quad[] = [];
+
+  /**
+   * Results of the most recent `validate()` in collection mode, retained so that children the
+   * picker rebuilds afterwards are given their errors back instead of silently losing them.
+   */
+  private lastValidationResults: ValidationResultInternal[] | null = null;
+
+  /** In-flight asynchronous graph parsing / UI construction; awaited by `updateComplete`. */
+  private pendingBuild: Promise<boolean> | null = null;
+
+  /** Resolved single-node focus node / constraint shape (may be auto-resolved), for `validate()`. */
+  private resolvedFocusNode?: string;
+  private resolvedConstraintShape?: string;
+
   createRenderRoot() {
     return this.useLightDom ? this : super.createRenderRoot();
   }
@@ -434,6 +480,7 @@ export class ShaclRenderer extends TwLitElement {
         .theme=${this.theme}
         .useLightDom=${this.useLightDom}
         .languages=${this.languages}
+        .conformanceDisallows=${this.conformanceDisallows}
         .labelPredicates=${this.labelPredicates}
         .dereferenceForLabelResolution=${this.dereferenceForLabelResolution}
         .expandPrefixes=${this.expandPrefixes}
@@ -498,6 +545,9 @@ export class ShaclRenderer extends TwLitElement {
         this.ui = result.components;
         this.renderSlots = result.renderSlots;
         this.rootOrGroups = result.rootOrGroups;
+        // The rebuilt option has its own fields, so both the mapped errors and the report of the
+        // previous option are stale; the developer must call validate() again.
+        this.clearValidationState();
         this.error = null;
       } catch (err) {
         console.error('shacl-renderer: failed to rebuild UI for sh:or selection', err);
@@ -520,6 +570,164 @@ export class ShaclRenderer extends TwLitElement {
       return await serializeRdf(outputQuads, contentType);
     }
     return outputQuads;
+  }
+
+  /** The configured Conformance-Disallow Set (defaults to the SHACL default set). */
+  private get disallowedSeverities() {
+    return parseConformanceDisallows(this.conformanceDisallows);
+  }
+
+  /**
+   * Performs SHACL validation on the data the user has entered in the form and maps the results
+   * to per-field / per-widget errors in the UI. In collection mode every rendered focus node is
+   * validated and its errors forwarded to the corresponding nested `<shacl-renderer>`.
+   *
+   * Errors appear until the user edits the offending field (see `clearValidationFor`) or
+   * `validate()` is called again. Use `validationReport()` to obtain the raw RDF report.
+   *
+   * `conforms` follows SHACL conformance checking against the configured `conformanceDisallows`
+   * set, so a warning-only report conforms when only `sh:Violation` is disallowed.
+   *
+   * @throws When validation cannot be performed at all (graphs not loaded, no focus node or
+   *   constraint shape could be resolved, or the SHACL engine failed) — a rejected promise is
+   *   never mistaken for a conforming form.
+   * @returns A structured report `{ conforms, results, conformanceDisallows }`.
+   */
+  async validate(): Promise<ValidationReport> {
+    await this.updateComplete;
+
+    if (this.error) {
+      throw new Error(`Cannot validate: the form is not rendered (${this.error})`);
+    }
+    if (!this.dataStore || !this.shapesStore) {
+      throw new Error('Cannot validate: the data and shapes graphs are not loaded (yet).');
+    }
+
+    const languages = resolvePreferredLanguages(this.languages);
+    let allResults: ValidationResultInternal[];
+
+    if (this.collectionMode) {
+      const constraintShape = this.collectionConstraintShape;
+      if (!constraintShape) {
+        throw new Error('Cannot validate: no constraint shape could be resolved for the collection.');
+      }
+      allResults = await runValidation(
+        this.dataStore,
+        this.shapesStore,
+        this.collectionFocusNodes.map(fn => df.namedNode(fn)),
+        df.namedNode(constraintShape),
+        languages,
+      );
+      // Forward the flat results to each nested child renderer; each maps its own subset. The
+      // results are retained so children rebuilt later (e.g. by the picker) get them too.
+      this.lastValidationResults = allResults;
+      await this.forwardValidationToChildren(allResults);
+      // The collection host itself renders no components, so it holds no local error maps.
+      this.validationMaps = null;
+    } else {
+      const focusNode = this.resolvedFocusNode;
+      const constraintShape = this.resolvedConstraintShape;
+      if (!focusNode || !constraintShape) {
+        throw new Error('Cannot validate: no focus node and constraint shape could be resolved.');
+      }
+      allResults = await runValidation(
+        this.dataStore,
+        this.shapesStore,
+        [df.namedNode(focusNode)],
+        df.namedNode(constraintShape),
+        languages,
+      );
+      this.applyValidationResults(allResults);
+    }
+
+    const disallowed = this.disallowedSeverities;
+    this.lastReportQuads = buildReportQuads(allResults, disallowed);
+
+    return {
+      conforms: conformsTo(allResults, disallowed),
+      results: toPublicEntries(allResults),
+      conformanceDisallows: conformanceDisallowsIris(disallowed),
+    };
+  }
+
+  /**
+   * Pushes validation results down to the nested renderers of a collection, waiting for each
+   * child to finish building so its results are mapped onto a complete UI tree.
+   */
+  private async forwardValidationToChildren(results: ValidationResultInternal[]): Promise<void> {
+    const children = Array.from(this.renderRoot.querySelectorAll('shacl-renderer')) as ShaclRenderer[];
+    for (const child of children) {
+      await child.updateComplete;
+      child.applyValidationResults(results);
+    }
+  }
+
+  /**
+   * Applies a flat list of validation results to this renderer, mapping them onto its own UI
+   * tree and triggering a re-render. Called by `validate()` and by a parent collection renderer
+   * to push results down to a nested child.
+   */
+  applyValidationResults(results: ValidationResultInternal[]): void {
+    this.lastReportQuads = buildReportQuads(results, this.disallowedSeverities);
+    this.validationMaps = mapResultsToUi(results, this.ui);
+  }
+
+  /**
+   * Returns the raw RDF `sh:ValidationReport` from the most recent `validate()` call, mirroring
+   * `data()`: a serialized string when a content type is given, otherwise an array of quads.
+   * Returns an empty report until `validate()` has run.
+   */
+  /** Drops every trace of a previous `validate()`: mapped errors, RDF report and kept results. */
+  private clearValidationState(): void {
+    this.validationMaps = null;
+    this.lastReportQuads = [];
+    this.lastValidationResults = null;
+  }
+
+  async validationReport(contentType?: string): Promise<string | Quad[]> {
+    const quads = this.lastReportQuads;
+    if (contentType) {
+      return await serializeRdf(quads, contentType);
+    }
+    return quads;
+  }
+
+  /**
+   * Clears validation errors for a specific field (focus node + path) so that editing a value
+   * removes its error without disturbing other fields' errors. No-path (node-level) errors are
+   * left in place until the next `validate()`.
+   */
+  clearValidationFor(focusNode?: Term, path?: Path): void {
+    if (!this.validationMaps || !focusNode || !path) return;
+    const prefix = valueErrorKeyPrefix(focusNode, path);
+
+    const {valueErrors, componentErrors, nodeErrors} = this.validationMaps;
+    let changed = false;
+
+    for (const key of [...valueErrors.keys()]) {
+      if (key.startsWith(prefix)) {
+        valueErrors.delete(key);
+        changed = true;
+      }
+    }
+
+    const filterList = (map: Map<string, ValidationResultInternal[]>) => {
+      for (const [key, list] of [...map.entries()]) {
+        const kept = list.filter(r => !resultMatchesField(r, focusNode, path));
+        if (kept.length !== list.length) {
+          changed = true;
+          if (kept.length === 0) map.delete(key);
+          else map.set(key, kept);
+        }
+      }
+    };
+    filterList(componentErrors);
+    filterList(nodeErrors);
+
+    if (changed) {
+      // Reassign so Lit observes the change and re-renders.
+      this.validationMaps = {valueErrors, componentErrors, nodeErrors};
+    }
   }
 
   setAlternativePathSelectOpen(key: string, value: boolean) {
@@ -614,6 +822,7 @@ export class ShaclRenderer extends TwLitElement {
   }
 
   addToDataStore(focusNode?: Term, path?: Path, value?: Term) {
+    this.clearValidationFor(focusNode, path);
     if (this.dataStore && focusNode && path && value) {
       const pathTerm = df.namedNode(path.path);
       if (path.type === "predicate") {
@@ -629,6 +838,7 @@ export class ShaclRenderer extends TwLitElement {
   }
 
   removeFromDataStore(focusNode?: Term, path?: Path, value?: Term, child?: UIComponent[]) {
+    this.clearValidationFor(focusNode, path);
     if (child) {
       for (const childComponent of child) {
         for (const [index, childValue] of childComponent.values.entries()) {
@@ -729,7 +939,54 @@ export class ShaclRenderer extends TwLitElement {
     this.rerender();
   }
 
-  protected async willUpdate(changedProperties: PropertyValues) {
+  /**
+   * Lit does not await an asynchronous `willUpdate`, so the graph parsing / UI construction below
+   * is tracked separately and awaited by `getUpdateComplete()`. Without that, `updateComplete`
+   * would resolve while `ui` is still empty and callers (e.g. `validate()`, or a collection host
+   * mapping results onto its children) would silently operate on an unbuilt form.
+   */
+  protected willUpdate(changedProperties: PropertyValues) {
+    const build = this.build(changedProperties);
+    this.pendingBuild = build;
+    void build.then(() => {
+      if (this.pendingBuild === build) this.pendingBuild = null;
+    });
+  }
+
+  /** Resolves once this element (and any pending asynchronous build) has finished updating. */
+  protected async getUpdateComplete(): Promise<boolean> {
+    const result = await super.getUpdateComplete();
+    while (this.pendingBuild) {
+      const build = this.pendingBuild;
+      const didBuild = await build;
+      if (this.pendingBuild === build) this.pendingBuild = null;
+      // A build that changed reactive state schedules another update; wait for that render too.
+      if (!didBuild) break;
+      await super.getUpdateComplete();
+    }
+    return result;
+  }
+
+  protected updated(changedProperties: PropertyValues) {
+    super.updated?.(changedProperties);
+    // Children of a collection are recreated whenever the picker selection changes, which resets
+    // their error maps. Give a rebuilt child the results of the last validate() back.
+    if (this.collectionMode && this.lastValidationResults) {
+      const children = Array.from(this.renderRoot.querySelectorAll('shacl-renderer')) as ShaclRenderer[];
+      for (const child of children) {
+        // Checked after the child settled: a child whose rebuild is still pending only drops its
+        // maps once that rebuild runs.
+        void child.updateComplete.then(() => {
+          if (child.validationMaps === null && this.lastValidationResults) {
+            child.applyValidationResults(this.lastValidationResults);
+          }
+        });
+      }
+    }
+  }
+
+  /** @returns whether any asynchronous parsing / UI construction was performed. */
+  private async build(changedProperties: PropertyValues): Promise<boolean> {
     // Invalidate the memoized styling classes when any styling slot changed.
     if (this.mergedClasses && (Object.keys(ShaclRenderer.DEFAULTS) as (keyof TailwindClasses)[]).some(key => changedProperties.has(key))) {
       this.mergedClasses = null;
@@ -796,6 +1053,11 @@ export class ShaclRenderer extends TwLitElement {
         reconstructUi = true;
       }
       if (reconstructUi) {
+        // A rebuild replaces the UI components the current error maps point at, so drop any
+        // stale validation state; the developer must call validate() again.
+        this.clearValidationState();
+        this.resolvedFocusNode = undefined;
+        this.resolvedConstraintShape = undefined;
         const explicitFocusNode = this.focusNode?.trim() || undefined;
 
         if (!explicitFocusNode && this.shapesStore && this.dataStore && this.widgetScoringStore) {
@@ -853,6 +1115,8 @@ export class ShaclRenderer extends TwLitElement {
             this.ui = result.components;
             this.renderSlots = result.renderSlots;
             this.rootOrGroups = result.rootOrGroups;
+            this.resolvedFocusNode = focusNode;
+            this.resolvedConstraintShape = constraintShape;
             this.error = null;
             this.loading = false;
           } else {
@@ -872,6 +1136,7 @@ export class ShaclRenderer extends TwLitElement {
       this.error = err instanceof Error ? err.message : String(err);
       this.loading = false;
     }
+    return reconstructUi;
   }
 }
 

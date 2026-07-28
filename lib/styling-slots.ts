@@ -85,6 +85,22 @@ export const STYLING_SLOTS = {
    collectionItemLabelClass: '',
    focusNodePickerClass: 'mb-4 w-full shadow appearance-none border dark:border-zinc-200 rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-zinc-400 dark:focus:border-zinc-300',
 
+   // ── Validation (edit mode) ────────────────────────────────────────────────────
+   // Per-widget and node-level SHACL validation messages produced by `.validate()`.
+   // Violations are red, warnings/info are amber. `fieldInvalidClass` is layered onto the
+   // editor wrapper of an invalid value to draw an error ring.
+   fieldErrorsClass: 'mt-1 flex flex-col gap-0.5',
+   fieldErrorClass: 'flex items-start gap-1 text-xs leading-snug',
+   fieldErrorViolationClass: 'text-red-600 dark:text-red-400',
+   fieldErrorWarningClass: 'text-amber-600 dark:text-amber-400',
+   fieldErrorIconClass: 'size-3.5 shrink-0 mt-0.5',
+   fieldInvalidClass: 'rounded ring-1 ring-red-500 dark:ring-red-400',
+   fieldInvalidWarningClass: 'rounded ring-1 ring-amber-500 dark:ring-amber-400',
+   nodeErrorsClass: 'mb-4 flex flex-col gap-1 rounded-md border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-3 py-2',
+   nodeErrorClass: 'flex items-start gap-1.5 text-sm leading-snug',
+   nodeErrorViolationClass: 'text-red-700 dark:text-red-300',
+   nodeErrorWarningClass: 'text-amber-700 dark:text-amber-300',
+
    // ── Viewers (view mode) ──────────────────────────────────────────────────────
    // Read-only presentation widgets. Styled to match the editors and to follow the
    // reflected `theme` host attribute via `dark:` variants.

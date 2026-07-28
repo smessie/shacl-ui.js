@@ -9,6 +9,7 @@ import {until} from "lit/directives/until.js";
 import {twMerge} from "tailwind-merge";
 import {type RdfStore} from "rdf-stores";
 import {type LabeledValue, type TailwindClasses, type UIComponent, type UIComponentValue} from "../../types.ts";
+import type {ValidationResultInternal} from "../../core/validation.ts";
 import {rdf, RDF as RDF_, SH, shui, XSD, xsd} from "../../core/namespaces.ts";
 import {findTailwindHeightValue} from "../tailwind.ts";
 import {toLabeledValue} from "../../core/labels.ts";
@@ -167,6 +168,73 @@ export function renderLabel(uiComponent: UIComponent, classes: TailwindClasses) 
        <label class="${twMerge(classes.labelClass)}" for="${uiComponent.uuid}-0">
            ${uiComponent.label}
        </label>
+   `;
+}
+
+/** Severity icon (alert triangle) shown next to a validation message. */
+function severityIcon(iconClass: string) {
+   return html`
+       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2"
+            stroke="currentColor" class="${iconClass}" aria-hidden="true">
+           <path stroke-linecap="round" stroke-linejoin="round"
+                 d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/>
+       </svg>
+   `;
+}
+
+/**
+ * Renders a field-level (per-value or per-component) list of validation messages beneath a
+ * widget. Violations are colored red, warnings/info amber. The list uses `role="alert"` so it
+ * is announced by assistive technology when it appears.
+ */
+export function renderFieldErrors(errors: ValidationResultInternal[] | undefined, classes: TailwindClasses) {
+   // A messageless result would render as a bare severity marker with nothing to read, so it is
+   // skipped (the flattening step already derives a message from the constraint component).
+   const messages = errors?.filter(error => error.message.trim().length > 0);
+   if (!messages || messages.length === 0) return nothing;
+   return html`
+       <div class="${twMerge(classes.fieldErrorsClass)}" role="alert">
+           ${messages.map(error => {
+              const severityClass = error.severity === "violation"
+                 ? classes.fieldErrorViolationClass
+                 : classes.fieldErrorWarningClass;
+              return html`
+                  <div class="${twMerge(classes.fieldErrorClass, severityClass)}">
+                      ${severityIcon(twMerge(classes.fieldErrorIconClass))}
+                      <span>${error.message}</span>
+                  </div>
+              `;
+           })}
+       </div>
+   `;
+}
+
+/** Whether any of the given errors is a violation (vs. only warnings/info). */
+export function hasViolation(errors: ValidationResultInternal[] | undefined): boolean {
+   return !!errors && errors.some(e => e.severity === "violation");
+}
+
+/**
+ * Renders node-level validation messages (results with no path, e.g. sh:closed or a node shape
+ * violation on the focus node) as a block above the fields.
+ */
+export function renderNodeErrors(errors: ValidationResultInternal[] | undefined, classes: TailwindClasses) {
+   const messages = errors?.filter(error => error.message.trim().length > 0);
+   if (!messages || messages.length === 0) return nothing;
+   return html`
+       <div class="${twMerge(classes.nodeErrorsClass)}" role="alert">
+           ${messages.map(error => {
+              const severityClass = error.severity === "violation"
+                 ? classes.nodeErrorViolationClass
+                 : classes.nodeErrorWarningClass;
+              return html`
+                  <div class="${twMerge(classes.nodeErrorClass, severityClass)}">
+                      ${severityIcon(twMerge(classes.fieldErrorIconClass, 'size-4'))}
+                      <span>${error.message}</span>
+                  </div>
+              `;
+           })}
+       </div>
    `;
 }
 

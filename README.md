@@ -19,6 +19,7 @@ Give it a data graph, a shapes graph, and a widget-scoring graph; it builds a fu
   - [Vue 3](#vue-3)
 - [Attributes & Properties](#attributes--properties)
 - [Retrieving edited data](#retrieving-edited-data)
+- [Validating edited data](#validating-edited-data)
 - [Collection rendering](#collection-rendering)
 - [Widget scoring](#widget-scoring)
 - [Available widgets](#available-widgets)
@@ -206,6 +207,7 @@ async function save() {
 | `languages`                     | `string`            | Preferred UI languages as a comma-separated list in priority order (e.g. `"fr,en"`). Falls back to `navigator.languages` when empty. `sh:languageIn` still takes precedence. |
 | `labelPredicates`               | `string`            | Optional comma-separated list of value-node label predicate IRIs, in priority order. Defaults to `rdfs:label`. |
 | `preferSkolemizedBlankNodes`    | `boolean`           | Use skolemised IRIs (`urn:uuid:…`) instead of blank nodes for new nested resources (default: `false`). |
+| `conformanceDisallows`          | `string`            | [Conformance-Disallow Set](#conformance-disallow-set) used by `validate()`, as a comma-separated list of severity IRIs (e.g. `"sh:Violation"`). Defaults to `sh:Violation, sh:Warning, sh:Info`. |
 
 ---
 
@@ -221,6 +223,106 @@ const jsonld = await renderer.data('application/ld+json');
 // Returns an array of RDF/JS Quad objects
 const quads = await renderer.data();
 ```
+
+---
+
+## Validating edited data
+
+Call `renderer.validate()` to run SHACL validation on the data the user has
+entered in the form. The renderer validates the current focus node(s) against
+the constraint shape (every focus node in [collection mode](#collection-rendering)),
+maps each `sh:ValidationResult` to the field/widget it belongs to, and renders
+the messages inline: **violations** in red beneath the offending value,
+**warnings/info** in amber. Node-level results (those without a path, e.g.
+`sh:closed`) are shown as a block above the fields.
+
+```js
+const report = await renderer.validate();
+// {
+//   conforms: false,
+//   conformanceDisallows: [
+//     'http://www.w3.org/ns/shacl#Violation',
+//     'http://www.w3.org/ns/shacl#Warning',
+//     'http://www.w3.org/ns/shacl#Info'
+//   ],
+//   results: [
+//     {
+//       focusNode: 'http://example.org/alice',
+//       path: 'http://example.org/age',
+//       value: 'abc',
+//       message: 'Value does not have datatype <http://www.w3.org/2001/XMLSchema#integer>',
+//       severity: 'violation',                 // 'violation' | 'warning' | 'info'
+//       sourceConstraintComponent: 'http://www.w3.org/ns/shacl#DatatypeConstraintComponent',
+//       sourceShape: '…'
+//     },
+//     …
+//   ]
+// }
+```
+
+`validate()` **rejects** when validation could not be performed at all — the
+graphs are not loaded yet, no focus node/constraint shape could be resolved, or
+the SHACL engine failed. That way a `conforms: true` never means "did not
+validate", and a submit gate cannot silently let invalid data through:
+
+```js
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  let report;
+  try {
+    report = await renderer.validate();
+  } catch (error) {
+    console.error('Could not validate the form:', error);
+    return;
+  }
+  if (!report.conforms) return;
+  // … submit
+});
+```
+
+### Conformance-Disallow Set
+
+`conforms` is the outcome of SHACL *conformance checking*: it is `false` exactly
+when some result carries a severity from the report's
+[Conformance-Disallow Set](https://www.w3.org/TR/shacl12-core/#conformance-checking).
+That set defaults to the SHACL default of `sh:Violation, sh:Warning, sh:Info`,
+so by default a warning also makes the form non-conforming. Configure it with
+the `conformanceDisallows` attribute (a comma-separated list of severity IRIs;
+`sh:`-prefixed names are accepted) — for example to let warnings pass while
+still showing them in the form:
+
+```html
+<shacl-renderer conformanceDisallows="sh:Violation" …></shacl-renderer>
+```
+
+The set is also emitted as `sh:conformanceDisallows` on the RDF report below.
+
+Validation is **on-demand**: the errors stay visible until the user edits the
+offending field (editing a value clears its own error) or `validate()` is called
+again. A rebuild (changing `mode`, `focusNode`, `constraintShape`, or the graphs)
+also clears any shown errors.
+
+The raw RDF `sh:ValidationReport` from the most recent `validate()` call is
+available via `validationReport()`, which mirrors `data()`:
+
+```js
+// Serialized report (any supported content type)
+const turtle = await renderer.validationReport('text/turtle');
+
+// Array of RDF/JS Quad objects
+const quads = await renderer.validationReport();
+```
+
+> **Note:** required fields left blank are seeded with an empty value in the
+> form, so an empty required field is not reported as a `sh:minCount` violation.
+> Add constraints such as `sh:minLength` or `sh:pattern` to reject empty input.
+
+The validation messages use these styling slots (see
+[Styling & Tailwind CSS classes](#styling--tailwind-css-classes)):
+`fieldErrorsClass`, `fieldErrorClass`, `fieldErrorViolationClass`,
+`fieldErrorWarningClass`, `fieldErrorIconClass`, `fieldInvalidClass`,
+`fieldInvalidWarningClass`, `nodeErrorsClass`, `nodeErrorClass`,
+`nodeErrorViolationClass`, and `nodeErrorWarningClass`.
 
 ---
 
@@ -467,6 +569,17 @@ The full list of styling attributes and their built-in defaults is shown below.
 | `collectionClass`                          | `flex flex-col gap-6`                                                                                                                                                                                              |
 | `collectionItemClass`                      | `border-b border-zinc-200 dark:border-zinc-700 pb-6 last:border-0 last:pb-0`                                                                                                                                       |
 | `focusNodePickerClass`                     | `mb-4 w-full shadow appearance-none border dark:border-zinc-200 rounded py-2 px-3 pr-8 focus:outline-none focus:shadow-outline focus:border-zinc-400 dark:focus:border-zinc-300`                                   |
+| `fieldErrorsClass`                         | `mt-1 flex flex-col gap-0.5`                                                                                                                                                                                        |
+| `fieldErrorClass`                          | `flex items-start gap-1 text-xs leading-snug`                                                                                                                                                                       |
+| `fieldErrorViolationClass`                 | `text-red-600 dark:text-red-400`                                                                                                                                                                                    |
+| `fieldErrorWarningClass`                   | `text-amber-600 dark:text-amber-400`                                                                                                                                                                                |
+| `fieldErrorIconClass`                      | `size-3.5 shrink-0 mt-0.5`                                                                                                                                                                                          |
+| `fieldInvalidClass`                        | `rounded ring-1 ring-red-500 dark:ring-red-400`                                                                                                                                                                     |
+| `fieldInvalidWarningClass`                 | `rounded ring-1 ring-amber-500 dark:ring-amber-400`                                                                                                                                                                 |
+| `nodeErrorsClass`                          | `mb-4 flex flex-col gap-1 rounded-md border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/30 px-3 py-2`                                                                                            |
+| `nodeErrorClass`                           | `flex items-start gap-1.5 text-sm leading-snug`                                                                                                                                                                     |
+| `nodeErrorViolationClass`                  | `text-red-700 dark:text-red-300`                                                                                                                                                                                    |
+| `nodeErrorWarningClass`                    | `text-amber-700 dark:text-amber-300`                                                                                                                                                                                |
 
 ---
 

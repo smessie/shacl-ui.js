@@ -65,11 +65,22 @@ export type LabelContext = {
  * basic filtering scheme: a range matches a tag that is equal to it or begins with it followed by
  * `-`. Matching is case-insensitive, so range `en` matches tags `en` and `en-US`.
  */
-function languageMatches(range: string, tag?: string): boolean {
+export function languageMatches(range: string, tag?: string): boolean {
    if (!tag) return false;
    const r = range.toLowerCase();
    const t = tag.toLowerCase();
    return t === r || t.startsWith(`${r}-`);
+}
+
+/**
+ * Expands a language range into the ordered ranges tried by the RFC 4647 lookup scheme: the range
+ * itself, then progressively shorter prefixes (`en-US` becomes `["en-US", "en"]`). Without this,
+ * a preference of `en-US` (as `navigator.languages` typically reports) would not select an `@en`
+ * literal at all and resolution would fall back to an arbitrary language.
+ */
+export function expandLanguageRange(range: string): string[] {
+   const parts = range.split("-");
+   return parts.map((_, index) => parts.slice(0, parts.length - index).join("-"));
 }
 
 /**
@@ -87,7 +98,8 @@ export function selectByLanguage(
       .filter((o): o is Literal => o.termType === "Literal");
    if (literals.length === 0) return undefined;
 
-   const orderedRanges = [...(opts?.languageIn ?? []), ...(opts?.preferredLanguages ?? [])];
+   const orderedRanges = [...(opts?.languageIn ?? []), ...(opts?.preferredLanguages ?? [])]
+      .flatMap(expandLanguageRange);
    for (const range of orderedRanges) {
       const match = literals.find(literal => languageMatches(range, literal.language));
       if (match) return match;

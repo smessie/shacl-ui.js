@@ -46,6 +46,37 @@ export type UIComponent = {
  */
 export type PathType = "predicate" | "inverse" | "alternative" | "sequence" | "complex";
 
+/** Severity of a single SHACL validation result, derived from `sh:resultSeverity`. */
+export type ValidationSeverity = "violation" | "warning" | "info";
+
+/**
+ * One SHACL validation result, mapped to the form. `focusNode`/`path`/`value` are string forms
+ * (IRIs / lexical values) identifying the offending field and value; `message` is the resolved,
+ * human-readable message.
+ */
+export type ValidationResultEntry = {
+   focusNode: string;
+   path?: string;
+   value?: string;
+   message: string;
+   severity: ValidationSeverity;
+   sourceConstraintComponent?: string;
+   sourceShape?: string;
+};
+
+/**
+ * Structured report returned by `ShaclRenderer.validate()`. `conforms` is the outcome of SHACL
+ * conformance checking against `conformanceDisallows`: it is `false` exactly when some result
+ * carries one of those severities. `validate()` rejects when validation could not be performed,
+ * so `conforms: true` always means "validated and conforming".
+ */
+export type ValidationReport = {
+   conforms: boolean;
+   results: ValidationResultEntry[];
+   /** The severity IRIs of the conformance-disallow set used for `conforms`. */
+   conformanceDisallows: string[];
+};
+
 export type Path = {
    path: string;
    type: PathType;
@@ -196,6 +227,17 @@ export type TailwindClasses = {
    selectWidgetLabelClass?: string;
    selectWidgetDescriptionClass?: string;
    selectWidgetScoreClass?: string;
+   fieldErrorsClass?: string;
+   fieldErrorClass?: string;
+   fieldErrorViolationClass?: string;
+   fieldErrorWarningClass?: string;
+   fieldErrorIconClass?: string;
+   fieldInvalidClass?: string;
+   fieldInvalidWarningClass?: string;
+   nodeErrorsClass?: string;
+   nodeErrorClass?: string;
+   nodeErrorViolationClass?: string;
+   nodeErrorWarningClass?: string;
    subClassEditorClass?: string;
    subClassEditorDropdownClass?: string;
    subClassEditorOptionClass?: string;

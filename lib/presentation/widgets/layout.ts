@@ -6,12 +6,16 @@ import {shui} from "../../core/namespaces.ts";
 import {ShaclRenderer} from "../../shacl-renderer.ts";
 import {
    renderDescription,
+   renderFieldErrors,
+   renderNodeErrors,
    renderLabel,
    renderOrSelectorForValue,
    renderPlusIcon,
    renderSelectWidgetIcon,
-   renderXIcon
+   renderXIcon,
+   hasViolation,
 } from "./shared.ts";
+import {valueErrorKey} from "../../core/validation.ts";
 import {
    renderBlankNodeEditor,
    renderBooleanEditor,
@@ -56,6 +60,7 @@ export function renderRootSlots(
    classes: TailwindClasses,
 ): TemplateResult {
    return html`
+       ${renderAllNodeErrors(renderer, classes)}
        ${renderSlots.map(slot => {
            if (slot.kind === 'component') {
                return renderUIComponent(renderer, slot.component, classes);
@@ -147,6 +152,16 @@ export function renderRootSlots(
    `;
 }
 
+/**
+ * Renders all node-level validation errors (results with no path) for this renderer, shown as a
+ * block above the fields. Edit mode only.
+ */
+function renderAllNodeErrors(renderer: ShaclRenderer, classes: TailwindClasses) {
+   if (renderer.mode === 'view' || !renderer.validationMaps) return nothing;
+   const entries = Array.from(renderer.validationMaps.nodeErrors.values()).flat();
+   return renderNodeErrors(entries, classes);
+}
+
 export function renderUIComponents(renderer: ShaclRenderer, uiComponents: UIComponent[], classes: TailwindClasses): TemplateResult {
    const grouped = new Map<string | undefined, UIComponent[]>();
 
@@ -205,12 +220,21 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
 
                const isHasValue = !!uiComponent.hasValue && index === 0;
 
+               const valueErrors = renderer.validationMaps && uiComponent.focusNode
+                  ? renderer.validationMaps.valueErrors.get(valueErrorKey(uiComponent.focusNode, value.path, value.value))
+                  : undefined;
+               const invalidClass = hasViolation(valueErrors)
+                  ? classes.fieldInvalidClass
+                  : (valueErrors?.length ? classes.fieldInvalidWarningClass : '');
+
                return html`
 
                    <div class="flex items-start gap-2">
-                       <div class="flex-1 min-w-0">
+                       <div class="flex-1 min-w-0 ${twMerge(invalidClass)}"
+                            aria-invalid="${valueErrors?.length ? 'true' : nothing}">
                            ${isHasValue ? nothing : renderOrSelectorForValue(renderer, uiComponent, value, index, classes)}
                            ${renderEditor(renderer, uiComponent, value, index, classes, isHasValue)}
+                           ${renderFieldErrors(valueErrors, classes)}
                        </div>
 
                        <div class="shrink-0 mt-2">
@@ -249,6 +273,8 @@ export function renderUIComponent(renderer: ShaclRenderer, uiComponent: UICompon
                    ` : nothing}
                `;
            })}
+
+           ${renderFieldErrors(renderer.validationMaps?.componentErrors.get(uiComponent.uuid), classes)}
        </div>
    `;
 }
