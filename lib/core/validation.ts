@@ -14,6 +14,7 @@ import {DataFactory} from "rdf-data-factory";
 import {Validator} from "shacl-engine";
 import type {Path, UIComponent, ValidationSeverity} from "../types.ts";
 import {expandLanguageRange, languageMatches} from "./labels.ts";
+import {friendlyMessage} from "./validation-messages.ts";
 import {RDF, SH, XSD} from "./namespaces.ts";
 
 const df: RDFJS.DataFactory = new DataFactory();
@@ -136,27 +137,61 @@ function fallbackMessage(sourceConstraintComponent: string | undefined): string 
 
 /**
  * Picks the best message literal for the given language preferences, using the same RFC 4647
- * basic filtering as label resolution (so `en-US` matches an `@en` message). Falls back to the
- * first message, and to a constraint-derived message when the engine reports none.
+ * language ranges as label resolution (so `en-US` matches an `@en` message).
  */
-function pickMessage(
-   messages: Term[] | undefined,
-   languages: string[],
-   sourceConstraintComponent: string | undefined,
-): string {
-   if (!messages || messages.length === 0) return fallbackMessage(sourceConstraintComponent);
+function pickMessage(messages: Term[] | undefined, languages: string[]): string | undefined {
+   if (!messages || messages.length === 0) return undefined;
    for (const range of languages.flatMap(expandLanguageRange)) {
       const match = messages.find(m => languageMatches(range, (m as RDFJS.Literal).language));
       if (match) return match.value;
    }
-   return messages[0].value || fallbackMessage(sourceConstraintComponent);
+   return messages[0].value || undefined;
 }
+
+/**
+ * Resolves the message shown for a result, in the order the SHACL-UI form needs:
+ *
+ * 1. An `sh:message` on the source shape — the shapes author's own wording (and language
+ *    variants), which `shacl-engine` has already interpolated `$parameter` variables into.
+ * 2. A {@link friendlyMessage} derived from the constraint component and its parameter, since the
+ *    engine's built-in messages quote RDF terms in Turtle syntax at the person filling in the form.
+ * 3. The engine's own message, then a message derived from the constraint component alone.
+ */
+function resolveMessage(
+   rawMessages: Term[] | undefined,
+   sourceConstraintComponent: string | undefined,
+   sourceShape: Term | undefined,
+   shapesStore: RdfStore | undefined,
+   languages: string[],
+): string {
+   const authored = sourceShape && shapesStore
+      ? shapesStore.getQuads(sourceShape, SH("message"), null).length > 0
+      : false;
+   if (authored) {
+      const message = pickMessage(rawMessages, languages);
+      if (message) return message;
+   }
+   if (shapesStore) {
+      const friendly = friendlyMessage(sourceConstraintComponent, sourceShape, shapesStore, languages);
+      if (friendly) return friendly;
+   }
+   return pickMessage(rawMessages, languages) ?? fallbackMessage(sourceConstraintComponent);
+}
+
+/** Options for {@link flattenReportResults}. */
+export type FlattenOptions = {
+   /** Preferred languages for `sh:message` selection. */
+   languages?: string[];
+   /** Shapes graph, used to read `sh:message` and the constraint parameters behind each message. */
+   shapesStore?: RdfStore;
+};
 
 /**
  * Recursively flattens a shacl-engine report's results (and their nested `sh:detail` results)
  * into {@link ValidationResultInternal}s, de-duplicating identical entries.
  */
-export function flattenReportResults(rawResults: any[], languages: string[] = []): ValidationResultInternal[] {
+export function flattenReportResults(rawResults: any[], options: FlattenOptions = {}): ValidationResultInternal[] {
+   const {languages = [], shapesStore} = options;
    const out: ValidationResultInternal[] = [];
    const seen = new Set<string>();
 
@@ -171,8 +206,8 @@ export function flattenReportResults(rawResults: any[], languages: string[] = []
          const value: Term | undefined = r.value?.terms?.[0];
          const severity = severityFromTerm(r.severity);
          const sourceConstraintComponent: string | undefined = r.constraintComponent?.value;
-         const message = pickMessage(r.message, languages, sourceConstraintComponent);
          const sourceShape: Term | undefined = r.shape?.ptr?.terms?.[0];
+         const message = resolveMessage(r.message, sourceConstraintComponent, sourceShape, shapesStore, languages);
 
          const key = [
             focusNode.value,
@@ -225,7 +260,7 @@ export async function runValidation(
          {dataset: dataStore.asDataset(), terms: nodes},
          [{terms: [constraintShape]}],
       );
-      return flattenReportResults(report.results, languages);
+      return flattenReportResults(report.results, {languages, shapesStore});
    } catch (error) {
       throw new Error(
          `SHACL validation failed for shape ${constraintShape.value}: ${error instanceof Error ? error.message : String(error)}`,

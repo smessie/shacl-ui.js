@@ -250,7 +250,7 @@ const report = await renderer.validate();
 //       focusNode: 'http://example.org/alice',
 //       path: 'http://example.org/age',
 //       value: 'abc',
-//       message: 'Value does not have datatype <http://www.w3.org/2001/XMLSchema#integer>',
+//       message: 'Enter a valid whole number.',
 //       severity: 'violation',                 // 'violation' | 'warning' | 'info'
 //       sourceConstraintComponent: 'http://www.w3.org/ns/shacl#DatatypeConstraintComponent',
 //       sourceShape: '…'
@@ -278,6 +278,29 @@ form.addEventListener('submit', async event => {
   if (!report.conforms) return;
   // … submit
 });
+```
+
+### Validation messages
+
+The messages shown to the user are written for the person filling in the form,
+not for an RDF author: SHACL engines report things like
+`Value does not have datatype <http://www.w3.org/2001/XMLSchema#dateTime>`,
+which the renderer replaces with `Enter a valid date and time.` The wording is
+derived from the constraint component and its parameter, so
+`sh:minInclusive 0` becomes `Enter a value of 0 or more.`, `sh:minCount 1`
+becomes `This field is required.`, and `sh:class ex:Company` becomes
+`Enter a valid Company.` (using the class's `rdfs:label` when it has one).
+
+An `sh:message` on the shape always takes precedence — use it (with language
+tags, which are matched against `languages`) for your own wording or for
+languages other than English:
+
+```turtle
+ex:EmailPropertyShape
+    sh:path ex:email ;
+    sh:minLength 5 ;
+    sh:message "Please enter a valid email address."@en ;
+    sh:message "Voer een geldig e-mailadres in."@nl .
 ```
 
 ### Conformance-Disallow Set

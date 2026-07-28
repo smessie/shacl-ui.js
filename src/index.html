@@ -37,6 +37,7 @@
               widgetScoringGraphUrl="assets/widget-scoring.ttl"
               focusNode="http://example.org/alice"
               constraintShape="http://example.org/PersonShape"
+              conformanceDisallows="sh:Violation"
               plusIconClass="size-6 float-right text-green-600 cursor-pointer hover:text-green-800"
       >
       </shacl-renderer>
@@ -73,6 +74,18 @@
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
+    let validation;
+    try {
+      validation = await shaclRenderer.validate();
+    } catch (error) {
+      // The form could not be validated at all (graphs not loaded, engine failure, …).
+      console.error('Could not validate the form:', error);
+      return;
+    }
+    if (!validation.conforms) {
+      console.log('Validation failed:', validation.results);
+      return;
+    }
     const data = await shaclRenderer.data('text/turtle');
     console.log('Current Data Graph:', `\n${data}`);
     currentTurtleData = data;

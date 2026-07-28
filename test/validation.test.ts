@@ -308,8 +308,8 @@ describe("validation of alternative and inverse paths", () => {
       const {results} = await setup();
       const classResult = results.find(r => r.sourceConstraintComponent === SH("ClassConstraintComponent"))!;
       expect(classResult).toBeDefined();
-      expect(classResult.message).not.toBe("");
-      expect(classResult.message.toLowerCase()).toContain("class");
+      // shacl-engine emits no message at all for sh:class; the expected class names the field.
+      expect(classResult.message).toBe("Enter a valid Company.");
    });
 });
 
@@ -349,6 +349,76 @@ describe("validation messages and source shapes", () => {
       expect(sourceShapes.length).toBeGreaterThan(0);
       // The property shapes are blank nodes; emitting them as IRIs produces an invalid report.
       expect(sourceShapes.every(q => q.object.termType === "BlankNode")).toBe(true);
+   });
+});
+
+// ── User-friendly messages ───────────────────────────────────────────────────
+
+const FRIENDLY_SHAPES = `@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix ex: <http://example.org/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+ex:Company rdfs:label "Company" .
+ex:PersonShape a sh:NodeShape ;
+   sh:targetClass ex:Person ;
+   sh:property [ sh:path ex:name      ; sh:name "Name"      ; sh:datatype xsd:string ; sh:minCount 1 ] ;
+   sh:property [ sh:path ex:age       ; sh:name "Age"       ; sh:datatype xsd:integer ; sh:minInclusive 0 ] ;
+   sh:property [ sh:path ex:birthDate ; sh:name "Birth"     ; sh:datatype xsd:dateTime ] ;
+   sh:property [ sh:path ex:code      ; sh:name "Code"      ; sh:pattern "^ABC" ] ;
+   sh:property [ sh:path ex:nick      ; sh:name "Nick"      ; sh:maxLength 3 ] ;
+   sh:property [ sh:path ex:color     ; sh:name "Color"     ; sh:in ( "red" "green" ) ] ;
+   sh:property [ sh:path ex:employer  ; sh:name "Employer"  ; sh:class ex:Company ] ;
+   sh:property [ sh:path ex:homepage  ; sh:name "Homepage"  ; sh:nodeKind sh:IRI ] ;
+   sh:property [ sh:path ex:email     ; sh:name "Email"     ; sh:minLength 5 ;
+                 sh:message "Please enter a valid email address." ] .`;
+
+const FRIENDLY_DATA = `@prefix ex: <http://example.org/> .
+ex:alice a ex:Person ; ex:age -5 ; ex:birthDate "yesterday" ; ex:code "XYZ" ;
+   ex:nick "toolong" ; ex:color "blue" ; ex:employer ex:acme ; ex:homepage "example.org" ;
+   ex:email "a@b" .`;
+
+describe("user-friendly validation messages", () => {
+   let messages: Map<string, string>;
+
+   beforeAll(async () => {
+      const shapes = await parseRdf(FRIENDLY_SHAPES, "text/turtle");
+      const store = await parseRdf(FRIENDLY_DATA, "text/turtle");
+      const results = await runValidation(store, shapes, [df.namedNode(EX("alice"))], df.namedNode(EX("PersonShape")));
+      messages = new Map(results.map(r => [r.sourceConstraintComponent ?? "", r.message]));
+   });
+
+   it("never leaks RDF syntax into a message", () => {
+      for (const message of messages.values()) {
+         expect(message).not.toContain("^^");
+         expect(message).not.toContain("<http");
+      }
+   });
+
+   it("phrases a datatype violation as the kind of value expected", () => {
+      expect(messages.get(SH("DatatypeConstraintComponent"))).toBe("Enter a valid date and time.");
+   });
+
+   it("phrases a range violation with the plain bound", () => {
+      expect(messages.get(SH("MinInclusiveConstraintComponent"))).toBe("Enter a value of 0 or more.");
+   });
+
+   it("phrases a missing required value as a required field", () => {
+      expect(messages.get(SH("MinCountConstraintComponent"))).toBe("This field is required.");
+   });
+
+   it("phrases length, pattern and enumeration violations", () => {
+      expect(messages.get(SH("MaxLengthConstraintComponent"))).toBe("Enter at most 3 characters.");
+      expect(messages.get(SH("PatternConstraintComponent"))).toBe("Enter a value in the required format.");
+      expect(messages.get(SH("InConstraintComponent"))).toBe("Choose one of: red, green.");
+   });
+
+   it("names the expected class by its label and the expected node kind in words", () => {
+      expect(messages.get(SH("ClassConstraintComponent"))).toBe("Enter a valid Company.");
+      expect(messages.get(SH("NodeKindConstraintComponent"))).toBe("Enter a valid link (IRI).");
+   });
+
+   it("keeps an author-provided sh:message", () => {
+      expect(messages.get(SH("MinLengthConstraintComponent"))).toBe("Please enter a valid email address.");
    });
 });
 
